@@ -16,6 +16,26 @@ function App() {
   const [error, setError] = useState('');
   const [availableCallTypes, setAvailableCallTypes] = useState([]);
   const [activeInputTab, setActiveInputTab] = useState('text'); // 'text' or 'audio'
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
+
+  // Toggle settings dropdown
+  const toggleSettingsMenu = () => {
+    setSettingsMenuOpen(!settingsMenuOpen);
+  };
+
+  // Close settings menu when clicking elsewhere
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (settingsMenuOpen && !event.target.closest('.settings-dropdown')) {
+        setSettingsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [settingsMenuOpen]);
 
   // Fetch available call types
   useEffect(() => {
@@ -321,15 +341,41 @@ function App() {
                   Agent Analytics
                 </Link>
               </li>
-              <li>
-                <Link to="/call-types" className="nav-link">
-                  Call Types
-                </Link>
-              </li>
-              <li>
-                <Link to="/api" className="nav-link">
-                  API
-                </Link>
+              <li className="settings-dropdown">
+                <button 
+                  className="nav-link settings-toggle" 
+                  onClick={toggleSettingsMenu}
+                >
+                  Settings
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    className={`settings-arrow ${settingsMenuOpen ? 'open' : ''}`}
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+                {settingsMenuOpen && (
+                  <ul className="settings-menu">
+                    <li>
+                      <Link to="/call-types" onClick={() => setSettingsMenuOpen(false)}>
+                        Call Types
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/api" onClick={() => setSettingsMenuOpen(false)}>
+                        API Access
+                      </Link>
+                    </li>
+                  </ul>
+                )}
               </li>
             </ul>
           </nav>

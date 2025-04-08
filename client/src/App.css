@@ -68,6 +68,7 @@ body {
   margin: 0;
   padding: 0;
   gap: 20px;
+  align-items: center;
 }
 
 .nav-link {
@@ -1960,4 +1961,87 @@ button:disabled {
 
 .error-message {
   margin: 0;
+}
+
+/* Settings Dropdown Styles */
+.settings-dropdown {
+  position: relative;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  font-size: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.settings-arrow {
+  transition: transform 0.2s ease;
+}
+
+.settings-arrow.open {
+  transform: rotate(180deg);
+}
+
+.settings-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  min-width: 180px;
+  background-color: #34495e;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  padding: 8px 0;
+  margin-top: 10px;
+  animation: fadeIn 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.settings-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 20px;
+  width: 12px;
+  height: 12px;
+  background-color: #34495e;
+  transform: rotate(45deg);
+}
+
+.settings-menu li {
+  display: block;
+  width: 100%;
+}
+
+.settings-menu li a {
+  display: block;
+  padding: 10px 16px;
+  color: white;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.settings-menu li a:hover {
+  background-color: #2c3e50;
+}
+
+/* Adjust main nav for settings dropdown */
+.main-nav ul {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 20px;
+  align-items: center;
 }
