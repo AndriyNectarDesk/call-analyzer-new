@@ -1,35 +1,74 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
   const [file, setFile] = useState(null);
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioUrl, setAudioUrl] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
   const audioRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // Cleanup function for audio URLs
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   // Handle file selection
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
+    processFile(selectedFile);
+  };
+
+  // Process the selected file
+  const processFile = (selectedFile) => {
     if (selectedFile && selectedFile.type.startsWith('audio/')) {
       setFile(selectedFile);
       
       // Create audio URL for preview
       const objectUrl = URL.createObjectURL(selectedFile);
       setAudioUrl(objectUrl);
-      
-      // Clean up previous audio URL if it exists
-      return () => {
-        if (audioUrl) {
-          URL.revokeObjectURL(audioUrl);
-        }
-      };
     } else if (selectedFile) {
       setError('Please select a valid audio file');
-      e.target.value = null;
+      if (fileInputRef.current) {
+        fileInputRef.current.value = null;
+      }
     }
+  };
+
+  // Handle drag events
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  // Handle drop event
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Trigger file input click
+  const handleButtonClick = () => {
+    fileInputRef.current.click();
   };
 
   // Start recording
@@ -102,7 +141,10 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
 
     const formData = new FormData();
     formData.append('audioFile', file);
-    formData.append('callType', callType);
+    
+    if (callType) {
+      formData.append('callType', callType);
+    }
 
     onTranscribe(formData);
   };
@@ -115,17 +157,80 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = null;
+    }
   };
 
   return (
     <div className="audio-uploader">
-      <div className="upload-options">
-        <div className="file-upload-section">
-          <label htmlFor="audio-file" className="file-input-label">
-            <span className="label-icon">🎵</span>
-            <span>Select Audio File</span>
-          </label>
+      {!audioUrl ? (
+        <div 
+          className={`file-drop-area ${dragActive ? 'drag-active' : ''}`}
+          onDragEnter={handleDrag}
+          onDragOver={handleDrag}
+          onDragLeave={handleDrag}
+          onDrop={handleDrop}
+        >
+          <div className="upload-options">
+            <div className="upload-instruction">
+              <svg className="upload-icon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24">
+                <path d="M0 0h24v24H0z" fill="none"/>
+                <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-8h-5zM5 19l3-4 2 3 3-4 4 5H5z" fill="currentColor"/>
+              </svg>
+              <p>Drag and drop an audio file here, or</p>
+              <button 
+                type="button" 
+                className="select-file-btn"
+                onClick={handleButtonClick}
+                disabled={isLoading || recording}
+              >
+                Select Audio File
+              </button>
+              <span className="file-format-info">Supports MP3, WAV, M4A files</span>
+            </div>
+            
+            <div className="separator">
+              <span>OR</span>
+            </div>
+            
+            <div className="record-section">
+              {!recording ? (
+                <button 
+                  className="record-button"
+                  onClick={startRecording}
+                  disabled={isLoading}
+                >
+                  <svg className="mic-icon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24">
+                    <path d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
+                  </svg>
+                  Record Audio
+                </button>
+              ) : (
+                <div className="recording-container">
+                  <div className="recording-pulse-container">
+                    <span className="recording-pulse"></span>
+                    <span className="recording-time">{formatTime(recordingTime)}</span>
+                  </div>
+                  <button 
+                    className="stop-button"
+                    onClick={stopRecording}
+                  >
+                    <svg className="stop-icon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24">
+                      <path d="M0 0h24v24H0z" fill="none"/>
+                      <path d="M6 6h12v12H6z" fill="currentColor"/>
+                    </svg>
+                    Stop Recording
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          
           <input
+            ref={fileInputRef}
             type="file"
             id="audio-file"
             accept="audio/*"
@@ -134,71 +239,61 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
             className="file-input"
           />
         </div>
-      
-        <div className="recording-section">
-          <div className="record-buttons">
-            {!recording ? (
-              <button 
-                className="record-button"
-                onClick={startRecording}
-                disabled={isLoading || audioUrl}
-              >
-                <span className="record-icon">⚫</span> Record Audio
-              </button>
-            ) : (
-              <button 
-                className="stop-button"
-                onClick={stopRecording}
-              >
-                <span className="stop-icon">◼</span> Stop Recording
-              </button>
-            )}
+      ) : (
+        <div className="audio-preview">
+          <div className="audio-preview-header">
+            <h4>Audio Preview</h4>
+            <button 
+              className="clear-audio-button"
+              onClick={clearFile}
+              disabled={isLoading}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20">
+                <path d="M0 0h24v24H0z" fill="none"/>
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
+              </svg>
+              Remove
+            </button>
           </div>
           
-          {recording && (
-            <div className="recording-indicator">
-              <span className="recording-pulse"></span>
-              <span className="recording-time">{formatTime(recordingTime)}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {audioUrl && (
-        <div className="audio-preview">
-          <h4>Audio Preview</h4>
           <audio 
             ref={audioRef}
             src={audioUrl} 
             controls 
             className="audio-player"
           />
-          <button 
-            className="clear-audio-button"
-            onClick={clearFile}
-            disabled={isLoading}
-          >
-            Remove Audio
-          </button>
-        </div>
-      )}
-      
-      <div className="upload-actions">
-        <button
-          className="transcribe-button"
-          onClick={handleUpload}
-          disabled={isLoading || !file}
-        >
-          {isLoading ? 'Processing...' : 'Transcribe & Analyze'}
-        </button>
-        
-        {file && (
+          
           <div className="file-info">
+            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20">
+              <path d="M0 0h24v24H0z" fill="none"/>
+              <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill="currentColor"/>
+            </svg>
             <span className="file-name">{file.name}</span>
             <span className="file-size">({Math.round(file.size / 1024)} KB)</span>
           </div>
-        )}
-      </div>
+          
+          <button
+            className="transcribe-button"
+            onClick={handleUpload}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <span className="spinner-small"></span>
+                Processing...
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20">
+                  <path d="M0 0h24v24H0z" fill="none"/>
+                  <path d="M14 9l-5 5.5 2.5 2.5 7.5-8-7.5-8-2.5 2.5 5 5.5zm-13 0l5 5.5-5 5.5 2.5 2.5 7.5-8-7.5-8-2.5 2.5z" fill="currentColor"/>
+                </svg>
+                Transcribe & Analyze
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

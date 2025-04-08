@@ -14,7 +14,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [availableCallTypes, setAvailableCallTypes] = useState([]);
-  const [inputTab, setInputTab] = useState('text'); // 'text' or 'audio'
+  const [activeInputTab, setActiveInputTab] = useState('text'); // 'text' or 'audio'
 
   // Fetch available call types
   useEffect(() => {
@@ -108,7 +108,7 @@ function App() {
         setError("The audio was transcribed but could not be analyzed. Please try again.");
       }
     } catch (err) {
-      setError(`Error processing audio: ${err.message}`);
+      setError('Error transcribing audio. Please try again.');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -124,170 +124,153 @@ function App() {
 
   // Component for the main analyzer page
   const AnalyzerPage = () => (
-    <div className="main-content">
-      <div className="input-section">
-        <h2>Call Analysis</h2>
-        
-        <div className="input-tabs">
-          <button 
-            className={`input-tab ${inputTab === 'text' ? 'active' : ''}`} 
-            onClick={() => setInputTab('text')}
-          >
-            Text Transcript
-          </button>
-          <button 
-            className={`input-tab ${inputTab === 'audio' ? 'active' : ''}`} 
-            onClick={() => setInputTab('audio')}
-          >
-            Audio Upload
-          </button>
-        </div>
-
-        <div className="call-type-selector">
-          <label htmlFor="callType">Call Type:</label>
+    <div className="analyzer-container">
+      <div className="controls-section">
+        <div className="control-group">
+          <label>Call Type:</label>
           <select 
-            id="callType" 
             value={callType} 
             onChange={(e) => setCallType(e.target.value)}
-            disabled={isLoading}
+            className="call-type-selector"
           >
             <option value="auto">Auto-detect</option>
-            <option value="flower">Flower Shop</option>
-            <option value="hearing">Hearing Aid Clinic</option>
-            {availableCallTypes.map(type => (
-              type.code !== 'flower' && type.code !== 'hearing' && (
-                <option key={type._id} value={type.code}>
-                  {type.name}
-                </option>
-              )
+            {availableCallTypes.map((type) => (
+              <option key={type._id} value={type.code}>{type.name}</option>
             ))}
           </select>
         </div>
-
-        <div className={`input-tab-content ${inputTab === 'text' ? 'active' : ''}`}>
-          <textarea
-            value={transcript}
-            onChange={(e) => setTranscript(e.target.value)}
-            placeholder="Paste your call transcript here..."
-            disabled={isLoading}
-          />
-          {error && <p className="error-message">{error}</p>}
-          <div className="button-container">
-            <button
-              className="analyze-button"
-              onClick={analyzeTranscript}
-              disabled={isLoading || !transcript.trim()}
-            >
-              {isLoading ? 'Analyzing...' : 'Analyze Transcript'}
-            </button>
-            <button className="clear-button" onClick={clearAll} disabled={isLoading}>
-              Clear
-            </button>
+      
+        <div className="input-tabs">
+          <div 
+            className={`input-tab ${activeInputTab === 'text' ? 'active' : ''}`}
+            onClick={() => setActiveInputTab('text')}
+          >
+            Text Transcript
+          </div>
+          <div 
+            className={`input-tab ${activeInputTab === 'audio' ? 'active' : ''}`}
+            onClick={() => setActiveInputTab('audio')}
+          >
+            Audio Upload
           </div>
         </div>
 
-        <div className={`input-tab-content ${inputTab === 'audio' ? 'active' : ''}`}>
-          <AudioUploader 
-            onTranscribe={handleAudioTranscribe}
-            callType={callType}
-            isLoading={isLoading}
-            setError={setError}
-          />
-          {error && <p className="error-message">{error}</p>}
+        {activeInputTab === 'text' ? (
+          <div className="input-content">
+            <textarea 
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder="Paste your call transcript here..."
+              rows="10"
+              className="transcript-input"
+            />
+          </div>
+        ) : (
+          <div className="input-content">
+            <AudioUploader 
+              onTranscribe={handleAudioTranscribe} 
+              callType={callType}
+              isLoading={isLoading}
+              setError={setError}
+            />
+          </div>
+        )}
+
+        <div className="action-container">
+          {activeInputTab === 'text' && transcript && (
+            <button 
+              onClick={analyzeTranscript} 
+              disabled={isLoading}
+              className="analyze-button"
+            >
+              {isLoading ? 'Analyzing...' : 'Analyze Transcript'}
+            </button>
+          )}
+          {error && <div className="error-message">{error}</div>}
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading && (
         <div className="loading-container">
           <div className="spinner"></div>
-          <p>Processing your request...</p>
+          <p>Processing your request. This may take a minute...</p>
         </div>
-      ) : transcript && inputTab === 'audio' ? (
-        <div className="transcript-preview">
-          <h3>Transcribed Text</h3>
-          <div className="transcript-text">{transcript}</div>
-        </div>
-      ) : null}
+      )}
 
-      {analysis && (
+      {analysis && !isLoading && (
         <div className="results-section">
           <h2>Analysis Results</h2>
           
-          {analysis.callSummary && (
-            <div className="result-block">
-              <h3>Call Summary</h3>
-              <ul className="summary-list">
-                {Object.entries(analysis.callSummary).map(([key, value]) => (
-                  <li key={key}>
-                    <span className="label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</span> 
-                    <span>{value || "Not available"}</span>
-                  </li>
+          <div className="result-block">
+            <h3>Call Summary</h3>
+            <ul className="summary-list">
+              {Object.entries(analysis.analysis.callSummary).map(([key, value]) => (
+                <li key={key}>
+                  <strong>{key}:</strong> <span>{value}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          <div className="result-block">
+            <h3>Agent Performance</h3>
+            
+            <div className="performance-section">
+              <h4 className="strength-header">Strengths</h4>
+              <ul>
+                {analysis.analysis.agentPerformance.strengths.map((strength, index) => (
+                  <li key={index}>{strength}</li>
                 ))}
               </ul>
             </div>
-          )}
-
-          {analysis.agentPerformance && (
-            <div className="result-block">
-              <h3>Agent Performance</h3>
-              <div className="performance-grid">
-                <div>
-                  <h4 className="strength-header">Strengths</h4>
-                  <ul>
-                    {(analysis.agentPerformance.strengths || []).map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="improvement-header">Areas for Improvement</h4>
-                  <ul>
-                    {(analysis.agentPerformance.areasForImprovement || []).map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {analysis.improvementSuggestions && analysis.improvementSuggestions.length > 0 && (
-            <div className="result-block">
-              <h3>Improvement Suggestions</h3>
-              <ol>
-                {analysis.improvementSuggestions.map((suggestion, index) => (
-                  <li key={index}>{suggestion}</li>
+            
+            <div className="performance-section">
+              <h4 className="improvement-header">Areas for Improvement</h4>
+              <ul>
+                {analysis.analysis.agentPerformance.areasForImprovement.map((area, index) => (
+                  <li key={index}>{area}</li>
                 ))}
-              </ol>
+              </ul>
             </div>
-          )}
-
-          {analysis.scorecard && (
-            <div className="result-block">
-              <h3>Performance Scorecard</h3>
-              <div className="scorecard">
-                {Object.entries(analysis.scorecard).map(([key, value]) => (
-                  <div key={key} className="score-item">
-                    <div className="score-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
-                    <div className="score-bar-container">
-                      <div 
-                        className="score-bar" 
-                        style={{ 
-                          width: `${value * 10}%`, 
-                          backgroundColor: value >= 8 ? '#4CAF50' : value >= 6 ? '#FFC107' : '#F44336' 
-                        }}
-                      ></div>
-                    </div>
-                    <div className="score-value">{value}/10</div>
+          </div>
+          
+          <div className="result-block">
+            <h3>Improvement Suggestions</h3>
+            <ul>
+              {analysis.analysis.improvementSuggestions.map((suggestion, index) => (
+                <li key={index}>{suggestion}</li>
+              ))}
+            </ul>
+          </div>
+          
+          <div className="result-block">
+            <h3>Performance Scorecard</h3>
+            <div className="scorecard">
+              {Object.entries(analysis.analysis.scorecard).map(([metric, score]) => (
+                <div key={metric} className="score-item">
+                  <div className="metric-name">{metric}</div>
+                  <div className="score-bar-container">
+                    <div 
+                      className="score-bar" 
+                      style={{width: `${score * 10}%`, backgroundColor: getScoreColor(score)}}
+                    ></div>
+                    <span className="score-value">{score}/10</span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
   );
+
+  // Helper function to get color based on score
+  const getScoreColor = (score) => {
+    if (score >= 8) return '#27ae60'; // Green for high scores
+    if (score >= 5) return '#f39c12'; // Orange for medium scores
+    return '#e74c3c'; // Red for low scores
+  };
 
   return (
     <Router>
