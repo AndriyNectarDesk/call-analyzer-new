@@ -246,7 +246,6 @@ function CallTypeManager() {
     <div className="calltype-manager-container">
       <div className="calltype-header">
         <h2>Call Types Manager</h2>
-        <Link to="/" className="back-button">Back to Analyzer</Link>
       </div>
       
       {error && <div className="error-message">{error}</div>}

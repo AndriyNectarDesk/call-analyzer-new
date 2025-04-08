@@ -116,8 +116,6 @@ function App() {
           <button className="clear-button" onClick={clearAll} disabled={isLoading}>
             Clear
           </button>
-          <Link to="/history" className="history-button">View History</Link>
-          <Link to="/call-types" className="calltype-button">Manage Call Types</Link>
         </div>
       </div>
 
@@ -202,8 +200,31 @@ function App() {
     <Router>
       <div className="app-container">
         <header className="app-header">
-          <h1>Call Center Transcript Analyzer</h1>
-          <p className="subtitle">Analyze call transcripts for better customer service</p>
+          <div className="header-content">
+            <Link to="/" className="app-title">
+              <h1>Call Center Transcript Analyzer</h1>
+            </Link>
+            <p className="subtitle">Analyze call transcripts for better customer service</p>
+          </div>
+          <nav className="main-nav">
+            <ul>
+              <li>
+                <Link to="/" className="nav-link">
+                  Analyzer
+                </Link>
+              </li>
+              <li>
+                <Link to="/history" className="nav-link">
+                  History
+                </Link>
+              </li>
+              <li>
+                <Link to="/call-types" className="nav-link">
+                  Call Types
+                </Link>
+              </li>
+            </ul>
+          </nav>
         </header>
 
         <Routes>

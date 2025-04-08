@@ -300,7 +300,6 @@ function TranscriptHistory() {
       )}
       
       <div className="history-footer">
-        <Link to="/" className="back-button">Back to Analyzer</Link>
         {filterAgent && (
           <button className="clear-filter-button" onClick={() => setFilterAgent('')}>
             Clear Filter
