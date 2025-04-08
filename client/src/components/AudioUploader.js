@@ -6,11 +6,15 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioUrl, setAudioUrl] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlLoading, setUrlLoading] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
   const audioRef = useRef(null);
   const fileInputRef = useRef(null);
+  const urlInputRef = useRef(null);
 
   // Cleanup function for audio URLs
   useEffect(() => {
@@ -132,6 +136,47 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Toggle URL input mode
+  const toggleUrlInput = () => {
+    setShowUrlInput(!showUrlInput);
+    // Focus the input when showing
+    if (!showUrlInput && urlInputRef.current) {
+      setTimeout(() => urlInputRef.current.focus(), 100);
+    }
+  };
+
+  // Process URL input for an audio file
+  const handleUrlSubmit = async () => {
+    if (!urlInput.trim()) {
+      setError('Please enter a valid audio file URL');
+      return;
+    }
+
+    try {
+      setUrlLoading(true);
+      
+      // Create form data with the URL
+      const formData = new FormData();
+      formData.append('audioUrl', urlInput);
+      
+      if (callType) {
+        formData.append('callType', callType);
+      }
+
+      // Pass to the same handler but with a URL instead of a file
+      onTranscribe(formData);
+      
+      // Clear URL input
+      setUrlInput('');
+      setShowUrlInput(false);
+    } catch (err) {
+      console.error('Error processing URL:', err);
+      setError('Failed to process the audio URL: ' + (err.message || 'Unknown error'));
+    } finally {
+      setUrlLoading(false);
+    }
+  };
+
   // Handle file upload
   const handleUpload = async () => {
     if (!file) {
@@ -179,7 +224,7 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
                 type="button" 
                 className="select-file-btn"
                 onClick={handleButtonClick}
-                disabled={isLoading || recording}
+                disabled={isLoading || recording || showUrlInput}
               >
                 <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
                   <path d="M0 0h24v24H0z" fill="none"/>
@@ -191,7 +236,7 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
               <button 
                 className="record-button"
                 onClick={startRecording}
-                disabled={isLoading}
+                disabled={isLoading || showUrlInput}
               >
                 <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
                   <path d="M0 0h24v24H0z" fill="none"/>
@@ -200,8 +245,55 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
                 </svg>
                 Record Audio
               </button>
+              
+              <button 
+                className="url-button"
+                onClick={toggleUrlInput}
+                disabled={isLoading || recording}
+              >
+                <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
+                  <path d="M0 0h24v24H0z" fill="none"/>
+                  <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" fill="currentColor"/>
+                </svg>
+                Audio URL
+              </button>
             </div>
-            <span className="file-format-info">Supports MP3, WAV, M4A files</span>
+            
+            {showUrlInput ? (
+              <div className="url-input-container">
+                <input
+                  ref={urlInputRef}
+                  type="url"
+                  className="url-input"
+                  placeholder="Enter audio file URL..."
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  disabled={isLoading || urlLoading}
+                />
+                <div className="url-input-actions">
+                  <button 
+                    className="url-submit"
+                    onClick={handleUrlSubmit}
+                    disabled={isLoading || urlLoading || !urlInput.trim()}
+                  >
+                    {urlLoading ? (
+                      <span className="spinner-small"></span>
+                    ) : (
+                      <>Process URL</>
+                    )}
+                  </button>
+                  <button
+                    className="url-cancel"
+                    onClick={toggleUrlInput}
+                    disabled={isLoading || urlLoading}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <span className="file-format-info">Supports MP3, WAV, M4A files</span>
+            )}
           </div>
           
           <input
@@ -210,7 +302,7 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
             id="audio-file"
             accept="audio/*"
             onChange={handleFileChange}
-            disabled={isLoading || recording}
+            disabled={isLoading || recording || showUrlInput}
             className="file-input"
           />
         </div>

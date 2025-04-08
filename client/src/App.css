@@ -1403,7 +1403,9 @@ textarea {
 .upload-buttons {
   display: flex;
   gap: 10px;
-  margin: 8px 0;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .btn-icon {
@@ -1411,35 +1413,24 @@ textarea {
   vertical-align: middle;
 }
 
-.select-file-btn, .record-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  font-weight: 500;
-  font-size: 14px;
-  border: none;
-}
-
-.select-file-btn {
+.select-file-btn, .record-button, .url-button {
   background-color: #3498db;
   color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 120px;
+  justify-content: center;
+  transition: background-color 0.2s;
 }
 
-.select-file-btn:hover:not(:disabled) {
+.select-file-btn:hover:not(:disabled), .record-button:hover:not(:disabled), .url-button:hover:not(:disabled) {
   background-color: #2980b9;
-}
-
-.record-button {
-  background-color: #e74c3c;
-  color: white;
-}
-
-.record-button:hover:not(:disabled) {
-  background-color: #c0392b;
 }
 
 .file-format-info {
@@ -1604,3 +1595,117 @@ button:disabled {
 /* .input-tabs, .input-tab, .input-content {
   display: none;
 } */
+
+/* URL input styles */
+.url-button {
+  background-color: #7952b3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 120px;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.url-button:hover:not(:disabled) {
+  background-color: #6742a4;
+}
+
+.url-input-container {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.url-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.url-input:focus {
+  border-color: #3498db;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.url-input-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.url-submit {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  flex: 1;
+  transition: background-color 0.2s;
+}
+
+.url-submit:hover:not(:disabled) {
+  background-color: #2980b9;
+}
+
+.url-cancel {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.url-cancel:hover:not(:disabled) {
+  background-color: #c0392b;
+}
+
+/* Update existing upload buttons to work with the URL button */
+.upload-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Adjust existing styles to handle multiple buttons better */
+.select-file-btn, .record-button, .url-button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 120px;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.url-button {
+  background-color: #9c27b0;
+}
+
+.url-button:hover:not(:disabled) {
+  background-color: #7b1fa2;
+}

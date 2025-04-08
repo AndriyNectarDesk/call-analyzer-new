@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
+const os = require('os');
 
 const mongoose = require('mongoose');
 const Transcript = require(require('path').resolve(__dirname, 'models', 'transcript'));
@@ -638,14 +639,56 @@ app.get('/health', (req, res) => {
 app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) => {
   let filePath = null;
   let outputPath = null;
+  let tempDir = null;
   
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No audio file provided' });
+    const callType = req.body.callType || 'auto';
+    let audioBuffer = null;
+    
+    // Handle audio URL if provided instead of file upload
+    if (req.body.audioUrl) {
+      console.log(`Processing audio from URL: ${req.body.audioUrl}`);
+      
+      try {
+        // Create a temporary directory for downloaded files
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-'));
+        filePath = path.join(tempDir, 'downloaded-audio');
+        
+        // Download the file from the URL
+        console.log('Downloading audio file...');
+        const response = await axios({
+          method: 'GET',
+          url: req.body.audioUrl,
+          responseType: 'arraybuffer',
+          timeout: 30000, // 30 second timeout
+          headers: {
+            'User-Agent': 'Call-Analyzer/1.0'
+          }
+        });
+        
+        // Check content type to ensure it's an audio file
+        const contentType = response.headers['content-type'];
+        if (!contentType || !contentType.includes('audio/')) {
+          throw new Error(`URL does not point to an audio file (content-type: ${contentType})`);
+        }
+        
+        // Write the downloaded file to disk
+        fs.writeFileSync(filePath, Buffer.from(response.data));
+        console.log(`Downloaded audio file to ${filePath}`);
+        
+      } catch (downloadErr) {
+        console.error('Error downloading audio from URL:', downloadErr);
+        return res.status(400).json({ 
+          error: 'Failed to download audio from URL',
+          details: downloadErr.message
+        });
+      }
+    } else if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided or URL specified' });
+    } else {
+      filePath = req.file.path;
     }
 
-    filePath = req.file.path;
-    const callType = req.body.callType || 'auto';
     console.log(`Processing audio file: ${filePath}, call type: ${callType}`);
 
     // Check if we need to convert the file (Deepgram works best with WAV/MP3)
@@ -679,7 +722,7 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     
     console.log('Reading converted file...');
     // Read the converted file
-    const audioBuffer = fs.readFileSync(outputPath);
+    audioBuffer = fs.readFileSync(outputPath);
     
     if (!audioBuffer || audioBuffer.length === 0) {
       throw new Error('Converted audio file is empty');
@@ -723,6 +766,10 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       }
       if (fs.existsSync(outputPath)) {
         fs.unlinkSync(outputPath);
+      }
+      // Clean up temp directory if it was created
+      if (tempDir && fs.existsSync(tempDir)) {
+        fs.rmdirSync(tempDir, { recursive: true });
       }
     } catch (err) {
       console.error('Error cleaning up files:', err);
@@ -864,6 +911,11 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       // Check for MP3 converted file
       if (outputPath && fs.existsSync(outputPath)) {
         fs.unlinkSync(outputPath);
+      }
+      
+      // Clean up temp directory if it was created
+      if (tempDir && fs.existsSync(tempDir)) {
+        fs.rmdirSync(tempDir, { recursive: true });
       }
     } catch (cleanupErr) {
       console.error('Error during file cleanup:', cleanupErr);
