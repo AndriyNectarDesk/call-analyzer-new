@@ -4,7 +4,7 @@ const axios = require('axios');
 require('dotenv').config();
 
 const mongoose = require('mongoose');
-const Transcript = require(require('path').resolve(__dirname, 'models', 'Transcript'));
+const Transcript = require(require('path').resolve(__dirname, 'models', 'transcript'));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
