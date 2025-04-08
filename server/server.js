@@ -5,7 +5,6 @@ require('dotenv').config();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { Deepgram } = require('@deepgram/sdk');
 const ffmpeg = require('fluent-ffmpeg');
 
 const mongoose = require('mongoose');
@@ -53,9 +52,8 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB file size limit
 });
 
-// Initialize Deepgram using the v3 SDK format
-const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
-const deepgram = new Deepgram({ apiKey: deepgramApiKey });
+// Get Deepgram API key
+const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
 
 // Middleware
 app.use(cors());
@@ -615,22 +613,21 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     }
     
     console.log('Sending to Deepgram...');
-    // Send to Deepgram for transcription using v3 format
-    const response = await deepgram.listen.prerecorded.transcribeFile(
+    
+    // Use direct API call with axios instead of SDK
+    const deepgramResponse = await axios.post(
+      'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&language=en',
       audioBuffer,
       {
-        mimetype: 'audio/mp3',
-        smart_format: true,
-        punctuate: true,
-        utterances: true,
-        diarize: true,
-        model: 'nova-2',
-        language: 'en'
+        headers: {
+          'Authorization': `Token ${DEEPGRAM_API_KEY}`,
+          'Content-Type': 'audio/mp3'
+        }
       }
     );
-
-    // Extract transcript from Deepgram response - v3 format
-    const transcript = response.results?.channels[0]?.alternatives[0]?.transcript;
+    
+    // Extract transcript from Deepgram response
+    const transcript = deepgramResponse.data.results?.channels[0]?.alternatives[0]?.transcript;
     
     if (!transcript) {
       return res.status(400).json({ error: 'Failed to transcribe audio or audio contained no speech' });

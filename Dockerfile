@@ -15,7 +15,6 @@ COPY client/package*.json ./client/
 WORKDIR /app/server
 RUN rm -rf node_modules
 RUN npm install --no-cache
-RUN npm list @deepgram/sdk
 
 WORKDIR /app/client
 RUN npm install --no-cache
