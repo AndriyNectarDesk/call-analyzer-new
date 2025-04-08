@@ -2,6 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 require('dotenv').config();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { Deepgram } = require('@deepgram/sdk');
+const ffmpeg = require('fluent-ffmpeg');
 
 const mongoose = require('mongoose');
 const Transcript = require(require('path').resolve(__dirname, 'models', 'transcript'));
@@ -11,6 +16,38 @@ const PORT = process.env.PORT || 3001;
 
 // API KEY for external applications
 const API_KEY = process.env.EXTERNAL_API_KEY;
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'));
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  // Accept audio files only
+  if (file.mimetype.startsWith('audio/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only audio files are allowed'), false);
+  }
+};
+
+const upload = multer({ 
+  storage, 
+  fileFilter,
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB file size limit
+});
+
+// Initialize Deepgram
+const deepgram = new Deepgram(process.env.DEEPGRAM_API_KEY);
 
 // Middleware
 app.use(cors());
@@ -517,6 +554,129 @@ app.get('/api/admin/check-api-keys', validateApiKey, async (req, res) => {
 // Health check route
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
+});
+
+// Audio upload and transcription endpoint
+app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided' });
+    }
+
+    const filePath = req.file.path;
+    const callType = req.body.callType || 'auto';
+
+    // Check if we need to convert the file (Deepgram works best with WAV/MP3)
+    const outputPath = filePath + '.mp3';
+    
+    // Convert to MP3 for consistent handling
+    await new Promise((resolve, reject) => {
+      ffmpeg(filePath)
+        .output(outputPath)
+        .on('end', resolve)
+        .on('error', (err) => {
+          console.error('Error converting audio:', err);
+          reject(err);
+        })
+        .run();
+    });
+
+    // Read the converted file
+    const audioBuffer = fs.readFileSync(outputPath);
+    
+    // Send to Deepgram for transcription
+    const response = await deepgram.transcription.preRecorded({
+      buffer: audioBuffer,
+      mimetype: 'audio/mp3'
+    }, {
+      punctuate: true,
+      utterances: true,
+      diarize: true, // Identifies different speakers
+      model: 'nova-2',
+      language: 'en'
+    });
+
+    // Extract transcript from Deepgram response
+    const transcript = response.results.channels[0].alternatives[0].transcript;
+    
+    if (!transcript) {
+      return res.status(400).json({ error: 'Failed to transcribe audio or audio contained no speech' });
+    }
+
+    // Clean up files after transcription
+    fs.unlinkSync(filePath);
+    fs.unlinkSync(outputPath);
+    
+    // Process the transcript through our analysis pipeline
+    const prompt = await createPrompt(transcript, callType);
+    
+    const claudeResponse = await axios.post(
+      CLAUDE_API_URL,
+      {
+        model: 'claude-3-opus-20240229',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 4000,
+        temperature: 0.0
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01'
+        }
+      }
+    );
+    
+    // Extract and parse the JSON response from Claude
+    const assistantMessage = claudeResponse.data.content[0].text;
+    
+    // Find JSON in the response
+    const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(500).json({ error: 'Failed to parse Claude response' });
+    }
+    
+    const analysisData = JSON.parse(jsonMatch[0]);
+
+    // Save transcript and analysis to database
+    const newTranscript = new Transcript({
+      rawTranscript: transcript,
+      analysis: analysisData,
+      source: 'audio',
+      callType: callType || 'auto'
+    });
+
+    await newTranscript.save();
+
+    // Return both transcript and analysis
+    return res.json({
+      transcript: transcript,
+      analysis: analysisData
+    });
+    
+  } catch (error) {
+    console.error('Transcription error:', error);
+    // Clean up file if it exists and an error occurred
+    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    // Check for MP3 converted file
+    if (req.file && req.file.path && fs.existsSync(req.file.path + '.mp3')) {
+      fs.unlinkSync(req.file.path + '.mp3');
+    }
+    
+    if (error.message.includes('Deepgram')) {
+      return res.status(500).json({ error: 'Speech-to-text service error', details: error.message });
+    }
+    
+    next(error);
+  }
 });
 
 // Register the error handling middleware

@@ -5,6 +5,7 @@ import TranscriptHistory from './components/TranscriptHistory';
 import TranscriptDetail from './components/TranscriptDetail';
 import CallTypeManager from './components/CallTypeManager';
 import AgentAnalytics from './components/AgentAnalytics';
+import AudioUploader from './components/AudioUploader';
 
 function App() {
   const [transcript, setTranscript] = useState('');
@@ -13,6 +14,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [availableCallTypes, setAvailableCallTypes] = useState([]);
+  const [inputTab, setInputTab] = useState('text'); // 'text' or 'audio'
 
   // Fetch available call types
   useEffect(() => {
@@ -67,6 +69,35 @@ function App() {
     }
   };
 
+  const handleAudioTranscribe = async (formData) => {
+    setIsLoading(true);
+    setError('');
+    setTranscript('');
+    setAnalysis(null);
+
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/api/transcribe`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to transcribe audio');
+      }
+
+      const data = await response.json();
+      setTranscript(data.transcript);
+      setAnalysis(data.analysis);
+    } catch (err) {
+      setError(`Error processing audio: ${err.message}`);
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const clearAll = () => {
     setTranscript('');
     setCallType('auto');
@@ -78,7 +109,23 @@ function App() {
   const AnalyzerPage = () => (
     <div className="main-content">
       <div className="input-section">
-        <h2>Call Transcript</h2>
+        <h2>Call Analysis</h2>
+        
+        <div className="input-tabs">
+          <button 
+            className={`input-tab ${inputTab === 'text' ? 'active' : ''}`} 
+            onClick={() => setInputTab('text')}
+          >
+            Text Transcript
+          </button>
+          <button 
+            className={`input-tab ${inputTab === 'audio' ? 'active' : ''}`} 
+            onClick={() => setInputTab('audio')}
+          >
+            Audio Upload
+          </button>
+        </div>
+
         <div className="call-type-selector">
           <label htmlFor="callType">Call Type:</label>
           <select 
@@ -99,33 +146,53 @@ function App() {
             ))}
           </select>
         </div>
-        <textarea
-          value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
-          placeholder="Paste your call transcript here..."
-          disabled={isLoading}
-        />
-        {error && <p className="error-message">{error}</p>}
-        <div className="button-container">
-          <button
-            className="analyze-button"
-            onClick={analyzeTranscript}
-            disabled={isLoading || !transcript.trim()}
-          >
-            {isLoading ? 'Analyzing...' : 'Analyze Transcript'}
-          </button>
-          <button className="clear-button" onClick={clearAll} disabled={isLoading}>
-            Clear
-          </button>
+
+        <div className={`input-tab-content ${inputTab === 'text' ? 'active' : ''}`}>
+          <textarea
+            value={transcript}
+            onChange={(e) => setTranscript(e.target.value)}
+            placeholder="Paste your call transcript here..."
+            disabled={isLoading}
+          />
+          {error && <p className="error-message">{error}</p>}
+          <div className="button-container">
+            <button
+              className="analyze-button"
+              onClick={analyzeTranscript}
+              disabled={isLoading || !transcript.trim()}
+            >
+              {isLoading ? 'Analyzing...' : 'Analyze Transcript'}
+            </button>
+            <button className="clear-button" onClick={clearAll} disabled={isLoading}>
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div className={`input-tab-content ${inputTab === 'audio' ? 'active' : ''}`}>
+          <AudioUploader 
+            onTranscribe={handleAudioTranscribe}
+            callType={callType}
+            isLoading={isLoading}
+            setError={setError}
+          />
+          {error && <p className="error-message">{error}</p>}
         </div>
       </div>
 
       {isLoading ? (
         <div className="loading-container">
           <div className="spinner"></div>
-          <p>Analyzing your transcript...</p>
+          <p>Processing your request...</p>
         </div>
-      ) : analysis ? (
+      ) : transcript && inputTab === 'audio' ? (
+        <div className="transcript-preview">
+          <h3>Transcribed Text</h3>
+          <div className="transcript-text">{transcript}</div>
+        </div>
+      ) : null}
+
+      {analysis && (
         <div className="results-section">
           <h2>Analysis Results</h2>
           
@@ -193,7 +260,7 @@ function App() {
             </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 
