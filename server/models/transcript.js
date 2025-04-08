@@ -26,7 +26,7 @@ const TranscriptSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['web', 'api'],
+    enum: ['web', 'api', 'audio'],
     default: 'web'
   },
   metadata: {
