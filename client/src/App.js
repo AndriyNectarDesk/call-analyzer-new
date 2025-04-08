@@ -4,6 +4,7 @@ import './App.css';
 import TranscriptHistory from './components/TranscriptHistory';
 import TranscriptDetail from './components/TranscriptDetail';
 import CallTypeManager from './components/CallTypeManager';
+import AgentAnalytics from './components/AgentAnalytics';
 
 function App() {
   const [transcript, setTranscript] = useState('');
@@ -219,6 +220,11 @@ function App() {
                 </Link>
               </li>
               <li>
+                <Link to="/agents" className="nav-link">
+                  Agent Analytics
+                </Link>
+              </li>
+              <li>
                 <Link to="/call-types" className="nav-link">
                   Call Types
                 </Link>
@@ -232,6 +238,7 @@ function App() {
           <Route path="/history" element={<TranscriptHistory />} />
           <Route path="/transcript/:id" element={<TranscriptDetail />} />
           <Route path="/call-types" element={<CallTypeManager />} />
+          <Route path="/agents" element={<AgentAnalytics />} />
         </Routes>
       </div>
     </Router>
