@@ -8,14 +8,17 @@ WORKDIR /app
 
 # Copy package.json and package-lock.json for both client and server
 COPY server/package*.json ./server/
+COPY server/.npmrc ./server/
 COPY client/package*.json ./client/
 
-# Install dependencies
+# Install dependencies with clean install
 WORKDIR /app/server
-RUN npm install
+RUN rm -rf node_modules
+RUN npm install --no-cache
+RUN npm list @deepgram/sdk
 
 WORKDIR /app/client
-RUN npm install
+RUN npm install --no-cache
 
 # Copy the rest of the code
 WORKDIR /app
