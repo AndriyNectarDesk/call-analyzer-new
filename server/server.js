@@ -78,8 +78,113 @@ Here's the transcript:
 ${transcript}`;
 };
 
+// Define error handling middleware for API issues
+const handleApiError = (error, req, res, next) => {
+  // Check if it's an authentication error with Claude API
+  if (error.response && error.response.status === 401) {
+    console.error('URGENT: Claude API key authentication failed. API key may be expired or invalid.');
+    // Send notification to the team
+    sendNotification('API_KEY_ERROR', 'Claude API key authentication failed. API key may be expired or invalid.');
+    
+    // Return a user-friendly error
+    return res.status(503).json({ 
+      error: 'Service temporarily unavailable',
+      details: 'We are experiencing issues with our AI service. Our team has been notified.',
+      requestId: req.id // Optional: Add a unique ID for tracking this error
+    });
+  }
+  
+  // Handle other types of errors
+  console.error('API Error:', error.message, error.stack);
+  res.status(500).json({ 
+    error: 'Failed to analyze transcript',
+    details: error.message
+  });
+};
+
+// Notification helper (customize this for your preferred notification method)
+const sendNotification = async (type, message) => {
+  try {
+    // Store the event in the database for tracking
+    // This is optional but helpful for tracking issues
+    console.log(`NOTIFICATION [${type}]: ${message}`);
+    
+    // Example: Email notification (commented out - implement with your preferred email service)
+    /*
+    if (process.env.NOTIFICATION_EMAIL) {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      });
+      
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: process.env.NOTIFICATION_EMAIL,
+        subject: `ALERT: Call Analyzer - ${type}`,
+        text: message
+      });
+    }
+    */
+    
+    // Example: Slack notification (commented out - implement with your preferred method)
+    /*
+    if (process.env.SLACK_WEBHOOK_URL) {
+      await axios.post(process.env.SLACK_WEBHOOK_URL, {
+        text: `*ALERT: Call Analyzer - ${type}*\n${message}`
+      });
+    }
+    */
+    
+  } catch (notificationError) {
+    console.error('Failed to send notification:', notificationError);
+  }
+};
+
+// Add request ID middleware for better error tracking
+app.use((req, res, next) => {
+  req.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  next();
+});
+
+// Helper function to check API key status
+const checkApiKeyStatus = async () => {
+  try {
+    // Make a minimal request to Claude API to verify key
+    await axios.post(
+      CLAUDE_API_URL,
+      {
+        model: 'claude-3-haiku-20240307',
+        messages: [{ role: 'user', content: 'API key check' }],
+        max_tokens: 1
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01'
+        }
+      }
+    );
+    console.log('Claude API key check successful');
+    return true;
+  } catch (error) {
+    if (error.response && error.response.status === 401) {
+      console.error('URGENT: Claude API key validation failed on startup. The API key is invalid or expired.');
+      // Send notification to the team
+      sendNotification('API_KEY_ERROR', 'Claude API key validation failed on startup. The API key is invalid or expired.');
+    } else {
+      console.error('Claude API check error (not auth related):', error.message);
+    }
+    return false;
+  }
+};
+
 // API route to analyze transcript
-app.post('/api/analyze', async (req, res) => {
+app.post('/api/analyze', async (req, res, next) => {
   try {
     const { transcript } = req.body;
     
@@ -133,22 +238,12 @@ app.post('/api/analyze', async (req, res) => {
     return res.json(analysisData);
     
   } catch (error) {
-    console.error('Error analyzing transcript:', error);
-    
-    // Handle Claude API specific errors
-    if (error.response && error.response.data) {
-      console.error('Claude API Error:', error.response.data);
-    }
-    
-    return res.status(500).json({ 
-      error: 'Failed to analyze transcript',
-      details: error.message
-    });
+    next(error); // Pass to the error handling middleware
   }
 });
 
 // Route for external API to submit transcripts
-app.post('/api/external/analyze', validateApiKey, async (req, res) => {
+app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
   try {
     const { transcript, metadata } = req.body;
     
@@ -206,17 +301,7 @@ app.post('/api/external/analyze', validateApiKey, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Error analyzing transcript:', error);
-    
-    // Handle Claude API specific errors
-    if (error.response && error.response.data) {
-      console.error('Claude API Error:', error.response.data);
-    }
-    
-    return res.status(500).json({ 
-      error: 'Failed to analyze transcript',
-      details: error.message
-    });
+    next(error); // Pass to the error handling middleware
   }
 });
 
@@ -245,12 +330,48 @@ app.get('/api/transcripts/:id', async (req, res) => {
   }
 });
 
+// Admin route to check API key status (protected with your external API key)
+app.get('/api/admin/check-api-keys', validateApiKey, async (req, res) => {
+  try {
+    const isClaudeKeyValid = await checkApiKeyStatus();
+    res.json({
+      claudeApiKey: isClaudeKeyValid ? 'valid' : 'invalid',
+      externalApiKey: 'valid' // If this endpoint is accessible, external API key is valid
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to check API keys', details: error.message });
+  }
+});
+
 // Health check route
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+// Register the error handling middleware
+app.use(handleApiError);
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  
+  // Initial API key check
+  checkApiKeyStatus().then(isValid => {
+    if (!isValid) {
+      console.warn('Server starting with invalid Claude API key. Transcript analysis will not work.');
+    }
+  });
+  
+  // Set up periodic API key check (every 6 hours)
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  setInterval(async () => {
+    console.log('Performing scheduled Claude API key health check');
+    const isValid = await checkApiKeyStatus();
+    if (!isValid) {
+      sendNotification(
+        'SCHEDULED_KEY_CHECK_FAILED', 
+        'Scheduled Claude API key check failed. The key may be expired or invalid.'
+      );
+    }
+  }, SIX_HOURS);
 });
