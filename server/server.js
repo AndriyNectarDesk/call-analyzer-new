@@ -737,9 +737,11 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       });
     }
     
-    // Process the transcript through our analysis pipeline
+    // For audio uploads, just use the same analyze endpoint logic directly 
+    // instead of trying to mock express requests
     try {
-      console.log('Creating prompt for transcript analysis...');
+      // Create the prompt using the existing function
+      console.log('Creating prompt for text analysis...');
       const prompt = await createPrompt(transcript, callType);
       
       // Check if Claude API key is valid
@@ -753,7 +755,8 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
         });
       }
 
-      console.log('Sending transcript to Claude API for analysis...');
+      // Instead of using the analyze endpoint, use the direct Claude API call
+      console.log('Sending transcript to Claude API for direct analysis...');
       const claudeResponse = await axios.post(
         CLAUDE_API_URL,
         {
@@ -776,101 +779,76 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
         }
       );
       
-      // Extract and parse the JSON response from Claude
-      console.log('Claude API response received, extracting content...');
+      // Extract the response content
       const assistantMessage = claudeResponse.data.content[0].text;
       
-      // Log the full Claude response text
-      console.log('Raw Claude response:', assistantMessage.substring(0, 500) + '...(truncated)');
+      // Get the raw response for debugging
+      console.log('Claude raw response for audio analysis:', assistantMessage.substring(0, 200) + '...');
       
-      console.log('Looking for JSON in Claude response...');
-      // Find JSON in the response
-      const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
-      if (!jsonMatch) {
-        console.error('No JSON found in Claude response. Raw response:', assistantMessage);
-        return res.status(206).json({ 
-          success: true,
-          transcript: transcript,
-          error: 'Failed to parse Claude response',
-          details: 'Claude response did not contain valid JSON'
-        });
+      // Extract just the JSON part
+      console.log('Extracting JSON from response...');
+      // Instead of using regex, let's try a more reliable approach
+      let jsonData = null;
+      let jsonStart = assistantMessage.indexOf('{');
+      let jsonEnd = assistantMessage.lastIndexOf('}');
+      
+      if (jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart) {
+        const jsonStr = assistantMessage.substring(jsonStart, jsonEnd + 1);
+        console.log('Extracted JSON string:', jsonStr.substring(0, 100) + '...');
+        
+        try {
+          jsonData = JSON.parse(jsonStr);
+          console.log('Successfully parsed JSON directly');
+        } catch (parseError) {
+          console.error('Initial JSON parse failed:', parseError.message);
+          
+          try {
+            // Fallback to sanitized parsing
+            jsonData = sanitizeJson(jsonStr);
+            console.log('Successfully parsed JSON after sanitization');
+          } catch (sanitizeError) {
+            console.error('Sanitized JSON parsing failed:', sanitizeError.message);
+            throw new Error('Failed to parse Claude response as JSON: ' + sanitizeError.message);
+          }
+        }
+      } else {
+        console.error('Could not find JSON markers in Claude response');
+        throw new Error('Claude response did not contain valid JSON format');
       }
       
-      console.log('Found JSON match:', jsonMatch[0].substring(0, 100) + '...(truncated)');
-      console.log('Parsing JSON from Claude response...');
-      let analysisData;
-      try {
-        analysisData = sanitizeJson(jsonMatch[0]);
-        
-        // Verify analysis object has required structure
-        console.log('Checking analysis data structure...');
-        let missingFields = [];
-        
-        if (!analysisData.callSummary) {
-          console.error('Missing callSummary in analysis data');
-          missingFields.push('callSummary');
-        }
-        if (!analysisData.agentPerformance) {
-          console.error('Missing agentPerformance in analysis data');
-          missingFields.push('agentPerformance');
-        }
-        if (!analysisData.improvementSuggestions) {
-          console.error('Missing improvementSuggestions in analysis data');
-          missingFields.push('improvementSuggestions');
-        }
-        if (!analysisData.scorecard) {
-          console.error('Missing scorecard in analysis data');
-          missingFields.push('scorecard');
-        }
-        
-        if (missingFields.length > 0) {
-          console.warn(`Analysis data is missing fields: ${missingFields.join(', ')}`);
-          // Continue anyway, as the client can handle partial data
-        }
-        
-        console.log('Saving transcript to MongoDB...');
-        // Save transcript and analysis to database
-        const newTranscript = new Transcript({
-          rawTranscript: transcript,
-          analysis: analysisData,
-          source: 'audio',
-          callType: callType || 'auto'
-        });
-
-        await newTranscript.save();
-        console.log('Transcript saved successfully, returning response...');
-
-        // Return both transcript and analysis
-        return res.json({
-          success: true,
-          transcript: transcript,
-          analysis: analysisData,
-          id: newTranscript._id
-        });
-      } catch (jsonError) {
-        console.error('Error parsing JSON from Claude response:', jsonError);
-        console.error('Raw match content:', jsonMatch[0]);
-        
-        // Return the transcript even if analysis fails
-        return res.status(206).json({
-          success: true,
-          transcript: transcript,
-          error: 'Partial success: Transcription succeeded but analysis failed',
-          details: 'The AI returned a response that could not be parsed as valid JSON.'
-        });
+      // Check if we have valid data
+      if (!jsonData) {
+        throw new Error('Failed to extract valid JSON from Claude response');
       }
-    } catch (claudeError) {
-      console.error('Claude API error:', claudeError.message);
-      console.error(claudeError.stack);
       
-      // Return transcript even if analysis fails
-      return res.status(206).json({ 
+      // Save transcript and analysis to database (same as analyze endpoint)
+      console.log('Saving audio transcript to database...');
+      const newTranscript = new Transcript({
+        rawTranscript: transcript,
+        analysis: jsonData,
+        source: 'audio',
+        callType: callType || 'auto'
+      });
+
+      await newTranscript.save();
+      
+      // Return success response
+      return res.json({
         success: true,
         transcript: transcript,
-        error: 'Error processing audio: Failed to analyze transcript',
-        details: claudeError.response?.status === 401 
-          ? 'Authentication with the AI service failed. Please check the Claude API key.'
-          : claudeError.message || 'An unexpected error occurred while analyzing the transcript.'
+        analysis: jsonData,
+        id: newTranscript._id
+      });
+    } catch (analyzeError) {
+      console.error('Error during audio transcript analysis:', analyzeError);
+      console.error('Error stack:', analyzeError.stack);
+      
+      // Return partial success
+      return res.status(206).json({
+        success: true,
+        transcript: transcript,
+        error: 'Error analyzing transcript',
+        details: analyzeError.message || 'An unexpected error occurred during analysis'
       });
     }
   } catch (error) {
