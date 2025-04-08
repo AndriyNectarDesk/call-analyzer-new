@@ -59,6 +59,9 @@ function TranscriptHistory() {
                 <span className="score">
                   Overall Score: {transcript.analysis.scorecard.overallScore}/10
                 </span>
+                <span className="source">
+                  Source: {transcript.source === 'api' ? 'API' : 'Web UI'}
+                </span>
               </div>
               
               <div className="card-summary">

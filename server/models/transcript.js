@@ -26,6 +26,16 @@ const TranscriptSchema = new mongoose.Schema({
       overallScore: Number
     }
   },
+  source: {
+    type: String,
+    enum: ['web', 'api'],
+    default: 'web'
+  },
+  metadata: {
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
   createdAt: {
     type: Date,
     default: Date.now

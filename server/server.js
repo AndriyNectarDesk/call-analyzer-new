@@ -8,10 +8,23 @@ const Transcript = require(require('path').resolve(__dirname, 'models', 'transcr
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// API KEY for external applications
+const API_KEY = process.env.EXTERNAL_API_KEY;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// API Key validation middleware
+const validateApiKey = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  
+  if (!apiKey || apiKey !== API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized - Invalid API Key' });
+  }
+  
+  next();
+};
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -106,17 +119,18 @@ app.post('/api/analyze', async (req, res) => {
       return res.status(500).json({ error: 'Failed to parse Claude response' });
     }
     
- const analysisData = JSON.parse(jsonMatch[0]);
+    const analysisData = JSON.parse(jsonMatch[0]);
 
-// Save transcript and analysis to database
-const newTranscript = new Transcript({
-  rawTranscript: transcript,
-  analysis: analysisData
-});
+    // Save transcript and analysis to database
+    const newTranscript = new Transcript({
+      rawTranscript: transcript,
+      analysis: analysisData,
+      source: 'web'
+    });
 
-await newTranscript.save();
+    await newTranscript.save();
 
-return res.json(analysisData);
+    return res.json(analysisData);
     
   } catch (error) {
     console.error('Error analyzing transcript:', error);
@@ -133,6 +147,78 @@ return res.json(analysisData);
   }
 });
 
+// Route for external API to submit transcripts
+app.post('/api/external/analyze', validateApiKey, async (req, res) => {
+  try {
+    const { transcript, metadata } = req.body;
+    
+    if (!transcript) {
+      return res.status(400).json({ error: 'Transcript is required' });
+    }
+    
+    // Call Claude API
+    const response = await axios.post(
+      CLAUDE_API_URL,
+      {
+        model: 'claude-3-opus-20240229',
+        messages: [
+          {
+            role: 'user',
+            content: createPrompt(transcript)
+          }
+        ],
+        max_tokens: 4000,
+        temperature: 0.0
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01'
+        }
+      }
+    );
+    
+    // Extract and parse the JSON response from Claude
+    const assistantMessage = response.data.content[0].text;
+    
+    // Find JSON in the response
+    const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(500).json({ error: 'Failed to parse Claude response' });
+    }
+    
+    const analysisData = JSON.parse(jsonMatch[0]);
+
+    // Save transcript and analysis to database with source flag
+    const newTranscript = new Transcript({
+      rawTranscript: transcript,
+      analysis: analysisData,
+      source: 'api',
+      metadata: metadata || {}
+    });
+
+    await newTranscript.save();
+
+    return res.json({
+      analysisId: newTranscript._id,
+      analysis: analysisData
+    });
+    
+  } catch (error) {
+    console.error('Error analyzing transcript:', error);
+    
+    // Handle Claude API specific errors
+    if (error.response && error.response.data) {
+      console.error('Claude API Error:', error.response.data);
+    }
+    
+    return res.status(500).json({ 
+      error: 'Failed to analyze transcript',
+      details: error.message
+    });
+  }
+});
 
 // Route to get transcript history
 app.get('/api/transcripts', async (req, res) => {

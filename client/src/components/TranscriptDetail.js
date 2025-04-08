@@ -43,14 +43,34 @@ function TranscriptDetail() {
     return <div className="error-message">{error || 'Transcript not found'}</div>;
   }
 
-  const { analysis, rawTranscript, createdAt } = transcript;
+  const { analysis, rawTranscript, createdAt, source, metadata } = transcript;
+
+  // Format metadata for display if it exists
+  const metadataEntries = metadata ? Object.entries(metadata) : [];
 
   return (
     <div className="detail-container">
       <div className="detail-header">
         <h2>Transcript Analysis</h2>
         <p className="date">Analyzed on: {new Date(createdAt).toLocaleString()}</p>
+        <p className="source">Source: {source === 'api' ? 'External API' : 'Web UI'}</p>
       </div>
+      
+      {metadataEntries.length > 0 && (
+        <div className="metadata-section">
+          <h3>Additional Information</h3>
+          <div className="metadata-grid">
+            {metadataEntries.map(([key, value]) => (
+              <div key={key} className="metadata-item">
+                <span className="metadata-label">{key}:</span>
+                <span className="metadata-value">
+                  {typeof value === 'object' ? JSON.stringify(value) : value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       <div className="content-grid">
         <div className="raw-transcript">

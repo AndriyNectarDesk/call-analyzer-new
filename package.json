@@ -4,5 +4,8 @@
   "scripts": {
     "start": "cd server && node server.js",
     "install-server": "cd server && npm install"
+  },
+  "dependencies": {
+    "call-analyzer": "file:"
   }
 }
