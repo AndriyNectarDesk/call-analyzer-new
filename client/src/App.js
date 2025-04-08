@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import TranscriptHistory from './components/TranscriptHistory';
 import TranscriptDetail from './components/TranscriptDetail';
+import CallTypeManager from './components/CallTypeManager';
 
 function App() {
   const [transcript, setTranscript] = useState('');
@@ -10,6 +11,26 @@ function App() {
   const [analysis, setAnalysis] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [availableCallTypes, setAvailableCallTypes] = useState([]);
+
+  // Fetch available call types
+  useEffect(() => {
+    const fetchCallTypes = async () => {
+      try {
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${apiUrl}/api/call-types`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableCallTypes(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch call types:', err);
+      }
+    };
+    
+    fetchCallTypes();
+  }, []);
 
   const analyzeTranscript = async () => {
     if (!transcript.trim()) {
@@ -68,6 +89,13 @@ function App() {
             <option value="auto">Auto-detect</option>
             <option value="flower">Flower Shop</option>
             <option value="hearing">Hearing Aid Clinic</option>
+            {availableCallTypes.map(type => (
+              type.code !== 'flower' && type.code !== 'hearing' && (
+                <option key={type._id} value={type.code}>
+                  {type.name}
+                </option>
+              )
+            ))}
           </select>
         </div>
         <textarea
@@ -89,6 +117,7 @@ function App() {
             Clear
           </button>
           <Link to="/history" className="history-button">View History</Link>
+          <Link to="/call-types" className="calltype-button">Manage Call Types</Link>
         </div>
       </div>
 
@@ -181,6 +210,7 @@ function App() {
           <Route path="/" element={<AnalyzerPage />} />
           <Route path="/history" element={<TranscriptHistory />} />
           <Route path="/transcript/:id" element={<TranscriptDetail />} />
+          <Route path="/call-types" element={<CallTypeManager />} />
         </Routes>
       </div>
     </Router>

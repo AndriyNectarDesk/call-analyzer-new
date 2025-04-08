@@ -22,7 +22,6 @@ const TranscriptSchema = new mongoose.Schema({
   },
   callType: {
     type: String,
-    enum: ['auto', 'flower', 'hearing'],
     default: 'auto'
   },
   source: {

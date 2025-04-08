@@ -321,15 +321,32 @@ li {
   border: 1px solid #ddd;
 }
 
-.history-button {
-  background-color: #f5f5f5;
-  color: #333;
-  border: 1px solid #ddd;
+.history-button, 
+.calltype-button {
+  display: inline-block;
+  padding: 10px 15px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.2s, box-shadow 0.2s;
 }
 
-.view-button:hover, .history-button:hover {
-  background-color: #2980b9;
+.history-button {
+  background-color: #3498db;
   color: white;
+  margin-left: 10px;
+}
+
+.calltype-button {
+  background-color: #9b59b6;
+  color: white;
+  margin-left: 10px;
+}
+
+.view-button:hover, 
+.history-button:hover,
+.calltype-button:hover {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .back-button:hover, .home-button:hover {
@@ -672,4 +689,220 @@ li {
   text-align: right;
   font-size: 0.9rem;
   font-weight: 500;
+}
+
+/* Call Type Manager styles */
+.calltype-manager-container {
+  background: white;
+  border-radius: 8px;
+  padding: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.calltype-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+.calltype-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 30px;
+}
+
+@media (min-width: 992px) {
+  .calltype-content {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+.calltype-list {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e1e4e8;
+}
+
+.calltype-items {
+  list-style: none;
+  padding: 0;
+  margin: 15px 0;
+}
+
+.calltype-item {
+  background-color: white;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #e1e4e8;
+}
+
+.calltype-info h4 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+}
+
+.calltype-code {
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  margin-bottom: 8px;
+}
+
+.calltype-description {
+  font-size: 0.9rem;
+  margin: 10px 0 0 0;
+  color: #34495e;
+}
+
+.calltype-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.edit-button, .delete-button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+}
+
+.edit-button {
+  background-color: #3498db;
+  color: white;
+}
+
+.delete-button {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.new-calltype-button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+.calltype-form-container {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e1e4e8;
+}
+
+.calltype-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.form-group input, 
+.form-group textarea {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 0.95rem;
+}
+
+.form-group small {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+  margin-top: 3px;
+}
+
+.summary-fields {
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  padding: 15px;
+  border: 1px solid #e1e4e8;
+}
+
+.summary-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.summary-field label {
+  min-width: 120px;
+  font-weight: 500;
+}
+
+.summary-field input {
+  flex: 1;
+}
+
+.add-field-button, 
+.remove-field-button {
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  border: none;
+}
+
+.add-field-button {
+  background-color: #3498db;
+  color: white;
+  margin-top: 10px;
+}
+
+.remove-field-button {
+  background-color: #e74c3c;
+  color: white;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.save-button, .cancel-button {
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+}
+
+.save-button {
+  background-color: #2ecc71;
+  color: white;
+}
+
+.cancel-button {
+  background-color: #95a5a6;
+  color: white;
 }

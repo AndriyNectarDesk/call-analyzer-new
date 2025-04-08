@@ -5,6 +5,7 @@ require('dotenv').config();
 
 const mongoose = require('mongoose');
 const Transcript = require(require('path').resolve(__dirname, 'models', 'transcript'));
+const CallType = require(require('path').resolve(__dirname, 'models', 'callType'));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -36,8 +37,181 @@ mongoose.connect(MONGODB_URI)
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 
-// Define the prompt template for Claude
-const createPrompt = (transcript, type = 'auto') => {
+// Helper function to check API key status
+const checkApiKeyStatus = async () => {
+  try {
+    // Make a minimal request to Claude API to verify key
+    await axios.post(
+      CLAUDE_API_URL,
+      {
+        model: 'claude-3-haiku-20240307',
+        messages: [{ role: 'user', content: 'API key check' }],
+        max_tokens: 1
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01'
+        }
+      }
+    );
+    console.log('Claude API key check successful');
+    return true;
+  } catch (error) {
+    if (error.response && error.response.status === 401) {
+      console.error('URGENT: Claude API key validation failed on startup. The API key is invalid or expired.');
+      // Send notification to the team
+      sendNotification('API_KEY_ERROR', 'Claude API key validation failed on startup. The API key is invalid or expired.');
+    } else {
+      console.error('Claude API check error (not auth related):', error.message);
+    }
+    return false;
+  }
+};
+
+// Notification helper (customize this for your preferred notification method)
+const sendNotification = async (type, message) => {
+  try {
+    // Store the event in the database for tracking
+    // This is optional but helpful for tracking issues
+    console.log(`NOTIFICATION [${type}]: ${message}`);
+    
+    // Example: Email notification (commented out - implement with your preferred email service)
+    /*
+    if (process.env.NOTIFICATION_EMAIL) {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      });
+      
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: process.env.NOTIFICATION_EMAIL,
+        subject: `ALERT: Call Analyzer - ${type}`,
+        text: message
+      });
+    }
+    */
+    
+    // Example: Slack notification (commented out - implement with your preferred method)
+    /*
+    if (process.env.SLACK_WEBHOOK_URL) {
+      await axios.post(process.env.SLACK_WEBHOOK_URL, {
+        text: `*ALERT: Call Analyzer - ${type}*\n${message}`
+      });
+    }
+    */
+    
+  } catch (notificationError) {
+    console.error('Failed to send notification:', notificationError);
+  }
+};
+
+// Add request ID middleware for better error tracking
+app.use((req, res, next) => {
+  req.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  next();
+});
+
+// Call Types API routes
+app.get('/api/call-types', async (req, res) => {
+  try {
+    const callTypes = await CallType.find({ active: true }).sort('name');
+    res.json(callTypes);
+  } catch (error) {
+    console.error('Error fetching call types:', error);
+    res.status(500).json({ error: 'Failed to fetch call types' });
+  }
+});
+
+app.get('/api/call-types/:id', async (req, res) => {
+  try {
+    const callType = await CallType.findById(req.params.id);
+    if (!callType) {
+      return res.status(404).json({ error: 'Call type not found' });
+    }
+    res.json(callType);
+  } catch (error) {
+    console.error('Error fetching call type:', error);
+    res.status(500).json({ error: 'Failed to fetch call type' });
+  }
+});
+
+app.post('/api/call-types', validateApiKey, async (req, res) => {
+  try {
+    const { code, name, description, promptTemplate, jsonStructure } = req.body;
+    
+    // Check if call type with this code already exists
+    const existing = await CallType.findOne({ code: code.toLowerCase() });
+    if (existing) {
+      return res.status(400).json({ error: 'A call type with this code already exists' });
+    }
+    
+    const newCallType = new CallType({
+      code,
+      name,
+      description,
+      promptTemplate,
+      jsonStructure
+    });
+    
+    await newCallType.save();
+    res.status(201).json(newCallType);
+  } catch (error) {
+    console.error('Error creating call type:', error);
+    res.status(500).json({ error: 'Failed to create call type' });
+  }
+});
+
+app.put('/api/call-types/:id', validateApiKey, async (req, res) => {
+  try {
+    const { name, description, promptTemplate, jsonStructure, active } = req.body;
+    
+    const callType = await CallType.findById(req.params.id);
+    if (!callType) {
+      return res.status(404).json({ error: 'Call type not found' });
+    }
+    
+    // Update fields
+    if (name) callType.name = name;
+    if (description !== undefined) callType.description = description;
+    if (promptTemplate) callType.promptTemplate = promptTemplate;
+    if (jsonStructure) callType.jsonStructure = jsonStructure;
+    if (active !== undefined) callType.active = active;
+    
+    await callType.save();
+    res.json(callType);
+  } catch (error) {
+    console.error('Error updating call type:', error);
+    res.status(500).json({ error: 'Failed to update call type' });
+  }
+});
+
+app.delete('/api/call-types/:id', validateApiKey, async (req, res) => {
+  try {
+    const callType = await CallType.findById(req.params.id);
+    if (!callType) {
+      return res.status(404).json({ error: 'Call type not found' });
+    }
+    
+    // Soft delete - just mark as inactive
+    callType.active = false;
+    await callType.save();
+    
+    res.json({ message: 'Call type deactivated successfully' });
+  } catch (error) {
+    console.error('Error deactivating call type:', error);
+    res.status(500).json({ error: 'Failed to deactivate call type' });
+  }
+});
+
+// Modify createPrompt function to use dynamic call types
+const createPrompt = async (transcript, type = 'auto') => {
   // Detect call type if not specified
   let callType = type;
   if (type === 'auto') {
@@ -67,7 +241,25 @@ const createPrompt = (transcript, type = 'auto') => {
 
 Format your response as JSON with the following structure:`;
 
-  // Call type specific JSON structure and instructions
+  // Try to find a custom call type
+  try {
+    const customCallType = await CallType.findOne({ code: callType, active: true });
+    if (customCallType) {
+      return `${basePrompt}
+${customCallType.promptTemplate}
+
+${customCallType.jsonStructure.instructions || `This is a call center transcript from ${customCallType.name}. Be sure to identify the agent's name at the beginning of the call.`}
+
+Here's the transcript:
+
+${transcript}`;
+    }
+  } catch (error) {
+    console.error('Error fetching custom call type:', error);
+    // Continue with default templates if there's an error
+  }
+
+  // Call type specific JSON structure and instructions (default templates)
   if (callType === 'hearing') {
     return `${basePrompt}
 {
@@ -156,88 +348,7 @@ const handleApiError = (error, req, res, next) => {
   });
 };
 
-// Notification helper (customize this for your preferred notification method)
-const sendNotification = async (type, message) => {
-  try {
-    // Store the event in the database for tracking
-    // This is optional but helpful for tracking issues
-    console.log(`NOTIFICATION [${type}]: ${message}`);
-    
-    // Example: Email notification (commented out - implement with your preferred email service)
-    /*
-    if (process.env.NOTIFICATION_EMAIL) {
-      const nodemailer = require('nodemailer');
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        }
-      });
-      
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: process.env.NOTIFICATION_EMAIL,
-        subject: `ALERT: Call Analyzer - ${type}`,
-        text: message
-      });
-    }
-    */
-    
-    // Example: Slack notification (commented out - implement with your preferred method)
-    /*
-    if (process.env.SLACK_WEBHOOK_URL) {
-      await axios.post(process.env.SLACK_WEBHOOK_URL, {
-        text: `*ALERT: Call Analyzer - ${type}*\n${message}`
-      });
-    }
-    */
-    
-  } catch (notificationError) {
-    console.error('Failed to send notification:', notificationError);
-  }
-};
-
-// Add request ID middleware for better error tracking
-app.use((req, res, next) => {
-  req.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
-  next();
-});
-
-// Helper function to check API key status
-const checkApiKeyStatus = async () => {
-  try {
-    // Make a minimal request to Claude API to verify key
-    await axios.post(
-      CLAUDE_API_URL,
-      {
-        model: 'claude-3-haiku-20240307',
-        messages: [{ role: 'user', content: 'API key check' }],
-        max_tokens: 1
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': CLAUDE_API_KEY,
-          'anthropic-version': '2023-06-01'
-        }
-      }
-    );
-    console.log('Claude API key check successful');
-    return true;
-  } catch (error) {
-    if (error.response && error.response.status === 401) {
-      console.error('URGENT: Claude API key validation failed on startup. The API key is invalid or expired.');
-      // Send notification to the team
-      sendNotification('API_KEY_ERROR', 'Claude API key validation failed on startup. The API key is invalid or expired.');
-    } else {
-      console.error('Claude API check error (not auth related):', error.message);
-    }
-    return false;
-  }
-};
-
-// API route to analyze transcript
+// Update the API routes to use the async version of createPrompt
 app.post('/api/analyze', async (req, res, next) => {
   try {
     const { transcript, callType } = req.body;
@@ -246,7 +357,9 @@ app.post('/api/analyze', async (req, res, next) => {
       return res.status(400).json({ error: 'Transcript is required' });
     }
     
-    // Call Claude API
+    // Call Claude API with the async createPrompt
+    const prompt = await createPrompt(transcript, callType);
+    
     const response = await axios.post(
       CLAUDE_API_URL,
       {
@@ -254,7 +367,7 @@ app.post('/api/analyze', async (req, res, next) => {
         messages: [
           {
             role: 'user',
-            content: createPrompt(transcript, callType)
+            content: prompt
           }
         ],
         max_tokens: 4000,
@@ -297,7 +410,7 @@ app.post('/api/analyze', async (req, res, next) => {
   }
 });
 
-// Route for external API to submit transcripts
+// Update external API route to use async createPrompt
 app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
   try {
     const { transcript, metadata, callType } = req.body;
@@ -306,7 +419,9 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
       return res.status(400).json({ error: 'Transcript is required' });
     }
     
-    // Call Claude API
+    // Call Claude API with the async createPrompt
+    const prompt = await createPrompt(transcript, callType);
+    
     const response = await axios.post(
       CLAUDE_API_URL,
       {
@@ -314,7 +429,7 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
         messages: [
           {
             role: 'user',
-            content: createPrompt(transcript, callType)
+            content: prompt
           }
         ],
         max_tokens: 4000,
