@@ -1,0 +1,8 @@
+{
+  "name": "call-analyzer",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "cd server && node server.js",
+    "install-server": "cd server && npm install"
+  }
+}
