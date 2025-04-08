@@ -53,8 +53,9 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB file size limit
 });
 
-// Initialize Deepgram
-const deepgram = new Deepgram(process.env.DEEPGRAM_API_KEY);
+// Initialize Deepgram using the v3 SDK format
+const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
+const deepgram = new Deepgram({ apiKey: deepgramApiKey });
 
 // Middleware
 app.use(cors());
@@ -620,19 +621,21 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     }
     
     // Send to Deepgram for transcription
-    const response = await deepgram.transcription.preRecorded({
-      buffer: audioBuffer,
-      mimetype: 'audio/mp3'
-    }, {
-      punctuate: true,
-      utterances: true,
-      diarize: true, // Identifies different speakers
-      model: 'nova-2',
-      language: 'en'
-    });
+    const response = await deepgram.listen.prerecorded.transcribeFile(
+      audioBuffer,
+      {
+        mimetype: 'audio/mp3',
+        smart_format: true,
+        punctuate: true,
+        utterances: true,
+        diarize: true,
+        model: 'nova-2',
+        language: 'en'
+      }
+    );
 
-    // Extract transcript from Deepgram response
-    const transcript = response.results.channels[0].alternatives[0].transcript;
+    // Extract transcript from Deepgram response - updated for V3 SDK
+    const transcript = response.results?.channels[0]?.alternatives[0]?.transcript;
     
     if (!transcript) {
       return res.status(400).json({ error: 'Failed to transcribe audio or audio contained no speech' });
