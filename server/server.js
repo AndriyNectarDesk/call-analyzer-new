@@ -615,12 +615,7 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     }
     
     console.log('Sending to Deepgram...');
-    // Check if we have a Deepgram API key
-    if (!process.env.DEEPGRAM_API_KEY || process.env.DEEPGRAM_API_KEY === '[YOUR_ACTUAL_DEEPGRAM_API_KEY]') {
-      return res.status(500).json({ error: 'Deepgram API key not configured' });
-    }
-    
-    // Send to Deepgram for transcription
+    // Send to Deepgram for transcription using v3 format
     const response = await deepgram.listen.prerecorded.transcribeFile(
       audioBuffer,
       {
@@ -634,7 +629,7 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       }
     );
 
-    // Extract transcript from Deepgram response - updated for V3 SDK
+    // Extract transcript from Deepgram response - v3 format
     const transcript = response.results?.channels[0]?.alternatives[0]?.transcript;
     
     if (!transcript) {
