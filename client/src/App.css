@@ -1993,11 +1993,12 @@ button:disabled {
   top: 100%;
   right: 0;
   z-index: 10;
-  min-width: 180px;
+  display: flex;
+  min-width: 250px;
   background-color: #34495e;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  padding: 8px 0;
+  padding: 12px;
   margin-top: 10px;
   animation: fadeIn 0.2s ease-out;
   overflow: hidden;
@@ -2021,15 +2022,17 @@ button:disabled {
 
 .settings-menu li {
   display: block;
-  width: 100%;
+  width: 50%;
+  text-align: center;
 }
 
 .settings-menu li a {
   display: block;
-  padding: 10px 16px;
+  padding: 12px 16px;
   color: white;
   text-decoration: none;
   transition: background-color 0.2s;
+  border-radius: 4px;
 }
 
 .settings-menu li a:hover {
