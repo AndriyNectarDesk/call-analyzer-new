@@ -72,6 +72,7 @@ Format your response as JSON with the following structure:`;
     return `${basePrompt}
 {
   "callSummary": {
+    "agentName": "",
     "patientName": "",
     "appointmentType": "",
     "appointmentDetails": "",
@@ -92,7 +93,7 @@ Format your response as JSON with the following structure:`;
   }
 }
 
-This is a call center transcript from a hearing aid clinic. Focus on patient information, appointment scheduling, hearing concerns, and hearing aid details in your analysis.
+This is a call center transcript from a hearing aid clinic. Be sure to identify the agent's name at the beginning of the call. Focus on patient information, appointment scheduling, hearing concerns, and hearing aid details in your analysis.
 
 Here's the transcript:
 
@@ -102,6 +103,7 @@ ${transcript}`;
     return `${basePrompt}
 {
   "callSummary": {
+    "agentName": "",
     "customerName": "",
     "orderType": "",
     "deliveryAddress": "",
@@ -122,7 +124,7 @@ ${transcript}`;
   }
 }
 
-This is a call center transcript from a flower shop. Focus on order details, delivery information, and flower preferences in your analysis.
+This is a call center transcript from a flower shop. Be sure to identify the agent's name at the beginning of the call. Focus on order details, delivery information, and flower preferences in your analysis.
 
 Here's the transcript:
 
