@@ -82,16 +82,17 @@ function App() {
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to transcribe audio');
-      }
-
       const data = await response.json();
       console.log("Received data from transcription API:", data);
       
+      if (!response.ok) {
+        console.error("API Error:", data);
+        throw new Error(data.error || 'Failed to transcribe audio');
+      }
+      
       if (data.transcript) {
         setTranscript(data.transcript);
+        console.log("Transcript set:", data.transcript.substring(0, 100) + "...");
       }
       
       if (data.analysis) {
@@ -105,11 +106,14 @@ function App() {
         }
       } else {
         console.error("No analysis data in the response", data);
-        setError("The audio was transcribed but could not be analyzed. Please try again.");
+        const errorMsg = data.details 
+          ? `The audio was transcribed but could not be analyzed: ${data.details}` 
+          : "The audio was transcribed but could not be analyzed. Please try again.";
+        setError(errorMsg);
       }
     } catch (err) {
-      setError('Error transcribing audio. Please try again.');
-      console.error(err);
+      setError('Error transcribing audio: ' + (err.message || 'Unknown error'));
+      console.error("Audio transcription error:", err);
     } finally {
       setIsLoading(false);
     }
