@@ -97,7 +97,7 @@ function App() {
       
       if (data.analysis) {
         console.log("Setting analysis data:", data.analysis);
-        setAnalysis(data.analysis);
+        setAnalysis(data);
         
         // Save analysis ID for history tracking
         if (data.id) {
@@ -193,65 +193,93 @@ function App() {
           <div className="results-section">
             <h2>Analysis Results</h2>
             
-            <div className="result-block">
-              <h3>Call Summary</h3>
-              <ul className="summary-list">
-                {Object.entries(analysis.analysis.callSummary).map(([key, value]) => (
-                  <li key={key}>
-                    <strong>{key}:</strong> <span>{value}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className="result-block">
-              <h3>Agent Performance</h3>
-              
-              <div className="performance-section">
-                <h4 className="strength-header">Strengths</h4>
-                <ul>
-                  {analysis.analysis.agentPerformance.strengths.map((strength, index) => (
-                    <li key={index}>{strength}</li>
+            {analysis.analysis.callSummary ? (
+              <div className="result-block">
+                <h3>Call Summary</h3>
+                <ul className="summary-list">
+                  {Object.entries(analysis.analysis.callSummary).map(([key, value]) => (
+                    <li key={key}>
+                      <strong>{key}:</strong> <span>{value}</span>
+                    </li>
                   ))}
                 </ul>
               </div>
-              
-              <div className="performance-section">
-                <h4 className="improvement-header">Areas for Improvement</h4>
+            ) : (
+              <div className="result-block">
+                <h3>Call Summary</h3>
+                <p>No call summary data available</p>
+              </div>
+            )}
+            
+            {analysis.analysis.agentPerformance ? (
+              <div className="result-block">
+                <h3>Agent Performance</h3>
+                
+                <div className="performance-section">
+                  <h4 className="strength-header">Strengths</h4>
+                  <ul>
+                    {analysis.analysis.agentPerformance.strengths?.map((strength, index) => (
+                      <li key={index}>{strength}</li>
+                    )) || <li>No strengths data available</li>}
+                  </ul>
+                </div>
+                
+                <div className="performance-section">
+                  <h4 className="improvement-header">Areas for Improvement</h4>
+                  <ul>
+                    {analysis.analysis.agentPerformance.areasForImprovement?.map((area, index) => (
+                      <li key={index}>{area}</li>
+                    )) || <li>No improvement areas data available</li>}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="result-block">
+                <h3>Agent Performance</h3>
+                <p>No agent performance data available</p>
+              </div>
+            )}
+            
+            {analysis.analysis.improvementSuggestions ? (
+              <div className="result-block">
+                <h3>Improvement Suggestions</h3>
                 <ul>
-                  {analysis.analysis.agentPerformance.areasForImprovement.map((area, index) => (
-                    <li key={index}>{area}</li>
+                  {analysis.analysis.improvementSuggestions.map((suggestion, index) => (
+                    <li key={index}>{suggestion}</li>
                   ))}
                 </ul>
               </div>
-            </div>
+            ) : (
+              <div className="result-block">
+                <h3>Improvement Suggestions</h3>
+                <p>No improvement suggestions available</p>
+              </div>
+            )}
             
-            <div className="result-block">
-              <h3>Improvement Suggestions</h3>
-              <ul>
-                {analysis.analysis.improvementSuggestions.map((suggestion, index) => (
-                  <li key={index}>{suggestion}</li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className="result-block">
-              <h3>Performance Scorecard</h3>
-              <div className="scorecard">
-                {Object.entries(analysis.analysis.scorecard).map(([metric, score]) => (
-                  <div key={metric} className="score-item">
-                    <div className="metric-name">{metric}</div>
-                    <div className="score-bar-container">
-                      <div 
-                        className="score-bar" 
-                        style={{width: `${score * 10}%`, backgroundColor: getScoreColor(score)}}
-                      ></div>
-                      <span className="score-value">{score}/10</span>
+            {analysis.analysis.scorecard ? (
+              <div className="result-block">
+                <h3>Performance Scorecard</h3>
+                <div className="scorecard">
+                  {Object.entries(analysis.analysis.scorecard).map(([metric, score]) => (
+                    <div key={metric} className="score-item">
+                      <div className="metric-name">{metric}</div>
+                      <div className="score-bar-container">
+                        <div 
+                          className="score-bar" 
+                          style={{width: `${score * 10}%`, backgroundColor: getScoreColor(score)}}
+                        ></div>
+                        <span className="score-value">{score}/10</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="result-block">
+                <h3>Performance Scorecard</h3>
+                <p>No scorecard data available</p>
+              </div>
+            )}
           </div>
         ) : null}
       </div>
