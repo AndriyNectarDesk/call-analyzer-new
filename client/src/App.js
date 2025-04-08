@@ -6,6 +6,7 @@ import TranscriptDetail from './components/TranscriptDetail';
 
 function App() {
   const [transcript, setTranscript] = useState('');
+  const [callType, setCallType] = useState('auto');
   const [analysis, setAnalysis] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -27,7 +28,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ transcript }),
+        body: JSON.stringify({ transcript, callType }),
       });
 
       if (!response.ok) {
@@ -46,6 +47,7 @@ function App() {
 
   const clearAll = () => {
     setTranscript('');
+    setCallType('auto');
     setAnalysis(null);
     setError('');
   };
@@ -55,6 +57,19 @@ function App() {
     <div className="main-content">
       <div className="input-section">
         <h2>Call Transcript</h2>
+        <div className="call-type-selector">
+          <label htmlFor="callType">Call Type:</label>
+          <select 
+            id="callType" 
+            value={callType} 
+            onChange={(e) => setCallType(e.target.value)}
+            disabled={isLoading}
+          >
+            <option value="auto">Auto-detect</option>
+            <option value="flower">Flower Shop</option>
+            <option value="hearing">Hearing Aid Clinic</option>
+          </select>
+        </div>
         <textarea
           value={transcript}
           onChange={(e) => setTranscript(e.target.value)}

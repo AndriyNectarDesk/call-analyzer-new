@@ -37,10 +37,25 @@ const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 
 // Define the prompt template for Claude
-const createPrompt = (transcript) => {
-  return `I need you to analyze this call center transcript from our flower shop. Please provide:
+const createPrompt = (transcript, type = 'auto') => {
+  // Detect call type if not specified
+  let callType = type;
+  if (type === 'auto') {
+    // Simple detection based on keywords
+    if (transcript.toLowerCase().includes('hearing aid') || 
+        transcript.toLowerCase().includes('beltone') || 
+        transcript.toLowerCase().includes('audiologist') ||
+        transcript.toLowerCase().includes('hearing test')) {
+      callType = 'hearing';
+    } else {
+      callType = 'flower';
+    }
+  }
+  
+  // Base prompt structure with shared elements
+  const basePrompt = `I need you to analyze this call center transcript. Please provide:
 
-1. A concise summary of the call (customer details, order information, special requests)
+1. A concise summary of the call (customer details, key information, special requests)
 2. Agent performance analysis (what they did well, what could be improved)
 3. Specific suggestions for improving customer service
 4. A scorecard rating these areas on a scale of 1-10:
@@ -50,7 +65,41 @@ const createPrompt = (transcript) => {
    - Problem Solving
    - Overall Score
 
-Format your response as JSON with the following structure:
+Format your response as JSON with the following structure:`;
+
+  // Call type specific JSON structure and instructions
+  if (callType === 'hearing') {
+    return `${basePrompt}
+{
+  "callSummary": {
+    "patientName": "",
+    "appointmentType": "",
+    "appointmentDetails": "",
+    "hearingAidInfo": "",
+    "specialConsiderations": ""
+  },
+  "agentPerformance": {
+    "strengths": ["", "", ""],
+    "areasForImprovement": ["", "", ""]
+  },
+  "improvementSuggestions": ["", "", ""],
+  "scorecard": {
+    "customerService": 0,
+    "productKnowledge": 0,
+    "processEfficiency": 0,
+    "problemSolving": 0,
+    "overallScore": 0
+  }
+}
+
+This is a call center transcript from a hearing aid clinic. Focus on patient information, appointment scheduling, hearing concerns, and hearing aid details in your analysis.
+
+Here's the transcript:
+
+${transcript}`;
+  } else {
+    // Default to flower shop
+    return `${basePrompt}
 {
   "callSummary": {
     "customerName": "",
@@ -73,9 +122,12 @@ Format your response as JSON with the following structure:
   }
 }
 
+This is a call center transcript from a flower shop. Focus on order details, delivery information, and flower preferences in your analysis.
+
 Here's the transcript:
 
 ${transcript}`;
+  }
 };
 
 // Define error handling middleware for API issues
@@ -186,7 +238,7 @@ const checkApiKeyStatus = async () => {
 // API route to analyze transcript
 app.post('/api/analyze', async (req, res, next) => {
   try {
-    const { transcript } = req.body;
+    const { transcript, callType } = req.body;
     
     if (!transcript) {
       return res.status(400).json({ error: 'Transcript is required' });
@@ -200,7 +252,7 @@ app.post('/api/analyze', async (req, res, next) => {
         messages: [
           {
             role: 'user',
-            content: createPrompt(transcript)
+            content: createPrompt(transcript, callType)
           }
         ],
         max_tokens: 4000,
@@ -230,7 +282,8 @@ app.post('/api/analyze', async (req, res, next) => {
     const newTranscript = new Transcript({
       rawTranscript: transcript,
       analysis: analysisData,
-      source: 'web'
+      source: 'web',
+      callType: callType || 'auto'
     });
 
     await newTranscript.save();
@@ -245,7 +298,7 @@ app.post('/api/analyze', async (req, res, next) => {
 // Route for external API to submit transcripts
 app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
   try {
-    const { transcript, metadata } = req.body;
+    const { transcript, metadata, callType } = req.body;
     
     if (!transcript) {
       return res.status(400).json({ error: 'Transcript is required' });
@@ -259,7 +312,7 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
         messages: [
           {
             role: 'user',
-            content: createPrompt(transcript)
+            content: createPrompt(transcript, callType)
           }
         ],
         max_tokens: 4000,
@@ -290,7 +343,8 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
       rawTranscript: transcript,
       analysis: analysisData,
       source: 'api',
-      metadata: metadata || {}
+      metadata: metadata || {},
+      callType: callType || 'auto'
     });
 
     await newTranscript.save();

@@ -43,10 +43,20 @@ function TranscriptDetail() {
     return <div className="error-message">{error || 'Transcript not found'}</div>;
   }
 
-  const { analysis, rawTranscript, createdAt, source, metadata } = transcript;
+  const { analysis, rawTranscript, createdAt, source, metadata, callType } = transcript;
 
   // Format metadata for display if it exists
   const metadataEntries = metadata ? Object.entries(metadata) : [];
+
+  // Get a human-readable call type
+  const getCallTypeLabel = (type) => {
+    switch(type) {
+      case 'flower': return 'Flower Shop';
+      case 'hearing': return 'Hearing Aid Clinic';
+      case 'auto': return 'Auto-detected';
+      default: return type;
+    }
+  };
 
   return (
     <div className="detail-container">
@@ -54,6 +64,7 @@ function TranscriptDetail() {
         <h2>Transcript Analysis</h2>
         <p className="date">Analyzed on: {new Date(createdAt).toLocaleString()}</p>
         <p className="source">Source: {source === 'api' ? 'External API' : 'Web UI'}</p>
+        <p className="call-type">Call Type: {getCallTypeLabel(callType || 'auto')}</p>
       </div>
       
       {metadataEntries.length > 0 && (

@@ -6,13 +6,7 @@ const TranscriptSchema = new mongoose.Schema({
     required: true
   },
   analysis: {
-    callSummary: {
-      customerName: String,
-      orderType: String,
-      deliveryAddress: String,
-      totalValue: String,
-      specialInstructions: String
-    },
+    callSummary: mongoose.Schema.Types.Mixed,
     agentPerformance: {
       strengths: [String],
       areasForImprovement: [String]
@@ -25,6 +19,11 @@ const TranscriptSchema = new mongoose.Schema({
       problemSolving: Number,
       overallScore: Number
     }
+  },
+  callType: {
+    type: String,
+    enum: ['auto', 'flower', 'hearing'],
+    default: 'auto'
   },
   source: {
     type: String,

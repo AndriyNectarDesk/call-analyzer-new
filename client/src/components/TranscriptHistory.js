@@ -29,6 +29,25 @@ function TranscriptHistory() {
     fetchTranscripts();
   }, []);
 
+  // Get a human-readable call type
+  const getCallTypeLabel = (type) => {
+    switch(type) {
+      case 'flower': return 'Flower Shop';
+      case 'hearing': return 'Hearing Aid Clinic';
+      case 'auto': return 'Auto-detected';
+      default: return type || 'Auto-detected';
+    }
+  };
+  
+  // Get a badge color based on call type
+  const getCallTypeBadgeClass = (type) => {
+    switch(type) {
+      case 'flower': return 'badge-flower';
+      case 'hearing': return 'badge-hearing';
+      default: return 'badge-auto';
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -62,11 +81,20 @@ function TranscriptHistory() {
                 <span className="source">
                   Source: {transcript.source === 'api' ? 'API' : 'Web UI'}
                 </span>
+                <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
+                  {getCallTypeLabel(transcript.callType)}
+                </span>
               </div>
               
               <div className="card-summary">
                 <p>
-                  <strong>Customer:</strong> {transcript.analysis.callSummary.customerName}
+                  <strong>
+                    {transcript.callType === 'hearing' ? 'Patient:' : 'Customer:'}
+                  </strong> {
+                    transcript.callType === 'hearing' 
+                      ? transcript.analysis.callSummary.patientName
+                      : transcript.analysis.callSummary.customerName
+                  }
                 </p>
                 <p className="truncate">
                   {transcript.rawTranscript.substring(0, 150)}...
