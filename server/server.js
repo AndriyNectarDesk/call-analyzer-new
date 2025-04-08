@@ -328,7 +328,7 @@ ${transcript}`;
   }
 }
 
-This is a call center transcript from a hearing aid clinic. Be sure to identify the agent's name at the beginning of the call. Focus on patient information, appointment scheduling, hearing concerns, and hearing aid details in your analysis.
+This is a call center transcript from a hearing aid clinic. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Focus on patient information, appointment scheduling, hearing concerns, and hearing aid details in your analysis.
 
 Here's the transcript:
 
@@ -359,7 +359,7 @@ ${transcript}`;
   }
 }
 
-This is a call center transcript from a flower shop. Be sure to identify the agent's name at the beginning of the call. Focus on order details, delivery information, and flower preferences in your analysis.
+This is a call center transcript from a flower shop. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Focus on order details, delivery information, and flower preferences in your analysis.
 
 Here's the transcript:
 
@@ -367,29 +367,45 @@ ${transcript}`;
   }
 };
 
-// Define error handling middleware for API issues
-const handleApiError = (error, req, res, next) => {
-  // Check if it's an authentication error with Claude API
-  if (error.response && error.response.status === 401) {
-    console.error('URGENT: Claude API key authentication failed. API key may be expired or invalid.');
-    // Send notification to the team
-    sendNotification('API_KEY_ERROR', 'Claude API key authentication failed. API key may be expired or invalid.');
-    
-    // Return a user-friendly error
-    return res.status(503).json({ 
-      error: 'Service temporarily unavailable',
-      details: 'We are experiencing issues with our AI service. Our team has been notified.',
-      requestId: req.id // Optional: Add a unique ID for tracking this error
+// Error handling middleware
+function handleApiError(err, req, res, next) {
+  console.error('API Error:', err);
+  
+  // Check for Claude API authentication errors
+  if (err.response && err.response.status === 401 && err.config && 
+      (err.config.url.includes('anthropic.com') || err.config.url.includes('claude'))) {
+    return res.status(401).json({
+      error: 'Claude API Authentication Error',
+      message: 'Failed to authenticate with Claude API. Please check your API key.',
+      details: err.message
     });
   }
   
-  // Handle other types of errors
-  console.error('API Error:', error.message, error.stack);
-  res.status(500).json({ 
-    error: 'Failed to analyze transcript',
-    details: error.message
+  // Check for rate limiting errors
+  if (err.response && err.response.status === 429) {
+    return res.status(429).json({
+      error: 'Rate Limit Exceeded',
+      message: 'Too many requests. Please try again later.',
+      details: err.message
+    });
+  }
+  
+  // Check for timeout errors
+  if (err.code === 'ECONNABORTED' || (err.message && err.message.includes('timeout'))) {
+    return res.status(504).json({
+      error: 'Request Timeout',
+      message: 'The request to the external API timed out. Please try again.',
+      details: err.message
+    });
+  }
+  
+  // Default error response
+  res.status(500).json({
+    error: 'Server Error',
+    message: 'An unexpected error occurred.',
+    details: err.message || 'No additional details available'
   });
-};
+}
 
 // Update the API routes to use the async version of createPrompt
 app.post('/api/analyze', async (req, res, next) => {
@@ -488,32 +504,52 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
     );
     
     // Extract and parse the JSON response from Claude
+    console.log('Claude API response received, extracting content...');
     const assistantMessage = response.data.content[0].text;
     
+    console.log('Looking for JSON in Claude response...');
     // Find JSON in the response
     const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return res.status(500).json({ error: 'Failed to parse Claude response' });
+      console.error('No JSON found in Claude response. Raw response:', assistantMessage);
+      return res.status(500).json({ 
+        error: 'Failed to parse Claude response',
+        details: 'Claude response did not contain valid JSON',
+        transcript: transcript
+      });
     }
     
-    const analysisData = JSON.parse(jsonMatch[0]);
+    console.log('Parsing JSON from Claude response...');
+    try {
+      const analysisData = JSON.parse(jsonMatch[0]);
+      
+      console.log('Saving transcript to MongoDB...');
+      // Save transcript and analysis to database
+      const newTranscript = new Transcript({
+        rawTranscript: transcript,
+        analysis: analysisData,
+        source: 'api',
+        metadata: metadata || {},
+        callType: callType || 'auto'
+      });
 
-    // Save transcript and analysis to database with source flag
-    const newTranscript = new Transcript({
-      rawTranscript: transcript,
-      analysis: analysisData,
-      source: 'api',
-      metadata: metadata || {},
-      callType: callType || 'auto'
-    });
+      await newTranscript.save();
+      console.log('Transcript saved successfully, returning response...');
 
-    await newTranscript.save();
-
-    return res.json({
-      analysisId: newTranscript._id,
-      analysis: analysisData
-    });
-    
+      // Return both transcript and analysis
+      return res.json({
+        analysisId: newTranscript._id,
+        analysis: analysisData
+      });
+    } catch (jsonError) {
+      console.error('Error parsing JSON from Claude response:', jsonError);
+      console.error('Raw match content:', jsonMatch[0]);
+      return res.status(500).json({
+        error: 'Failed to parse Claude JSON response',
+        details: jsonError.message,
+        transcript: transcript
+      });
+    }
   } catch (error) {
     next(error); // Pass to the error handling middleware
   }
@@ -689,39 +725,61 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       );
       
       // Extract and parse the JSON response from Claude
+      console.log('Claude API response received, extracting content...');
       const assistantMessage = claudeResponse.data.content[0].text;
       
+      console.log('Looking for JSON in Claude response...');
       // Find JSON in the response
       const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        return res.status(500).json({ error: 'Failed to parse Claude response' });
+        console.error('No JSON found in Claude response. Raw response:', assistantMessage);
+        return res.status(500).json({ 
+          error: 'Failed to parse Claude response',
+          details: 'Claude response did not contain valid JSON',
+          transcript: transcript
+        });
       }
       
-      const analysisData = JSON.parse(jsonMatch[0]);
+      console.log('Parsing JSON from Claude response...');
+      try {
+        const analysisData = JSON.parse(jsonMatch[0]);
+        
+        console.log('Saving transcript to MongoDB...');
+        // Save transcript and analysis to database
+        const newTranscript = new Transcript({
+          rawTranscript: transcript,
+          analysis: analysisData,
+          source: 'audio',
+          callType: callType || 'auto'
+        });
 
-      // Save transcript and analysis to database
-      const newTranscript = new Transcript({
-        rawTranscript: transcript,
-        analysis: analysisData,
-        source: 'audio',
-        callType: callType || 'auto'
-      });
+        await newTranscript.save();
+        console.log('Transcript saved successfully, returning response...');
 
-      await newTranscript.save();
-
-      // Return both transcript and analysis
-      return res.json({
-        transcript: transcript,
-        analysis: analysisData
-      });
+        // Return both transcript and analysis
+        return res.json({
+          transcript: transcript,
+          analysis: analysisData
+        });
+      } catch (jsonError) {
+        console.error('Error parsing JSON from Claude response:', jsonError);
+        console.error('Raw match content:', jsonMatch[0]);
+        return res.status(500).json({
+          error: 'Failed to parse Claude JSON response',
+          details: jsonError.message,
+          transcript: transcript
+        });
+      }
     } catch (claudeError) {
       console.error('Claude API error:', claudeError.message);
       
       // Return transcript even if analysis fails
       return res.status(500).json({ 
-        error: 'Failed to analyze transcript',
-        transcript: transcript, 
-        details: 'The transcription was successful, but analysis failed. This is likely due to an invalid Claude API key.'
+        error: 'Error processing audio: Failed to analyze transcript',
+        transcript: transcript,
+        details: claudeError.response?.status === 401 
+          ? 'Authentication with the AI service failed. Please check the Claude API key.'
+          : claudeError.message || 'An unexpected error occurred while analyzing the transcript.'
       });
     }
   } catch (error) {
@@ -741,10 +799,13 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     }
     
     if (error.message && error.message.includes('Deepgram')) {
-      return res.status(500).json({ error: 'Speech-to-text service error', details: error.message });
+      return res.status(500).json({ error: 'Error processing audio: Speech-to-text service error', details: error.message });
     }
     
-    next(error);
+    return res.status(500).json({ 
+      error: 'Error processing audio',
+      details: error.message || 'An unexpected error occurred during audio processing'
+    });
   }
 });
 
