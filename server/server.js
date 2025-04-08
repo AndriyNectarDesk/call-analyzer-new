@@ -18,12 +18,19 @@ const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.EXTERNAL_API_KEY;
 
 // Configure multer for file uploads
+const uploadDir = path.join(__dirname, 'uploads');
+// Ensure uploads directory exists
+if (!fs.existsSync(uploadDir)) {
+  try {
+    fs.mkdirSync(uploadDir, { recursive: true });
+    console.log('Created uploads directory');
+  } catch (err) {
+    console.error('Error creating uploads directory:', err);
+  }
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
@@ -558,31 +565,59 @@ app.get('/health', (req, res) => {
 
 // Audio upload and transcription endpoint
 app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) => {
+  let filePath = null;
+  let outputPath = null;
+  
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No audio file provided' });
     }
 
-    const filePath = req.file.path;
+    filePath = req.file.path;
     const callType = req.body.callType || 'auto';
 
     // Check if we need to convert the file (Deepgram works best with WAV/MP3)
-    const outputPath = filePath + '.mp3';
+    outputPath = filePath + '.mp3';
+    
+    // Create FFmpeg command
+    console.log('Starting FFmpeg conversion...');
     
     // Convert to MP3 for consistent handling
     await new Promise((resolve, reject) => {
       ffmpeg(filePath)
         .output(outputPath)
-        .on('end', resolve)
+        .on('start', (cmd) => {
+          console.log('FFmpeg conversion started:', cmd);
+        })
+        .on('end', () => {
+          console.log('FFmpeg conversion completed');
+          resolve();
+        })
         .on('error', (err) => {
-          console.error('Error converting audio:', err);
+          console.error('Error converting audio with FFmpeg:', err);
           reject(err);
         })
         .run();
     });
 
+    // Check if the output file exists
+    if (!fs.existsSync(outputPath)) {
+      throw new Error('FFmpeg conversion failed - output file not created');
+    }
+    
+    console.log('Reading converted file...');
     // Read the converted file
     const audioBuffer = fs.readFileSync(outputPath);
+    
+    if (!audioBuffer || audioBuffer.length === 0) {
+      throw new Error('Converted audio file is empty');
+    }
+    
+    console.log('Sending to Deepgram...');
+    // Check if we have a Deepgram API key
+    if (!process.env.DEEPGRAM_API_KEY || process.env.DEEPGRAM_API_KEY === '[YOUR_ACTUAL_DEEPGRAM_API_KEY]') {
+      return res.status(500).json({ error: 'Deepgram API key not configured' });
+    }
     
     // Send to Deepgram for transcription
     const response = await deepgram.transcription.preRecorded({
@@ -604,8 +639,17 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     }
 
     // Clean up files after transcription
-    fs.unlinkSync(filePath);
-    fs.unlinkSync(outputPath);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      if (fs.existsSync(outputPath)) {
+        fs.unlinkSync(outputPath);
+      }
+    } catch (err) {
+      console.error('Error cleaning up files:', err);
+      // Continue processing even if cleanup fails
+    }
     
     // Process the transcript through our analysis pipeline
     const prompt = await createPrompt(transcript, callType);
@@ -662,16 +706,20 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
   } catch (error) {
     console.error('Transcription error:', error);
     // Clean up file if it exists and an error occurred
-    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+    try {
+      if (filePath && fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      
+      // Check for MP3 converted file
+      if (outputPath && fs.existsSync(outputPath)) {
+        fs.unlinkSync(outputPath);
+      }
+    } catch (cleanupErr) {
+      console.error('Error during file cleanup:', cleanupErr);
     }
     
-    // Check for MP3 converted file
-    if (req.file && req.file.path && fs.existsSync(req.file.path + '.mp3')) {
-      fs.unlinkSync(req.file.path + '.mp3');
-    }
-    
-    if (error.message.includes('Deepgram')) {
+    if (error.message && error.message.includes('Deepgram')) {
       return res.status(500).json({ error: 'Speech-to-text service error', details: error.message });
     }
     

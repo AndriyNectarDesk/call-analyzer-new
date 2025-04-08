@@ -1,14 +1,83 @@
 # Call Center Transcript Analyzer
 
-A web application for analyzing call center transcripts using Claude AI to provide insights, recommendations, and performance scoring.
+An application for analyzing call center transcripts and providing performance insights. Supports both text transcript analysis and audio file transcription and analysis.
 
 ## Features
 
-- Upload and analyze call center transcripts
-- Get detailed analysis of customer interactions
-- View agent performance metrics and improvement suggestions
-- Access historical transcript analyses
-- Submit transcripts via API for external integrations
+- Text transcript analysis using Claude AI
+- Audio upload and automatic transcription using Deepgram
+- Direct audio recording in the browser
+- Agent performance analytics dashboard
+- Historical transcript records
+- Custom call type template management
+
+## Requirements
+
+- Node.js 18 or higher
+- MongoDB database
+- Claude API key
+- Deepgram API key
+- FFmpeg (for audio processing)
+
+## Local Development
+
+1. Clone the repository
+2. Install dependencies:
+   ```
+   cd server && npm install
+   cd ../client && npm install
+   ```
+3. Set up environment variables by creating a `.env` file in the server directory with:
+   ```
+   PORT=3001
+   CLAUDE_API_KEY=your-claude-api-key
+   MONGODB_URI=your-mongodb-connection-string
+   DEEPGRAM_API_KEY=your-deepgram-api-key
+   ```
+4. Start the server and client:
+   ```
+   # Terminal 1
+   cd server && npm start
+   
+   # Terminal 2
+   cd client && npm start
+   ```
+
+## Deploying to Render
+
+### Method 1: Docker Deployment (Recommended)
+
+1. Connect your GitHub repository to Render
+2. Create a new Web Service using Docker
+3. Set these environment variables:
+   - `CLAUDE_API_KEY`
+   - `MONGODB_URI`
+   - `DEEPGRAM_API_KEY`
+4. Deploy
+
+### Method 2: Using Render Build Script
+
+1. Connect your GitHub repository to Render
+2. Create a new Web Service
+3. Set Build Command to: `chmod +x ./server/render-build.sh && ./server/render-build.sh && cd server && npm install`
+4. Set Start Command to: `cd server && node server.js`
+5. Add these environment variables:
+   - `CLAUDE_API_KEY`
+   - `MONGODB_URI`
+   - `DEEPGRAM_API_KEY`
+6. Deploy
+
+### Troubleshooting Render Deployment
+
+If deployment fails, check:
+
+1. FFmpeg installation - ensure the build script is running correctly
+2. Environment variables - make sure all required variables are set
+3. Logs - check Render logs for specific error messages
+
+## License
+
+MIT
 
 ## API Documentation
 
@@ -140,7 +209,6 @@ analyzeTranscript();
 
 - `REACT_APP_API_URL` - URL for the backend API
 
-## Deployment
+### Deepgram
 
-- Frontend: Deployed with Vercel
-- Backend: Deployed with Render 
+- `DEEPGRAM_API_KEY` - Deepgram API key for audio transcription 
