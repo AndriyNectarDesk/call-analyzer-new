@@ -464,7 +464,12 @@ app.post('/api/analyze', async (req, res, next) => {
 
       await newTranscript.save();
 
-      return res.json(analysisData);
+      return res.json({
+        success: true,
+        transcript: transcript,
+        analysis: analysisData,
+        id: newTranscript._id
+      });
     } catch (jsonError) {
       console.error('Error parsing JSON from Claude response:', jsonError);
       console.error('Raw match content:', jsonMatch[0]);
@@ -548,8 +553,10 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
 
       // Return both transcript and analysis
       return res.json({
-        analysisId: newTranscript._id,
-        analysis: analysisData
+        success: true,
+        transcript: transcript,
+        analysis: analysisData,
+        id: newTranscript._id
       });
     } catch (jsonError) {
       console.error('Error parsing JSON from Claude response:', jsonError);
@@ -768,8 +775,10 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
 
         // Return both transcript and analysis
         return res.json({
+          success: true,
           transcript: transcript,
-          analysis: analysisData
+          analysis: analysisData,
+          id: newTranscript._id
         });
       } catch (jsonError) {
         console.error('Error parsing JSON from Claude response:', jsonError);
