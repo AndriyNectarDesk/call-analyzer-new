@@ -88,8 +88,25 @@ function App() {
       }
 
       const data = await response.json();
-      setTranscript(data.transcript);
-      setAnalysis(data.analysis);
+      console.log("Received data from transcription API:", data);
+      
+      if (data.transcript) {
+        setTranscript(data.transcript);
+      }
+      
+      if (data.analysis) {
+        console.log("Setting analysis data:", data.analysis);
+        setAnalysis(data.analysis);
+        
+        // Save analysis ID for history tracking
+        if (data.id) {
+          console.log("Analysis saved with ID:", data.id);
+          // We could use this ID to redirect to history view later
+        }
+      } else {
+        console.error("No analysis data in the response", data);
+        setError("The audio was transcribed but could not be analyzed. Please try again.");
+      }
     } catch (err) {
       setError(`Error processing audio: ${err.message}`);
       console.error(err);
@@ -196,69 +213,77 @@ function App() {
         <div className="results-section">
           <h2>Analysis Results</h2>
           
-          <div className="result-block">
-            <h3>Call Summary</h3>
-            <ul className="summary-list">
-              {Object.entries(analysis.callSummary).map(([key, value]) => (
-                <li key={key}>
-                  <span className="label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</span> 
-                  <span>{value}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="result-block">
-            <h3>Agent Performance</h3>
-            <div className="performance-grid">
-              <div>
-                <h4 className="strength-header">Strengths</h4>
-                <ul>
-                  {analysis.agentPerformance.strengths.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h4 className="improvement-header">Areas for Improvement</h4>
-                <ul>
-                  {analysis.agentPerformance.areasForImprovement.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+          {analysis.callSummary && (
+            <div className="result-block">
+              <h3>Call Summary</h3>
+              <ul className="summary-list">
+                {Object.entries(analysis.callSummary).map(([key, value]) => (
+                  <li key={key}>
+                    <span className="label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</span> 
+                    <span>{value || "Not available"}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
+          )}
 
-          <div className="result-block">
-            <h3>Improvement Suggestions</h3>
-            <ol>
-              {analysis.improvementSuggestions.map((suggestion, index) => (
-                <li key={index}>{suggestion}</li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="result-block">
-            <h3>Performance Scorecard</h3>
-            <div className="scorecard">
-              {Object.entries(analysis.scorecard).map(([key, value]) => (
-                <div key={key} className="score-item">
-                  <div className="score-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
-                  <div className="score-bar-container">
-                    <div 
-                      className="score-bar" 
-                      style={{ 
-                        width: `${value * 10}%`, 
-                        backgroundColor: value >= 8 ? '#4CAF50' : value >= 6 ? '#FFC107' : '#F44336' 
-                      }}
-                    ></div>
-                  </div>
-                  <div className="score-value">{value}/10</div>
+          {analysis.agentPerformance && (
+            <div className="result-block">
+              <h3>Agent Performance</h3>
+              <div className="performance-grid">
+                <div>
+                  <h4 className="strength-header">Strengths</h4>
+                  <ul>
+                    {(analysis.agentPerformance.strengths || []).map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
-              ))}
+                <div>
+                  <h4 className="improvement-header">Areas for Improvement</h4>
+                  <ul>
+                    {(analysis.agentPerformance.areasForImprovement || []).map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {analysis.improvementSuggestions && analysis.improvementSuggestions.length > 0 && (
+            <div className="result-block">
+              <h3>Improvement Suggestions</h3>
+              <ol>
+                {analysis.improvementSuggestions.map((suggestion, index) => (
+                  <li key={index}>{suggestion}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {analysis.scorecard && (
+            <div className="result-block">
+              <h3>Performance Scorecard</h3>
+              <div className="scorecard">
+                {Object.entries(analysis.scorecard).map(([key, value]) => (
+                  <div key={key} className="score-item">
+                    <div className="score-label">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
+                    <div className="score-bar-container">
+                      <div 
+                        className="score-bar" 
+                        style={{ 
+                          width: `${value * 10}%`, 
+                          backgroundColor: value >= 8 ? '#4CAF50' : value >= 6 ? '#FFC107' : '#F44336' 
+                        }}
+                      ></div>
+                    </div>
+                    <div className="score-value">{value}/10</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
