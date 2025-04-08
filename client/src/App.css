@@ -1709,3 +1709,255 @@ button:disabled {
 .url-button:hover:not(:disabled) {
   background-color: #7b1fa2;
 }
+
+/* API Page Styles */
+.api-page {
+  background: white;
+  border-radius: 8px;
+  padding: 25px;
+  max-width: 1200px;
+  margin: 0 auto 30px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.api-page h2 {
+  margin-bottom: 25px;
+  color: #2c3e50;
+  border-bottom: 1px solid #e1e4e8;
+  padding-bottom: 15px;
+}
+
+.api-page h3 {
+  margin: 30px 0 15px;
+  color: #2c3e50;
+  font-size: 1.3rem;
+}
+
+.api-page h4 {
+  margin: 20px 0 10px;
+  color: #34495e;
+  font-size: 1.1rem;
+}
+
+.api-page h5 {
+  margin: 15px 0 10px;
+  color: #34495e;
+  font-size: 1rem;
+}
+
+.api-info-section, 
+.api-endpoints-section, 
+.api-examples-section {
+  margin-bottom: 30px;
+}
+
+.api-key-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f8f9fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.api-key-display {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.key-label {
+  font-weight: 600;
+  color: #34495e;
+}
+
+.key-value {
+  font-family: monospace;
+  background-color: #e9ecef;
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+}
+
+.api-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.api-status.valid {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.api-status.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.api-status.loading {
+  background-color: #e9ecef;
+  color: #6c757d;
+}
+
+.copy-button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.2s;
+}
+
+.copy-button:hover {
+  background-color: #2980b9;
+}
+
+.copy-icon {
+  font-size: 1.1rem;
+}
+
+.api-security-note {
+  background-color: #fff3cd;
+  border-left: 4px solid #ffc107;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 30px;
+}
+
+.api-security-note p {
+  margin: 0;
+  color: #856404;
+}
+
+.endpoint-card {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e1e4e8;
+  margin-bottom: 20px;
+}
+
+.endpoint-url {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.method {
+  background-color: #3498db;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.url {
+  font-family: monospace;
+  font-size: 0.9rem;
+  background-color: #e9ecef;
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  word-break: break-all;
+}
+
+.endpoint-description {
+  margin-bottom: 20px;
+}
+
+.params-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.params-table th,
+.params-table td {
+  padding: 10px 15px;
+  text-align: left;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+.params-table th {
+  background-color: #f1f3f5;
+  font-weight: 600;
+}
+
+.params-table tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.code-block-container {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.code-block {
+  background-color: #2c3e50;
+  color: #ecf0f1;
+  border-radius: 6px;
+  padding: 20px;
+  overflow-x: auto;
+  max-height: 400px;
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.copy-code-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.copy-code-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.api-page.loading, 
+.api-page.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  text-align: center;
+}
+
+.error-container {
+  background-color: #f8d7da;
+  color: #721c24;
+  border-radius: 4px;
+  padding: 15px 20px;
+  max-width: 600px;
+  text-align: center;
+}
+
+.error-message {
+  margin: 0;
+}

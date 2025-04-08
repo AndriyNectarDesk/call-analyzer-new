@@ -6,6 +6,7 @@ import TranscriptDetail from './components/TranscriptDetail';
 import CallTypeManager from './components/CallTypeManager';
 import AgentAnalytics from './components/AgentAnalytics';
 import AudioUploader from './components/AudioUploader';
+import ApiPage from './components/ApiPage';
 
 function App() {
   const [transcript, setTranscript] = useState('');
@@ -325,6 +326,11 @@ function App() {
                   Call Types
                 </Link>
               </li>
+              <li>
+                <Link to="/api" className="nav-link">
+                  API
+                </Link>
+              </li>
             </ul>
           </nav>
         </header>
@@ -335,6 +341,7 @@ function App() {
           <Route path="/transcript/:id" element={<TranscriptDetail />} />
           <Route path="/call-types" element={<CallTypeManager />} />
           <Route path="/agents" element={<AgentAnalytics />} />
+          <Route path="/api" element={<ApiPage />} />
         </Routes>
       </div>
     </Router>
