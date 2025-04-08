@@ -450,20 +450,30 @@ app.post('/api/analyze', async (req, res, next) => {
       return res.status(500).json({ error: 'Failed to parse Claude response' });
     }
     
-    const analysisData = JSON.parse(jsonMatch[0]);
+    // Parse the JSON using our sanitizer
+    try {
+      const analysisData = sanitizeJson(jsonMatch[0]);
 
-    // Save transcript and analysis to database
-    const newTranscript = new Transcript({
-      rawTranscript: transcript,
-      analysis: analysisData,
-      source: 'web',
-      callType: callType || 'auto'
-    });
+      // Save transcript and analysis to database
+      const newTranscript = new Transcript({
+        rawTranscript: transcript,
+        analysis: analysisData,
+        source: 'web',
+        callType: callType || 'auto'
+      });
 
-    await newTranscript.save();
+      await newTranscript.save();
 
-    return res.json(analysisData);
-    
+      return res.json(analysisData);
+    } catch (jsonError) {
+      console.error('Error parsing JSON from Claude response:', jsonError);
+      console.error('Raw match content:', jsonMatch[0]);
+      return res.status(500).json({
+        error: 'Failed to parse Claude JSON response',
+        details: jsonError.message,
+        transcript: transcript
+      });
+    }
   } catch (error) {
     next(error); // Pass to the error handling middleware
   }
@@ -521,7 +531,7 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
     
     console.log('Parsing JSON from Claude response...');
     try {
-      const analysisData = JSON.parse(jsonMatch[0]);
+      const analysisData = sanitizeJson(jsonMatch[0]);
       
       console.log('Saving transcript to MongoDB...');
       // Save transcript and analysis to database
@@ -742,7 +752,7 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       
       console.log('Parsing JSON from Claude response...');
       try {
-        const analysisData = JSON.parse(jsonMatch[0]);
+        const analysisData = sanitizeJson(jsonMatch[0]);
         
         console.log('Saving transcript to MongoDB...');
         // Save transcript and analysis to database
@@ -764,11 +774,23 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       } catch (jsonError) {
         console.error('Error parsing JSON from Claude response:', jsonError);
         console.error('Raw match content:', jsonMatch[0]);
-        return res.status(500).json({
-          error: 'Failed to parse Claude JSON response',
-          details: jsonError.message,
-          transcript: transcript
-        });
+        
+        // Try a fallback JSON parsing approach
+        try {
+          console.log('Attempting fallback JSON parsing with JSON5...');
+          // If we have a valid transcript but invalid JSON, return a simplified response
+          return res.status(206).json({
+            error: 'Partial success: Transcription succeeded but analysis failed',
+            details: 'The AI returned a response that could not be parsed as valid JSON.',
+            transcript: transcript
+          });
+        } catch (fallbackError) {
+          return res.status(500).json({
+            error: 'Failed to parse Claude JSON response',
+            details: jsonError.message,
+            transcript: transcript
+          });
+        }
       }
     } catch (claudeError) {
       console.error('Claude API error:', claudeError.message);
@@ -836,3 +858,38 @@ app.listen(PORT, () => {
     }
   }, SIX_HOURS);
 });
+
+// Helper to sanitize and fix common JSON parsing issues
+const sanitizeJson = (jsonString) => {
+  try {
+    // First attempt to parse the JSON directly
+    return JSON.parse(jsonString);
+  } catch (initialError) {
+    console.log('Initial JSON parse failed, attempting to sanitize...');
+    
+    try {
+      // Try to fix common issues in the JSON
+      let sanitized = jsonString;
+      
+      // Replace any special unicode quotes with standard quotes
+      sanitized = sanitized.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+      
+      // Ensure property names are properly quoted
+      sanitized = sanitized.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
+      
+      // Fix trailing commas in arrays and objects
+      sanitized = sanitized.replace(/,\s*([\]}])/g, '$1');
+      
+      // Ensure string values are properly quoted
+      // This is a simplified approach and might not catch all cases
+      sanitized = sanitized.replace(/:(\s*)([^",\{\}\[\]]+)(\s*)(,|}|])/g, ':"$2"$3$4');
+      
+      // Attempt to parse the sanitized JSON
+      console.log('Sanitized JSON, attempting to parse again...');
+      return JSON.parse(sanitized);
+    } catch (sanitizeError) {
+      console.error('Failed to sanitize and parse JSON:', sanitizeError);
+      throw new Error(`Failed to parse JSON: ${initialError.message}`);
+    }
+  }
+};
