@@ -614,6 +614,14 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     
     console.log('Sending to Deepgram...');
     
+    // Check if Deepgram API key is valid
+    if (!DEEPGRAM_API_KEY || DEEPGRAM_API_KEY === 'your-valid-deepgram-api-key') {
+      return res.status(500).json({ 
+        error: 'Deepgram API key not configured', 
+        details: 'Please add a valid Deepgram API key to your .env file or Render environment variables.'
+      });
+    }
+
     // Use direct API call with axios instead of SDK
     const deepgramResponse = await axios.post(
       'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&language=en',
@@ -649,55 +657,73 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     // Process the transcript through our analysis pipeline
     const prompt = await createPrompt(transcript, callType);
     
-    const claudeResponse = await axios.post(
-      CLAUDE_API_URL,
-      {
-        model: 'claude-3-opus-20240229',
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 4000,
-        temperature: 0.0
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': CLAUDE_API_KEY,
-          'anthropic-version': '2023-06-01'
-        }
+    try {
+      // Check if Claude API key is valid
+      if (!CLAUDE_API_KEY || CLAUDE_API_KEY === 'your-valid-claude-api-key') {
+        return res.status(500).json({ 
+          error: 'Claude API key not configured', 
+          details: 'Please add a valid Claude API key to your .env file or Render environment variables.'
+        });
       }
-    );
-    
-    // Extract and parse the JSON response from Claude
-    const assistantMessage = claudeResponse.data.content[0].text;
-    
-    // Find JSON in the response
-    const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return res.status(500).json({ error: 'Failed to parse Claude response' });
+
+      const claudeResponse = await axios.post(
+        CLAUDE_API_URL,
+        {
+          model: 'claude-3-opus-20240229',
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 4000,
+          temperature: 0.0
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': CLAUDE_API_KEY,
+            'anthropic-version': '2023-06-01'
+          }
+        }
+      );
+      
+      // Extract and parse the JSON response from Claude
+      const assistantMessage = claudeResponse.data.content[0].text;
+      
+      // Find JSON in the response
+      const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return res.status(500).json({ error: 'Failed to parse Claude response' });
+      }
+      
+      const analysisData = JSON.parse(jsonMatch[0]);
+
+      // Save transcript and analysis to database
+      const newTranscript = new Transcript({
+        rawTranscript: transcript,
+        analysis: analysisData,
+        source: 'audio',
+        callType: callType || 'auto'
+      });
+
+      await newTranscript.save();
+
+      // Return both transcript and analysis
+      return res.json({
+        transcript: transcript,
+        analysis: analysisData
+      });
+    } catch (claudeError) {
+      console.error('Claude API error:', claudeError.message);
+      
+      // Return transcript even if analysis fails
+      return res.status(500).json({ 
+        error: 'Failed to analyze transcript',
+        transcript: transcript, 
+        details: 'The transcription was successful, but analysis failed. This is likely due to an invalid Claude API key.'
+      });
     }
-    
-    const analysisData = JSON.parse(jsonMatch[0]);
-
-    // Save transcript and analysis to database
-    const newTranscript = new Transcript({
-      rawTranscript: transcript,
-      analysis: analysisData,
-      source: 'audio',
-      callType: callType || 'auto'
-    });
-
-    await newTranscript.save();
-
-    // Return both transcript and analysis
-    return res.json({
-      transcript: transcript,
-      analysis: analysisData
-    });
-    
   } catch (error) {
     console.error('Transcription error:', error);
     // Clean up file if it exists and an error occurred
