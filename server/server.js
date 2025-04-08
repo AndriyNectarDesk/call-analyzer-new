@@ -282,7 +282,7 @@ const createPrompt = async (transcript, type = 'auto') => {
    - Problem Solving
    - Overall Score
 
-Format your response as JSON with the following structure:`;
+Format your response as valid JSON with the following structure. DO NOT include any text outside the JSON object - just return a single properly formatted JSON object:`;
 
   // Try to find a custom call type
   try {
@@ -422,7 +422,7 @@ app.post('/api/analyze', async (req, res, next) => {
     const response = await axios.post(
       CLAUDE_API_URL,
       {
-        model: 'claude-3-opus-20240229',
+        model: 'claude-3-haiku-20240307',
         messages: [
           {
             role: 'user',
@@ -445,7 +445,7 @@ app.post('/api/analyze', async (req, res, next) => {
     const assistantMessage = response.data.content[0].text;
     
     // Find JSON in the response
-    const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
+    const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
     if (!jsonMatch) {
       return res.status(500).json({ error: 'Failed to parse Claude response' });
     }
@@ -494,7 +494,7 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
     const response = await axios.post(
       CLAUDE_API_URL,
       {
-        model: 'claude-3-opus-20240229',
+        model: 'claude-3-haiku-20240307',
         messages: [
           {
             role: 'user',
@@ -519,7 +519,7 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
     
     console.log('Looking for JSON in Claude response...');
     // Find JSON in the response
-    const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
+    const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
     if (!jsonMatch) {
       console.error('No JSON found in Claude response. Raw response:', assistantMessage);
       return res.status(500).json({ 
@@ -715,7 +715,7 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       const claudeResponse = await axios.post(
         CLAUDE_API_URL,
         {
-          model: 'claude-3-opus-20240229',
+          model: 'claude-3-haiku-20240307',
           messages: [
             {
               role: 'user',
@@ -740,7 +740,7 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       
       console.log('Looking for JSON in Claude response...');
       // Find JSON in the response
-      const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/);
+      const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
       if (!jsonMatch) {
         console.error('No JSON found in Claude response. Raw response:', assistantMessage);
         return res.status(500).json({ 
@@ -871,6 +871,13 @@ const sanitizeJson = (jsonString) => {
       // Try to fix common issues in the JSON
       let sanitized = jsonString;
       
+      // Try to extract just the JSON part if there's text before or after
+      const betterJsonMatch = jsonString.match(/(\{[\s\S]*\})/);
+      if (betterJsonMatch && betterJsonMatch[0]) {
+        console.log('Extracted cleaner JSON object');
+        sanitized = betterJsonMatch[0];
+      }
+      
       // Replace any special unicode quotes with standard quotes
       sanitized = sanitized.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
       
@@ -881,8 +888,10 @@ const sanitizeJson = (jsonString) => {
       sanitized = sanitized.replace(/,\s*([\]}])/g, '$1');
       
       // Ensure string values are properly quoted
-      // This is a simplified approach and might not catch all cases
       sanitized = sanitized.replace(/:(\s*)([^",\{\}\[\]]+)(\s*)(,|}|])/g, ':"$2"$3$4');
+      
+      // Fix escaped quotes in string values
+      sanitized = sanitized.replace(/\\"/g, '"').replace(/"{2,}/g, '"');
       
       // Attempt to parse the sanitized JSON
       console.log('Sanitized JSON, attempting to parse again...');
