@@ -1,0 +1,5 @@
+[33m5f2ab27[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m Add agent name tracking and performance analytics
+[33m0fbf2e6[m[33m ([m[1;31morigin/master[m[33m)[m Add support for multiple call types including hearing aid clinic
+[33m2426ba3[m Add robust API key error handling and health checks
+[33mf275c81[m Add Vercel configuration to fix build issues
+[33m81d9680[m Add required public directory with essential files for React build
