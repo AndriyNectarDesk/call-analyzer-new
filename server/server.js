@@ -422,7 +422,7 @@ app.post('/api/analyze', async (req, res, next) => {
     const response = await axios.post(
       CLAUDE_API_URL,
       {
-        model: 'claude-3-haiku-20240307',
+        model: 'claude-3-opus-20240229',
         messages: [
           {
             role: 'user',
@@ -499,7 +499,7 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
     const response = await axios.post(
       CLAUDE_API_URL,
       {
-        model: 'claude-3-haiku-20240307',
+        model: 'claude-3-opus-20240229',
         messages: [
           {
             role: 'user',
@@ -522,6 +522,9 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
     console.log('Claude API response received, extracting content...');
     const assistantMessage = response.data.content[0].text;
     
+    // Log the full Claude response text
+    console.log('Raw Claude response:', assistantMessage.substring(0, 500) + '...(truncated)');
+    
     console.log('Looking for JSON in Claude response...');
     // Find JSON in the response
     const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
@@ -534,9 +537,25 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
       });
     }
     
+    console.log('Found JSON match:', jsonMatch[0].substring(0, 500) + '...(truncated)');
     console.log('Parsing JSON from Claude response...');
     try {
       const analysisData = sanitizeJson(jsonMatch[0]);
+      
+      // Verify analysis object has required structure
+      console.log('Checking analysis data structure...');
+      if (!analysisData.callSummary) {
+        console.error('Missing callSummary in analysis data');
+      }
+      if (!analysisData.agentPerformance) {
+        console.error('Missing agentPerformance in analysis data');
+      }
+      if (!analysisData.improvementSuggestions) {
+        console.error('Missing improvementSuggestions in analysis data');
+      }
+      if (!analysisData.scorecard) {
+        console.error('Missing scorecard in analysis data');
+      }
       
       console.log('Saving transcript to MongoDB...');
       // Save transcript and analysis to database
@@ -722,7 +741,7 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       const claudeResponse = await axios.post(
         CLAUDE_API_URL,
         {
-          model: 'claude-3-haiku-20240307',
+          model: 'claude-3-opus-20240229',
           messages: [
             {
               role: 'user',
@@ -745,6 +764,9 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       console.log('Claude API response received, extracting content...');
       const assistantMessage = claudeResponse.data.content[0].text;
       
+      // Log the full Claude response text
+      console.log('Raw Claude response:', assistantMessage.substring(0, 500) + '...(truncated)');
+      
       console.log('Looking for JSON in Claude response...');
       // Find JSON in the response
       const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
@@ -757,9 +779,25 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
         });
       }
       
+      console.log('Found JSON match:', jsonMatch[0].substring(0, 500) + '...(truncated)');
       console.log('Parsing JSON from Claude response...');
       try {
         const analysisData = sanitizeJson(jsonMatch[0]);
+        
+        // Verify analysis object has required structure
+        console.log('Checking analysis data structure...');
+        if (!analysisData.callSummary) {
+          console.error('Missing callSummary in analysis data');
+        }
+        if (!analysisData.agentPerformance) {
+          console.error('Missing agentPerformance in analysis data');
+        }
+        if (!analysisData.improvementSuggestions) {
+          console.error('Missing improvementSuggestions in analysis data');
+        }
+        if (!analysisData.scorecard) {
+          console.error('Missing scorecard in analysis data');
+        }
         
         console.log('Saving transcript to MongoDB...');
         // Save transcript and analysis to database
@@ -874,7 +912,7 @@ const sanitizeJson = (jsonString) => {
     // First attempt to parse the JSON directly
     return JSON.parse(jsonString);
   } catch (initialError) {
-    console.log('Initial JSON parse failed, attempting to sanitize...');
+    console.log('Initial JSON parse failed, attempting to sanitize...', initialError.message);
     
     try {
       // Try to fix common issues in the JSON
@@ -902,9 +940,49 @@ const sanitizeJson = (jsonString) => {
       // Fix escaped quotes in string values
       sanitized = sanitized.replace(/\\"/g, '"').replace(/"{2,}/g, '"');
       
+      // Fix empty arrays to proper format
+      sanitized = sanitized.replace(/:\s*\[\s*\]/g, ':[]');
+      
+      // Fix empty objects to proper format
+      sanitized = sanitized.replace(/:\s*\{\s*\}/g, ':{}');
+      
+      // Fix missing values
+      sanitized = sanitized.replace(/:\s*,/g, ':"",');
+      sanitized = sanitized.replace(/:\s*\}/g, ':""}');
+      
+      // Remove any non-printable characters
+      sanitized = sanitized.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+      
       // Attempt to parse the sanitized JSON
       console.log('Sanitized JSON, attempting to parse again...');
-      return JSON.parse(sanitized);
+      
+      // If parsing still fails, try a fallback method to construct valid JSON
+      try {
+        return JSON.parse(sanitized);
+      } catch (sanitizeError) {
+        console.error('Sanitized JSON parsing failed:', sanitizeError.message);
+        console.log('Attempting more aggressive fixes...');
+        
+        // If all else fails, try to build a minimal valid object with default structure
+        return {
+          callSummary: {
+            agentName: "Unknown",
+            customerName: "Unknown"
+          },
+          agentPerformance: {
+            strengths: ["No data available"],
+            areasForImprovement: ["No data available"]
+          },
+          improvementSuggestions: ["No suggestions available due to parsing error"],
+          scorecard: {
+            customerService: 0,
+            productKnowledge: 0,
+            processEfficiency: 0,
+            problemSolving: 0,
+            overallScore: 0
+          }
+        };
+      }
     } catch (sanitizeError) {
       console.error('Failed to sanitize and parse JSON:', sanitizeError);
       throw new Error(`Failed to parse JSON: ${initialError.message}`);
