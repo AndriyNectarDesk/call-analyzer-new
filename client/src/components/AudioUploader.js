@@ -172,61 +172,36 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
           onDragLeave={handleDrag}
           onDrop={handleDrop}
         >
-          <div className="upload-options">
-            <div className="upload-instruction">
-              <svg className="upload-icon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24">
-                <path d="M0 0h24v24H0z" fill="none"/>
-                <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-8h-5zM5 19l3-4 2 3 3-4 4 5H5z" fill="currentColor"/>
-              </svg>
-              <p>Drag and drop an audio file here, or</p>
+          <div className="upload-instruction">
+            <p>Drag & drop audio file or</p>
+            <div className="upload-buttons">
               <button 
                 type="button" 
                 className="select-file-btn"
                 onClick={handleButtonClick}
                 disabled={isLoading || recording}
               >
-                Select Audio File
+                <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
+                  <path d="M0 0h24v24H0z" fill="none"/>
+                  <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-8h-5zM5 19l3-4 2 3 3-4 4 5H5z" fill="currentColor"/>
+                </svg>
+                Select File
               </button>
-              <span className="file-format-info">Supports MP3, WAV, M4A files</span>
+
+              <button 
+                className="record-button"
+                onClick={startRecording}
+                disabled={isLoading}
+              >
+                <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
+                  <path d="M0 0h24v24H0z" fill="none"/>
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
+                </svg>
+                Record Audio
+              </button>
             </div>
-            
-            <div className="separator">
-              <span>OR</span>
-            </div>
-            
-            <div className="record-section">
-              {!recording ? (
-                <button 
-                  className="record-button"
-                  onClick={startRecording}
-                  disabled={isLoading}
-                >
-                  <svg className="mic-icon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24">
-                    <path d="M0 0h24v24H0z" fill="none"/>
-                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
-                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
-                  </svg>
-                  Record Audio
-                </button>
-              ) : (
-                <div className="recording-container">
-                  <div className="recording-pulse-container">
-                    <span className="recording-pulse"></span>
-                    <span className="recording-time">{formatTime(recordingTime)}</span>
-                  </div>
-                  <button 
-                    className="stop-button"
-                    onClick={stopRecording}
-                  >
-                    <svg className="stop-icon" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24">
-                      <path d="M0 0h24v24H0z" fill="none"/>
-                      <path d="M6 6h12v12H6z" fill="currentColor"/>
-                    </svg>
-                    Stop Recording
-                  </button>
-                </div>
-              )}
-            </div>
+            <span className="file-format-info">Supports MP3, WAV, M4A files</span>
           </div>
           
           <input
@@ -242,18 +217,24 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
       ) : (
         <div className="audio-preview">
           <div className="audio-preview-header">
-            <h4>Audio Preview</h4>
-            <button 
-              className="clear-audio-button"
-              onClick={clearFile}
-              disabled={isLoading}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20">
+            <div className="file-info">
+              <svg className="file-icon" xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16">
                 <path d="M0 0h24v24H0z" fill="none"/>
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
+                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill="currentColor"/>
               </svg>
-              Remove
-            </button>
+              <span className="file-name" title={file.name}>{file.name}</span>
+              <button 
+                className="clear-audio-button"
+                onClick={clearFile}
+                disabled={isLoading}
+                title="Remove audio"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16">
+                  <path d="M0 0h24v24H0z" fill="none"/>
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
           </div>
           
           <audio 
@@ -262,15 +243,6 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
             controls 
             className="audio-player"
           />
-          
-          <div className="file-info">
-            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20">
-              <path d="M0 0h24v24H0z" fill="none"/>
-              <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill="currentColor"/>
-            </svg>
-            <span className="file-name">{file.name}</span>
-            <span className="file-size">({Math.round(file.size / 1024)} KB)</span>
-          </div>
           
           <button
             className="transcribe-button"
@@ -284,13 +256,30 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
               </>
             ) : (
               <>
-                <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20">
+                <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16">
                   <path d="M0 0h24v24H0z" fill="none"/>
                   <path d="M14 9l-5 5.5 2.5 2.5 7.5-8-7.5-8-2.5 2.5 5 5.5zm-13 0l5 5.5-5 5.5 2.5 2.5 7.5-8-7.5-8-2.5 2.5z" fill="currentColor"/>
                 </svg>
                 Transcribe & Analyze
               </>
             )}
+          </button>
+        </div>
+      )}
+      
+      {recording && (
+        <div className="recording-indicator">
+          <span className="recording-pulse"></span>
+          <span className="recording-time">{formatTime(recordingTime)}</span>
+          <button 
+            className="stop-button"
+            onClick={stopRecording}
+          >
+            <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 24 24" width="16">
+              <path d="M0 0h24v24H0z" fill="none"/>
+              <path d="M6 6h12v12H6z" fill="currentColor"/>
+            </svg>
+            Stop
           </button>
         </div>
       )}
