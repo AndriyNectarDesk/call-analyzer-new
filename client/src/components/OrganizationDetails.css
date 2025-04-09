@@ -1,0 +1,216 @@
+.organization-details {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: #1971c2;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  margin-right: 1rem;
+}
+
+.back-button:hover {
+  text-decoration: underline;
+}
+
+.header h1 {
+  font-size: 2rem;
+  color: #333;
+  margin: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 1rem;
+}
+
+.tabs button {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  color: #666;
+  cursor: pointer;
+  position: relative;
+}
+
+.tabs button.active {
+  color: #1971c2;
+  font-weight: 600;
+}
+
+.tabs button.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1rem;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #1971c2;
+}
+
+.overview-tab, .users-tab, .settings-tab {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+.info-section, .subscription-section, .usage-section {
+  margin-bottom: 2rem;
+}
+
+.info-section h2, .subscription-section h2, .usage-section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.info-grid, .subscription-info, .usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.info-item, .subscription-item, .usage-item {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.info-item label, .subscription-item label, .usage-item label {
+  display: block;
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.info-item p, .subscription-item p, .usage-item p {
+  font-size: 1rem;
+  color: #333;
+  margin: 0;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.status.active {
+  background: #ebfbee;
+  color: #2b8a3e;
+}
+
+.status.inactive {
+  background: #ffe3e3;
+  color: #c92a2a;
+}
+
+.tier {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.tier.free { background: #e9ecef; color: #495057; }
+.tier.basic { background: #e7f5ff; color: #1971c2; }
+.tier.pro { background: #f3f0ff; color: #5f3dc4; }
+.tier.enterprise { background: #ebfbee; color: #2b8a3e; }
+
+.users-table {
+  overflow-x: auto;
+}
+
+.users-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table th, .users-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.users-table th {
+  font-weight: 600;
+  color: #666;
+  background: #f8f9fa;
+}
+
+.settings-section {
+  margin-bottom: 2rem;
+}
+
+.settings-section h3 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.feature-item {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.feature-item label {
+  display: block;
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.feature-item input[type="number"] {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.feature-item input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #c92a2a;
+  background: #ffe3e3;
+  border-radius: 8px;
+  margin: 1rem;
+} 
