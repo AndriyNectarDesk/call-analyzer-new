@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import axios from 'axios';
 import '../styles/appleDesign.css';
 
 // Icons
@@ -43,66 +44,43 @@ const UsersPage = () => {
       try {
         setIsLoading(true);
         
-        // Would be replaced with actual API calls in real implementation
-        // For demo, using mock data
-        const mockOrg = {
-          id: organizationId || '1',
-          name: 'Acme Corporation',
-          code: 'acme',
-          subscriptionTier: 'enterprise',
-          contactEmail: 'admin@acme.com'
-        };
+        const apiUrl = process.env.REACT_APP_API_URL || '';
+        const token = localStorage.getItem('auth_token');
         
-        const mockUsers = [
-          {
-            id: '1',
-            firstName: 'John',
-            lastName: 'Doe',
-            email: 'john.doe@acme.com',
-            role: 'admin',
-            lastLogin: '2023-12-10T14:32:00Z',
-            isActive: true
-          },
-          {
-            id: '2',
-            firstName: 'Jane',
-            lastName: 'Smith',
-            email: 'jane.smith@acme.com',
-            role: 'user',
-            lastLogin: '2023-12-12T09:15:00Z',
-            isActive: true
-          },
-          {
-            id: '3',
-            firstName: 'Mark',
-            lastName: 'Johnson',
-            email: 'mark.johnson@acme.com',
-            role: 'user',
-            lastLogin: '2023-12-08T16:45:00Z',
-            isActive: true
-          },
-          {
-            id: '4',
-            firstName: 'Sarah',
-            lastName: 'Williams',
-            email: 'sarah.williams@acme.com',
-            role: 'user',
-            lastLogin: null,
-            isActive: false
-          }
-        ];
-        
-        // Simulate API delay
-        setTimeout(() => {
-          setOrganization(mockOrg);
-          setUsers(mockUsers);
+        if (!token) {
+          setError('Authentication token not found. Please log in again.');
           setIsLoading(false);
-        }, 800);
+          return;
+        }
         
-      } catch (err) {
-        setError('Failed to load users');
+        // Fetch organization details and users from the master-admin endpoint
+        const response = await axios.get(`${apiUrl}/api/master-admin/organizations/${organizationId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        console.log('Organization and users data:', response.data);
+        
+        if (response.data.organization) {
+          setOrganization(response.data.organization);
+        }
+        
+        if (response.data.users) {
+          setUsers(response.data.users);
+        }
+        
         setIsLoading(false);
-        console.error('Error fetching users:', err);
+      } catch (err) {
+        console.error('Full error:', err);
+        let errorMessage = 'Failed to load users';
+        
+        if (err.response) {
+          errorMessage += `: ${err.response.status} - ${err.response.data?.message || err.response.data?.error || JSON.stringify(err.response.data)}`;
+        }
+        
+        setError(errorMessage);
+        setIsLoading(false);
       }
     };
     
@@ -147,12 +125,12 @@ const UsersPage = () => {
             <p className="organization-context">
               {organization.name} 
               <span className={`badge badge-${organization.subscriptionTier === 'enterprise' ? 'success' : 'primary'}`}>
-                {organization.subscriptionTier}
+                {organization.subscriptionTier || 'free'}
               </span>
             </p>
           )}
         </div>
-        <Link to={`/organizations/${organizationId || '1'}/users/new`} className="button">
+        <Link to={`/organizations/${organizationId}/users/new`} className="button">
           <PlusIcon /> Add User
         </Link>
       </div>
@@ -182,13 +160,13 @@ const UsersPage = () => {
             {users.length === 0 ? (
               <div className="empty-state">
                 <p>No users found</p>
-                <Link to={`/organizations/${organizationId || '1'}/users/new`} className="button button-secondary">
+                <Link to={`/organizations/${organizationId}/users/new`} className="button button-secondary">
                   Add your first user
                 </Link>
               </div>
             ) : (
               users.map(user => (
-                <div key={user.id} className={`table-row ${!user.isActive ? 'inactive-row' : ''}`}>
+                <div key={user._id} className={`table-row ${!user.isActive ? 'inactive-row' : ''}`}>
                   <div className="cell name-cell">
                     <div className="user-info">
                       <div className="user-avatar">
@@ -215,13 +193,13 @@ const UsersPage = () => {
                   </div>
                   <div className="cell actions-cell">
                     <div className="actions-buttons">
-                      <button className="action-button" title="Edit User">
+                      <Link to={`/organizations/${organizationId}/users/${user._id}/edit`} className="action-button" title="Edit User">
                         <EditIcon />
-                      </button>
+                      </Link>
                       <button className="action-button" title="Reset Password">
                         <ResetIcon />
                       </button>
-                      <button className="action-button" title="Deactivate User">
+                      <button className="action-button danger" title="Deactivate User">
                         <TrashIcon />
                       </button>
                     </div>
