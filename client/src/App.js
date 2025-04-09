@@ -463,6 +463,15 @@ function App() {
   return (
     <Router>
       <div className="app-container">
+        <Toaster position="top-right" toastOptions={{
+          style: {
+            borderRadius: '10px',
+            background: 'var(--card-background)',
+            color: 'var(--text-color)',
+            boxShadow: 'var(--shadow-md)'
+          }
+        }} />
+        
         {isAuthenticated && !authLoading ? (
           <header className="app-header">
             <div className="header-content">
@@ -493,9 +502,17 @@ function App() {
                       </>
                     )}
                     {currentUser && currentUser.isMasterAdmin && (
-                      <li>
-                        <Link to={'/organizations/' + (currentOrganization?.id || '1') + '/users'}>Users</Link>
-                      </li>
+                      <>
+                        <li>
+                          <Link to="/organizations">Organizations</Link>
+                        </li>
+                        <li>
+                          <Link to="/master-admin">Dashboard</Link>
+                        </li>
+                        <li>
+                          <Link to={'/organizations/' + (currentOrganization?.id || '1') + '/users'}>Users</Link>
+                        </li>
+                      </>
                     )}
                   </ul>
                 </nav>
@@ -553,14 +570,56 @@ function App() {
               </ProtectedRoute>
             } />
             
-            <Route path="/history" element={<TranscriptHistory />} />
-            <Route path="/transcript/:id" element={<TranscriptDetail />} />
-            <Route path="/call-types" element={<CallTypeManager />} />
-            <Route path="/agents" element={<AgentAnalytics />} />
-            <Route path="/api" element={<ApiPage />} />
-            <Route path="/organizations/:organizationId/users" element={<UsersPage />} />
-            <Route path="/organizations/:organizationId/users/new" element={<UserAddPage />} />
-            <Route path="/organizations/:organizationId/users/:userId/edit" element={<UserEditPage />} />
+            <Route path="/history" element={
+              <ProtectedRoute>
+                <TranscriptHistory />
+              </ProtectedRoute>
+            } />
+            <Route path="/transcript/:id" element={
+              <ProtectedRoute>
+                <TranscriptDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/call-types" element={
+              <ProtectedRoute>
+                <CallTypeManager />
+              </ProtectedRoute>
+            } />
+            <Route path="/agents" element={
+              <ProtectedRoute>
+                <AgentAnalytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/api" element={
+              <ProtectedRoute>
+                <ApiPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/organizations" element={
+              <ProtectedRoute>
+                <OrganizationsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/master-admin" element={
+              <ProtectedRoute>
+                <MasterAdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/organizations/:organizationId/users" element={
+              <ProtectedRoute>
+                <UsersPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/organizations/:organizationId/users/new" element={
+              <ProtectedRoute>
+                <UserAddPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/organizations/:organizationId/users/:userId/edit" element={
+              <ProtectedRoute>
+                <UserEditPage />
+              </ProtectedRoute>
+            } />
             
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
