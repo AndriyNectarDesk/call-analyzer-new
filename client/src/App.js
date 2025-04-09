@@ -511,9 +511,6 @@ function App() {
                           <Link to="/organizations">Organizations</Link>
                         </li>
                         <li>
-                          <Link to="/master-admin">Dashboard</Link>
-                        </li>
-                        <li>
                           <Link to={'/organizations/' + (currentOrganization?.id || '1') + '/users'}>Users</Link>
                         </li>
                       </>
@@ -570,7 +567,7 @@ function App() {
             
             <Route path="/" element={
               <ProtectedRoute>
-                <AnalyzerPage />
+                {currentUser?.isMasterAdmin ? <MasterAdminDashboard /> : <AnalyzerPage />}
               </ProtectedRoute>
             } />
             
@@ -602,11 +599,6 @@ function App() {
             <Route path="/organizations" element={
               <ProtectedRoute>
                 <OrganizationsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/master-admin" element={
-              <ProtectedRoute>
-                <MasterAdminDashboard />
               </ProtectedRoute>
             } />
             <Route path="/organizations/:organizationId/users" element={
