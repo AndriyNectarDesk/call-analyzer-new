@@ -1,10 +1,10 @@
 ﻿import React from 'react';
-import TempVerify from '../components/temp-verify';
+import OrganizationManagement from '../components/OrganizationManagement';
 
 const OrganizationsPage = () => {
   return (
     <div className="page-container">
-      <TempVerify />
+      <OrganizationManagement />
     </div>
   );
 };
