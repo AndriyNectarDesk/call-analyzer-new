@@ -1,0 +1,141 @@
+.master-admin-dashboard {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  margin-bottom: 2rem;
+}
+
+.dashboard-header h1 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.stat-card h3 {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.stat-card p {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.organizations-list {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+.organizations-list h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  font-weight: 600;
+  color: #666;
+  background: #f8f9fa;
+}
+
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.clickable-row:hover {
+  background-color: #f8f9fa;
+}
+
+.subscription-badge {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tier-badge, .status-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.tier-badge.gray { background: #e9ecef; color: #495057; }
+.tier-badge.blue { background: #e7f5ff; color: #1971c2; }
+.tier-badge.purple { background: #f3f0ff; color: #5f3dc4; }
+.tier-badge.green { background: #ebfbee; color: #2b8a3e; }
+
+.status-badge.green { background: #ebfbee; color: #2b8a3e; }
+.status-badge.yellow { background: #fff3bf; color: #e67700; }
+.status-badge.red { background: #ffe3e3; color: #c92a2a; }
+.status-badge.gray { background: #e9ecef; color: #495057; }
+
+.status-indicator {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-indicator.active {
+  background: #ebfbee;
+  color: #2b8a3e;
+}
+
+.status-indicator.inactive {
+  background: #ffe3e3;
+  color: #c92a2a;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #c92a2a;
+  background: #ffe3e3;
+  border-radius: 8px;
+  margin: 1rem;
+} 

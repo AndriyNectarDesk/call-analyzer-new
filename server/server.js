@@ -1041,3 +1041,17 @@ const sanitizeJson = (jsonString) => {
     }
   }
 };
+
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const organizationRoutes = require('./routes/organizationRoutes');
+const userRoutes = require('./routes/userRoutes');
+const transcriptRoutes = require('./routes/transcriptRoutes');
+const masterAdminRoutes = require('./routes/masterAdminRoutes');
+
+// Use routes
+app.use('/api/auth', authRoutes);
+app.use('/api/organizations', organizationRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/transcripts', transcriptRoutes);
+app.use('/api/master-admin', masterAdminRoutes);

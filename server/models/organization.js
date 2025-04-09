@@ -10,6 +10,12 @@ const OrganizationSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
+    trim: true
+  },
+  description: String,
+  contactEmail: {
+    type: String,
+    required: true,
     trim: true,
     lowercase: true
   },
@@ -19,24 +25,99 @@ const OrganizationSchema = new mongoose.Schema({
   },
   subscriptionTier: {
     type: String,
-    enum: ['basic', 'professional', 'enterprise'],
-    default: 'basic'
+    enum: ['free', 'basic', 'pro', 'enterprise'],
+    default: 'free'
+  },
+  subscriptionStatus: {
+    type: String,
+    enum: ['active', 'trial', 'expired', 'cancelled'],
+    default: 'trial'
+  },
+  subscriptionPeriod: {
+    startDate: Date,
+    endDate: Date,
+    trialEndDate: Date
+  },
+  billingInfo: {
+    companyName: String,
+    address: String,
+    city: String,
+    state: String,
+    zipCode: String,
+    country: String,
+    vatNumber: String
   },
   features: {
-    maxUsers: { type: Number, default: 5 },
-    maxStorageGB: { type: Number, default: 10 },
-    allowedCallTypes: [String],
-    customBranding: { type: Boolean, default: false }
+    maxUsers: {
+      type: Number,
+      default: 1
+    },
+    maxTranscripts: {
+      type: Number,
+      default: 10
+    },
+    apiAccess: {
+      type: Boolean,
+      default: false
+    },
+    customBranding: {
+      type: Boolean,
+      default: false
+    },
+    advancedAnalytics: {
+      type: Boolean,
+      default: false
+    }
   },
   apiKeys: [{
-    key: String,
     name: String,
-    created: { type: Date, default: Date.now },
-    lastUsed: Date
+    key: String,
+    secret: String,
+    createdAt: Date,
+    lastUsed: Date,
+    isActive: {
+      type: Boolean,
+      default: true
+    }
   }],
   settings: {
-    defaultCallType: { type: String, default: 'auto' },
-    retentionDays: { type: Number, default: 90 }
+    theme: {
+      type: String,
+      default: 'light'
+    },
+    timezone: {
+      type: String,
+      default: 'UTC'
+    },
+    language: {
+      type: String,
+      default: 'en'
+    },
+    notifications: {
+      email: {
+        type: Boolean,
+        default: true
+      },
+      slack: {
+        type: Boolean,
+        default: false
+      }
+    }
+  },
+  usageStats: {
+    totalTranscripts: {
+      type: Number,
+      default: 0
+    },
+    totalUsers: {
+      type: Number,
+      default: 0
+    },
+    lastActive: Date,
+    apiCalls: {
+      type: Number,
+      default: 0
+    }
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -58,8 +139,11 @@ OrganizationSchema.pre('save', function(next) {
   next();
 });
 
-// Index for faster queries
+// Indexes for faster queries
 OrganizationSchema.index({ code: 1 });
 OrganizationSchema.index({ active: 1 });
+OrganizationSchema.index({ subscriptionTier: 1 });
+OrganizationSchema.index({ subscriptionStatus: 1 });
+OrganizationSchema.index({ 'subscriptionPeriod.endDate': 1 });
 
 module.exports = mongoose.model('Organization', OrganizationSchema); 
