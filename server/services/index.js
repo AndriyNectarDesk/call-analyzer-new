@@ -9,7 +9,8 @@ try {
   emailService = {
     verifyEmailConfig: async () => false,
     sendEmail: async () => false,
-    sendPasswordResetEmail: async () => false
+    sendPasswordResetEmail: async () => false,
+    sendMasterAdminInvitation: async () => false
   };
 }
 

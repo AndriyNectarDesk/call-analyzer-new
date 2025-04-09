@@ -1,6 +1,7 @@
 const Organization = require('../models/organization');
 const User = require('../models/user');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 // Get all organizations with detailed information
 exports.getAllOrganizations = async (req, res) => {
@@ -263,10 +264,10 @@ exports.resetUserPassword = async (req, res) => {
 // Create a new Master Admin user
 exports.createMasterAdminUser = async (req, res) => {
   try {
-    const { email, firstName, lastName, password } = req.body;
+    const { email, firstName, lastName } = req.body;
     
     // Validate required fields
-    if (!email || !firstName || !lastName || !password) {
+    if (!email || !firstName || !lastName) {
       return res.status(400).json({ message: 'Required fields missing' });
     }
     
@@ -276,18 +277,39 @@ exports.createMasterAdminUser = async (req, res) => {
       return res.status(400).json({ message: 'Email already in use' });
     }
     
+    // Generate a temporary password (will be reset by user)
+    const tempPassword = crypto.randomBytes(16).toString('hex');
+    
     // Create new master admin user
     const newUser = new User({
       email,
       firstName,
       lastName,
-      password, // Will be hashed by the model's pre-save hook
+      password: tempPassword, // Will be hashed by the model's pre-save hook
       role: 'admin', // Master admins are also admins
       organizationId: null, // Master admins don't belong to any specific organization
       isMasterAdmin: true
     });
     
     await newUser.save();
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpiry = Date.now() + 86400000; // 24 hours
+    
+    // Save token to user document
+    newUser.passwordResetToken = resetToken;
+    newUser.passwordResetExpires = resetExpiry;
+    await newUser.save();
+    
+    // Send invitation email
+    try {
+      const { emailService } = require('../services');
+      await emailService.sendMasterAdminInvitation(newUser, resetToken);
+    } catch (emailError) {
+      console.error('Error sending invitation email:', emailError);
+      // Continue execution - we'll still create the user
+    }
     
     // Return the new user without password
     const userResponse = newUser.toObject();

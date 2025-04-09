@@ -15,9 +15,7 @@ const MasterAdminManagement = () => {
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
-    lastName: '',
-    password: '',
-    confirmPassword: ''
+    lastName: ''
   });
   
   // Password reset data
@@ -70,18 +68,8 @@ const MasterAdminManagement = () => {
   };
 
   const validateForm = () => {
-    if (!formData.email || !formData.firstName || !formData.lastName || !formData.password) {
+    if (!formData.email || !formData.firstName || !formData.lastName) {
       setError('All fields are required');
-      return false;
-    }
-    
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return false;
-    }
-    
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
       return false;
     }
     
@@ -121,8 +109,7 @@ const MasterAdminManagement = () => {
         {
           email: formData.email,
           firstName: formData.firstName,
-          lastName: formData.lastName,
-          password: formData.password
+          lastName: formData.lastName
         },
         {
           headers: {
@@ -139,14 +126,12 @@ const MasterAdminManagement = () => {
       setFormData({
         email: '',
         firstName: '',
-        lastName: '',
-        password: '',
-        confirmPassword: ''
+        lastName: ''
       });
       setShowAddModal(false);
       
       // Show success message
-      setSuccess('Master Admin user created successfully');
+      setSuccess('Master Admin invitation sent successfully');
       setTimeout(() => setSuccess(''), 3000);
       
       setIsLoading(false);
@@ -401,33 +386,8 @@ const MasterAdminManagement = () => {
                 </div>
               </div>
               
-              <div className="form-group">
-                <label htmlFor="password">Password</label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  className="input"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  required
-                  minLength={8}
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="confirmPassword">Confirm Password</label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  className="input"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  disabled={isLoading}
-                  required
-                />
+              <div className="form-group info-message">
+                <p>An invitation email will be sent to this address with instructions to set a password.</p>
               </div>
               
               <div className="form-actions">
@@ -444,7 +404,7 @@ const MasterAdminManagement = () => {
                   className="button"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Creating...' : 'Create Master Admin'}
+                  {isLoading ? 'Sending Invitation...' : 'Send Invitation'}
                 </button>
               </div>
             </form>

@@ -126,8 +126,58 @@ const sendPasswordResetEmail = async (user, resetToken) => {
   }
 };
 
+// Send Master Admin invitation email
+const sendMasterAdminInvitation = async (user, resetToken) => {
+  try {
+    const inviteUrl = `${FRONTEND_URL}/reset-password?token=${resetToken}&welcome=true`;
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #4a69bd;">Welcome to AI Nectar Desk</h2>
+        <p>Hello ${user.firstName},</p>
+        <p>You have been invited to join AI Nectar Desk as a Master Administrator.</p>
+        <p>To set up your account password and get started, click the button below:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${inviteUrl}" style="background-color: #4a69bd; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+            Set Up Your Account
+          </a>
+        </div>
+        <p>This link is valid for 24 hours.</p>
+        <p>Thanks,<br/>The AI Nectar Desk Team</p>
+      </div>
+    `;
+    
+    const text = `
+      Welcome to AI Nectar Desk
+      
+      Hello ${user.firstName},
+      
+      You have been invited to join AI Nectar Desk as a Master Administrator.
+      
+      To set up your account password and get started, visit this link:
+      ${inviteUrl}
+      
+      This link is valid for 24 hours.
+      
+      Thanks,
+      The AI Nectar Desk Team
+    `;
+    
+    return await sendEmail({
+      to: user.email,
+      subject: 'Welcome to AI Nectar Desk - Set Up Your Account',
+      text,
+      html
+    });
+  } catch (error) {
+    console.error('Error sending master admin invitation email:', error);
+    return false;
+  }
+};
+
 module.exports = {
   verifyEmailConfig,
   sendEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendMasterAdminInvitation
 }; 
