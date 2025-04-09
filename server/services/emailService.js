@@ -52,24 +52,44 @@ const verifyEmailConfig = async () => {
 // Send email with provided options
 const sendEmail = async (options) => {
   try {
+    // Log email attempt
+    console.log('Attempting to send email:');
+    console.log(`- To: ${options.to}`);
+    console.log(`- Subject: ${options.subject}`);
+    console.log(`- Using EMAIL_HOST: ${EMAIL_HOST}`);
+    console.log(`- Using EMAIL_PORT: ${EMAIL_PORT}`);
+    console.log(`- Using EMAIL_FROM: ${EMAIL_FROM}`);
+    console.log(`- Email credentials available: ${Boolean(EMAIL_USER && EMAIL_PASS)}`);
+    
     // Skip sending if credentials are not available (development/testing)
     if (!EMAIL_USER || !EMAIL_PASS) {
-      console.log('Email not sent (development mode):', options.subject);
+      console.log('Email not sent (no credentials available):', options.subject);
       return false;
     }
     
-    const result = await transporter.sendMail({
+    // Create the email object for sending
+    const mailOptions = {
       from: `"AI Nectar Desk" <${EMAIL_FROM}>`,
       to: options.to,
       subject: options.subject,
       text: options.text,
       html: options.html
-    });
+    };
     
-    console.log('Email sent successfully:', result.messageId);
+    console.log('Sending email with nodemailer...');
+    const result = await transporter.sendMail(mailOptions);
+    
+    console.log('Email sent successfully:');
+    console.log(`- Message ID: ${result.messageId}`);
+    console.log(`- Response: ${JSON.stringify(result)}`);
     return true;
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('Error sending email:');
+    console.error(`- Error name: ${error.name}`);
+    console.error(`- Error message: ${error.message}`);
+    if (error.stack) {
+      console.error(`- Stack trace: ${error.stack}`);
+    }
     return false;
   }
 };

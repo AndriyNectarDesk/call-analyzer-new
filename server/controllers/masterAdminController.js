@@ -302,10 +302,32 @@ exports.createMasterAdminUser = async (req, res) => {
     newUser.passwordResetExpires = resetExpiry;
     await newUser.save();
     
+    console.log(`Creating Master Admin user: ${firstName} ${lastName} (${email})`);
+    console.log(`Reset token generated with expiry: ${new Date(resetExpiry).toISOString()}`);
+    
     // Send invitation email
     try {
       const { emailService } = require('../services');
-      await emailService.sendMasterAdminInvitation(newUser, resetToken);
+      
+      // Log email configuration
+      console.log('Email Configuration:');
+      console.log(`- FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set (using default)'}`);
+      console.log(`- EMAIL_HOST: ${process.env.EMAIL_HOST || 'not set (using default)'}`);
+      console.log(`- EMAIL_PORT: ${process.env.EMAIL_PORT || 'not set (using default)'}`);
+      console.log(`- EMAIL_USER: ${process.env.EMAIL_USER ? 'set' : 'not set'}`);
+      console.log(`- EMAIL_FROM: ${process.env.EMAIL_FROM || 'not set (using default)'}`);
+      
+      const emailSent = await emailService.sendMasterAdminInvitation(newUser, resetToken);
+      console.log(`Invitation email for ${email} sent successfully: ${emailSent}`);
+      
+      if (!emailSent) {
+        console.log('Email was not sent but created user anyway.');
+        // Only include token in non-production environments
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`Reset token for debugging: ${resetToken}`);
+          console.log(`Reset URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&welcome=true`);
+        }
+      }
     } catch (emailError) {
       console.error('Error sending invitation email:', emailError);
       // Continue execution - we'll still create the user
