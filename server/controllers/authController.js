@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const Organization = require('../models/organization');
+const crypto = require('crypto');
 
 // Environment variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
@@ -251,4 +252,75 @@ exports.requireSameOrganization = (req, res, next) => {
   }
   
   return res.status(403).json({ error: 'You do not have access to this organization' });
+};
+
+// Password reset functionality
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    // Find user by email
+    const user = await User.findOne({ email }).exec();
+    
+    // Always return success even if user not found (security best practice)
+    if (!user) {
+      return res.status(200).json({ message: 'If your email exists in our system, you will receive password reset instructions' });
+    }
+    
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = Date.now() + 3600000; // 1 hour
+    
+    // Save token to user document
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = resetTokenExpiry;
+    await user.save();
+    
+    // In a real application, send email with reset link
+    // For now, just return the token in the response
+    
+    res.status(200).json({
+      message: 'If your email exists in our system, you will receive password reset instructions',
+      // Only include token in development environments
+      ...(process.env.NODE_ENV !== 'production' && { resetToken })
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+    
+    // Find user with valid token
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: Date.now() }
+    }).exec();
+    
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired token' });
+    }
+    
+    // Update password and clear reset token
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+    
+    res.status(200).json({ message: 'Password reset successful' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
 }; 
