@@ -418,9 +418,11 @@ function App() {
                     <h3>Sentiment</h3>
                     <div className="score-display">
                       <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis.sentiment)
+                        backgroundColor: getScoreColor(analysis && analysis.sentiment ? analysis.sentiment : 0)
                       }}></div>
-                      <span>{analysis.sentiment >= 0.7 ? 'Positive' : analysis.sentiment <= 0.3 ? 'Negative' : 'Neutral'}</span>
+                      <span>{analysis && analysis.sentiment ? 
+                        (analysis.sentiment >= 0.7 ? 'Positive' : analysis.sentiment <= 0.3 ? 'Negative' : 'Neutral') 
+                        : 'N/A'}</span>
                     </div>
                   </div>
                   
@@ -428,9 +430,9 @@ function App() {
                     <h3>Customer Satisfaction</h3>
                     <div className="score-display">
                       <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis.customerSatisfaction)
+                        backgroundColor: getScoreColor(analysis && analysis.customerSatisfaction ? analysis.customerSatisfaction : 0)
                       }}></div>
-                      <span>{Math.round(analysis.customerSatisfaction * 100)}%</span>
+                      <span>{analysis && analysis.customerSatisfaction ? Math.round(analysis.customerSatisfaction * 100) : 0}%</span>
                     </div>
                   </div>
                   
@@ -438,9 +440,9 @@ function App() {
                     <h3>Agent Performance</h3>
                     <div className="score-display">
                       <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis.agentPerformance)
+                        backgroundColor: getScoreColor(analysis && analysis.agentPerformance ? analysis.agentPerformance : 0)
                       }}></div>
-                      <span>{Math.round(analysis.agentPerformance * 100)}%</span>
+                      <span>{analysis && analysis.agentPerformance ? Math.round(analysis.agentPerformance * 100) : 0}%</span>
                     </div>
                   </div>
                   
@@ -448,9 +450,9 @@ function App() {
                     <h3>Call Efficiency</h3>
                     <div className="score-display">
                       <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis.callEfficiency)
+                        backgroundColor: getScoreColor(analysis && analysis.callEfficiency ? analysis.callEfficiency : 0)
                       }}></div>
-                      <span>{Math.round(analysis.callEfficiency * 100)}%</span>
+                      <span>{analysis && analysis.callEfficiency ? Math.round(analysis.callEfficiency * 100) : 0}%</span>
                     </div>
                   </div>
                 </div>
@@ -458,7 +460,7 @@ function App() {
                 <div className="insights-card">
                   <h3>Key Insights</h3>
                   <ul className="summary-list">
-                    {analysis.keyInsights.map((insight, index) => (
+                    {analysis && analysis.keyInsights && analysis.keyInsights.map((insight, index) => (
                       <li key={index}>{insight}</li>
                     ))}
                   </ul>
@@ -467,7 +469,7 @@ function App() {
                 <div className="action-items-card">
                   <h3>Recommended Actions</h3>
                   <ul className="summary-list">
-                    {analysis.actionItems.map((item, index) => (
+                    {analysis && analysis.actionItems && analysis.actionItems.map((item, index) => (
                       <li key={index}>{item}</li>
                     ))}
                   </ul>
