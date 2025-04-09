@@ -1,49 +1,94 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import './App.css';
+import './styles/appleDesign.css';
+import AudioUploader from './components/AudioUploader';
+import OrganizationSelector from './components/OrganizationSelector';
+import Login from './components/Login';
+import OrganizationsPage from './pages/OrganizationsPage';
+import NewOrganizationPage from './pages/NewOrganizationPage';
 import TranscriptHistory from './components/TranscriptHistory';
 import TranscriptDetail from './components/TranscriptDetail';
 import CallTypeManager from './components/CallTypeManager';
 import AgentAnalytics from './components/AgentAnalytics';
-import AudioUploader from './components/AudioUploader';
 import ApiPage from './components/ApiPage';
+import UsersPage from './pages/UsersPage';
 
 function App() {
   const [transcript, setTranscript] = useState('');
   const [callType, setCallType] = useState('auto');
-  const [analysis, setAnalysis] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [analysis, setAnalysis] = useState(null);
   const [availableCallTypes, setAvailableCallTypes] = useState([]);
-  const [activeInputTab, setActiveInputTab] = useState('text'); // 'text' or 'audio'
-  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentOrganization, setCurrentOrganization] = useState(null);
+  const [userOrganizations, setUserOrganizations] = useState([]);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // Toggle settings dropdown
-  const toggleSettingsMenu = () => {
-    setSettingsMenuOpen(!settingsMenuOpen);
-  };
-
-  // Close settings menu when clicking elsewhere
+  // Check authentication status
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (settingsMenuOpen && !event.target.closest('.settings-dropdown')) {
-        setSettingsMenuOpen(false);
+    const checkAuth = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        
+        if (!token) {
+          return;
+        }
+        
+        // In real implementation, verify token with backend
+        // For now, use mock data
+        const mockUser = {
+          id: '1',
+          email: 'admin@nectardesk.ai',
+          firstName: 'Admin',
+          lastName: 'User',
+          role: 'admin',
+          isMasterAdmin: true
+        };
+        
+        const mockOrganizations = [
+          {
+            id: '1',
+            name: 'Acme Corporation',
+            code: 'acme',
+            subscriptionTier: 'enterprise'
+          },
+          {
+            id: '2',
+            name: 'Smith & Partners',
+            code: 'smith',
+            subscriptionTier: 'professional'
+          },
+          {
+            id: '3',
+            name: 'Tech Innovators',
+            code: 'techinno',
+            subscriptionTier: 'trial'
+          }
+        ];
+        
+        setCurrentUser(mockUser);
+        setUserOrganizations(mockOrganizations);
+        setCurrentOrganization(mockOrganizations[0]);
+        setIsAuthenticated(true);
+      } catch (err) {
+        console.error('Authentication error:', err);
+        localStorage.removeItem('auth_token');
       }
     };
+    
+    checkAuth();
+  }, []);
 
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [settingsMenuOpen]);
-
-  // Fetch available call types
+  // Fetch call types when organization changes
   useEffect(() => {
     const fetchCallTypes = async () => {
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/call-types`);
-        
+        // In real implementation, this would be organization-specific
+        // For now, use mock data
+        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/call-types`);
         if (response.ok) {
           const data = await response.json();
           setAvailableCallTypes(data);
@@ -54,7 +99,76 @@ function App() {
     };
     
     fetchCallTypes();
-  }, []);
+  }, [currentOrganization]);
+
+  const handleLogin = async (email, password) => {
+    try {
+      // In real implementation, call authentication API
+      // For now, simulate login
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mock successful login
+      localStorage.setItem('auth_token', 'mock_token_12345');
+      
+      const mockUser = {
+        id: '1',
+        email: email,
+        firstName: 'Admin',
+        lastName: 'User',
+        role: 'admin',
+        isMasterAdmin: true
+      };
+      
+      const mockOrganizations = [
+        {
+          id: '1',
+          name: 'Acme Corporation',
+          code: 'acme',
+          subscriptionTier: 'enterprise'
+        },
+        {
+          id: '2',
+          name: 'Smith & Partners',
+          code: 'smith',
+          subscriptionTier: 'professional'
+        },
+        {
+          id: '3',
+          name: 'Tech Innovators',
+          code: 'techinno',
+          subscriptionTier: 'trial'
+        }
+      ];
+      
+      setCurrentUser(mockUser);
+      setUserOrganizations(mockOrganizations);
+      setCurrentOrganization(mockOrganizations[0]);
+      setIsAuthenticated(true);
+      
+      return true;
+    } catch (err) {
+      throw new Error('Login failed. Please check your credentials.');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setCurrentOrganization(null);
+    setUserOrganizations([]);
+  };
+
+  const handleSwitchOrganization = (org) => {
+    setCurrentOrganization(org);
+    // In real implementation, may need to refresh data based on new organization
+  };
+
+  const toggleDarkMode = () => {
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+    document.body.classList.toggle('dark', newDarkMode);
+  };
 
   const analyzeTranscript = async () => {
     if (!transcript.trim()) {
@@ -72,8 +186,13 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
-        body: JSON.stringify({ transcript, callType }),
+        body: JSON.stringify({ 
+          transcript, 
+          callType,
+          organizationId: currentOrganization?.id
+        }),
       });
 
       if (!response.ok) {
@@ -91,6 +210,10 @@ function App() {
   };
 
   const handleAudioTranscribe = async (formData) => {
+    if (currentOrganization) {
+      formData.append('organizationId', currentOrganization.id);
+    }
+    
     setIsLoading(true);
     setError('');
     setTranscript('');
@@ -100,6 +223,9 @@ function App() {
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
       const response = await fetch(`${apiUrl}/api/transcribe`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
         body: formData,
       });
 
@@ -157,7 +283,7 @@ function App() {
             <select 
               value={callType} 
               onChange={(e) => setCallType(e.target.value)}
-              className="call-type-selector"
+              className="select call-type-selector"
             >
               <option value="auto">Auto-detect</option>
               {availableCallTypes.map((type) => (
@@ -174,14 +300,14 @@ function App() {
                 onChange={(e) => setTranscript(e.target.value)}
                 placeholder="Paste your call transcript here..."
                 rows="10"
-                className="transcript-input"
+                className="textarea"
               />
               {transcript && (
                 <div className="action-container">
                   <button 
                     onClick={analyzeTranscript} 
                     disabled={isLoading}
-                    className="analyze-button"
+                    className="button"
                   >
                     {isLoading ? 'Analyzing...' : 'Analyze Transcript'}
                   </button>
@@ -215,25 +341,25 @@ function App() {
             <h2>Analysis Results</h2>
             
             {analysis.analysis.callSummary ? (
-              <div className="result-block">
+              <div className="card">
                 <h3>Call Summary</h3>
                 <ul className="summary-list">
                   {Object.entries(analysis.analysis.callSummary).map(([key, value]) => (
                     <li key={key}>
-                      <strong>{key}:</strong> <span>{value}</span>
+                      <strong>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> <span>{value}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             ) : (
-              <div className="result-block">
+              <div className="card">
                 <h3>Call Summary</h3>
                 <p>No call summary data available</p>
               </div>
             )}
             
             {analysis.analysis.agentPerformance ? (
-              <div className="result-block">
+              <div className="card">
                 <h3>Agent Performance</h3>
                 
                 <div className="performance-section">
@@ -250,54 +376,48 @@ function App() {
                   <ul>
                     {analysis.analysis.agentPerformance.areasForImprovement?.map((area, index) => (
                       <li key={index}>{area}</li>
-                    )) || <li>No improvement areas data available</li>}
+                    )) || <li>No improvement data available</li>}
                   </ul>
                 </div>
               </div>
             ) : (
-              <div className="result-block">
+              <div className="card">
                 <h3>Agent Performance</h3>
                 <p>No agent performance data available</p>
               </div>
             )}
             
-            {analysis.analysis.improvementSuggestions ? (
-              <div className="result-block">
-                <h3>Improvement Suggestions</h3>
-                <ul>
-                  {analysis.analysis.improvementSuggestions.map((suggestion, index) => (
-                    <li key={index}>{suggestion}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div className="result-block">
-                <h3>Improvement Suggestions</h3>
-                <p>No improvement suggestions available</p>
-              </div>
-            )}
-            
             {analysis.analysis.scorecard ? (
-              <div className="result-block">
-                <h3>Performance Scorecard</h3>
-                <div className="scorecard">
-                  {Object.entries(analysis.analysis.scorecard).map(([metric, score]) => (
-                    <div key={metric} className="score-item">
-                      <div className="metric-name">{metric}</div>
-                      <div className="score-bar-container">
-                        <div 
-                          className="score-bar" 
-                          style={{width: `${score * 10}%`, backgroundColor: getScoreColor(score)}}
-                        ></div>
-                        <span className="score-value">{score}/10</span>
+              <div className="card">
+                <h3>Scorecard</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                  {Object.entries(analysis.analysis.scorecard).map(([key, value]) => (
+                    <div key={key} style={{ textAlign: 'center', minWidth: '80px' }}>
+                      <div style={{
+                        height: '64px',
+                        width: '64px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto',
+                        fontSize: '24px',
+                        fontWeight: 'bold',
+                        color: 'white',
+                        background: getScoreColor(value)
+                      }}>
+                        {value}
+                      </div>
+                      <div style={{ marginTop: '8px', fontSize: '14px' }}>
+                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="result-block">
-                <h3>Performance Scorecard</h3>
+              <div className="card">
+                <h3>Scorecard</h3>
                 <p>No scorecard data available</p>
               </div>
             )}
@@ -307,89 +427,219 @@ function App() {
     </div>
   );
 
+  // Auth protection wrapper
+  const ProtectedRoute = ({ children }) => {
+    if (!isAuthenticated) {
+      return <Navigate to="/login" />;
+    }
+    return children;
+  };
+
   // Helper function to get color based on score
   const getScoreColor = (score) => {
-    if (score >= 8) return '#27ae60'; // Green for high scores
-    if (score >= 5) return '#f39c12'; // Orange for medium scores
-    return '#e74c3c'; // Red for low scores
+    if (score >= 9) return 'var(--success-color)';
+    if (score >= 7) return 'var(--primary-color)';
+    if (score >= 5) return 'var(--warning-color)';
+    return 'var(--error-color)';
   };
 
   return (
     <Router>
-      <div className="app-container">
-        <header className="app-header">
-          <div className="header-content">
-            <Link to="/" className="app-title">
-              <h1>AI Nectar Desk</h1>
-            </Link>
-            <p className="subtitle">Analyze call transcripts for better customer service</p>
-          </div>
-          <nav className="main-nav">
-            <ul>
-              <li>
-                <Link to="/" className="nav-link">
-                  Analyzer
+      <div className={`app-container ${isDarkMode ? 'dark' : ''}`}>
+        {isAuthenticated && (
+          <header className="app-header">
+            <div className="header-content">
+              <div className="header-left">
+                <Link to="/" className="app-title">
+                  <h1>AI Nectar Desk</h1>
                 </Link>
-              </li>
-              <li>
-                <Link to="/history" className="nav-link">
-                  History
-                </Link>
-              </li>
-              <li>
-                <Link to="/agents" className="nav-link">
-                  Agent Analytics
-                </Link>
-              </li>
-              <li className="settings-dropdown">
-                <button 
-                  className="nav-link settings-toggle" 
-                  onClick={toggleSettingsMenu}
-                >
-                  Settings
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    className={`settings-arrow ${settingsMenuOpen ? 'open' : ''}`}
-                  >
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </button>
-                {settingsMenuOpen && (
-                  <ul className="settings-menu">
-                    <li>
-                      <Link to="/call-types" onClick={() => setSettingsMenuOpen(false)}>
-                        Call Types
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/api" onClick={() => setSettingsMenuOpen(false)}>
-                        API Access
-                      </Link>
-                    </li>
-                  </ul>
-                )}
-              </li>
-            </ul>
-          </nav>
-        </header>
-
-        <Routes>
-          <Route path="/" element={<AnalyzerPage />} />
-          <Route path="/history" element={<TranscriptHistory />} />
-          <Route path="/transcript/:id" element={<TranscriptDetail />} />
-          <Route path="/call-types" element={<CallTypeManager />} />
-          <Route path="/agents" element={<AgentAnalytics />} />
-          <Route path="/api" element={<ApiPage />} />
-        </Routes>
+              </div>
+              
+              <nav className="header-center">
+                <ul className="nav-links">
+                  <li>
+                    <Link to="/" className="nav-link">Analyze</Link>
+                  </li>
+                  <li>
+                    <Link to="/history" className="nav-link">History</Link>
+                  </li>
+                  <li>
+                    <Link to="/call-types" className="nav-link">Call Types</Link>
+                  </li>
+                  {currentUser?.isMasterAdmin && (
+                    <>
+                      <li>
+                        <Link to="/organizations" className="nav-link">Organizations</Link>
+                      </li>
+                      <li>
+                        <Link to={`/organizations/${currentOrganization?.id || '1'}/users`} className="nav-link">Users</Link>
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </nav>
+              
+              <div className="header-right">
+                <OrganizationSelector 
+                  currentOrganization={currentOrganization}
+                  organizations={userOrganizations}
+                  onSelectOrganization={handleSwitchOrganization}
+                  isMasterAdmin={currentUser?.isMasterAdmin}
+                />
+                
+                <div className="user-menu">
+                  <div className="toggle-container" onClick={toggleDarkMode}>
+                    <input type="checkbox" className="toggle-input" checked={isDarkMode} onChange={() => {}} />
+                    <span className="toggle-slider"></span>
+                  </div>
+                  
+                  <div className="user-info">
+                    <span className="user-name">{currentUser?.firstName}</span>
+                    <button onClick={handleLogout} className="button button-subtle">Logout</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </header>
+        )}
+        
+        <main className="app-main">
+          <Routes>
+            <Route path="/login" element={
+              isAuthenticated ? 
+                <Navigate to="/" /> : 
+                <Login onLogin={handleLogin} />
+            } />
+            
+            <Route path="/" element={
+              <ProtectedRoute>
+                <AnalyzerPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/organizations" element={
+              <ProtectedRoute>
+                <OrganizationsPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/organizations/new" element={
+              <ProtectedRoute>
+                <NewOrganizationPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/history" element={<TranscriptHistory />} />
+            <Route path="/transcript/:id" element={<TranscriptDetail />} />
+            <Route path="/call-types" element={<CallTypeManager />} />
+            <Route path="/agents" element={<AgentAnalytics />} />
+            <Route path="/api" element={<ApiPage />} />
+            <Route path="/organizations/:organizationId/users" element={<UsersPage />} />
+            
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </main>
+        
+        <footer className="app-footer">
+          <p>AI Nectar Desk © {new Date().getFullYear()}</p>
+        </footer>
       </div>
+      
+      {/* Additional app styling */}
+      <style jsx>{`
+        .app-container {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .app-main {
+          flex: 1;
+        }
+        
+        .header-content {
+          width: 100%;
+          max-width: 1200px;
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        
+        .header-left, .header-right {
+          display: flex;
+          align-items: center;
+        }
+        
+        .user-menu {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-md);
+        }
+        
+        .user-info {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+        }
+        
+        .user-name {
+          font-weight: 500;
+        }
+        
+        .combined-input-container {
+          display: flex;
+          gap: var(--spacing-lg);
+          margin-bottom: var(--spacing-lg);
+        }
+        
+        .text-input-section, .audio-input-section {
+          flex: 1;
+          background-color: var(--card-background);
+          padding: var(--spacing-lg);
+          border-radius: var(--border-radius-md);
+          box-shadow: var(--shadow-md);
+        }
+        
+        .input-separator {
+          display: flex;
+          align-items: center;
+          font-weight: 500;
+          color: var(--apple-mid-gray);
+        }
+        
+        .action-container {
+          margin-top: var(--spacing-md);
+          display: flex;
+          justify-content: flex-end;
+        }
+        
+        .summary-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        
+        .summary-list li {
+          padding: var(--spacing-sm) 0;
+          border-bottom: 1px solid var(--border-color);
+        }
+        
+        .summary-list li:last-child {
+          border-bottom: none;
+        }
+        
+        @media (max-width: 768px) {
+          .combined-input-container {
+            flex-direction: column;
+          }
+          
+          .input-separator {
+            margin: var(--spacing-md) 0;
+            justify-content: center;
+          }
+        }
+      `}</style>
     </Router>
   );
 }
