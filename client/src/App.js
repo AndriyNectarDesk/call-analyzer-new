@@ -7,6 +7,8 @@ import './styles/appleDesign.css';
 import AudioUploader from './components/AudioUploader';
 import OrganizationSelector from './components/OrganizationSelector';
 import Login from './components/Login';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import OrganizationsPage from './pages/OrganizationsPage';
 import NewOrganizationPage from './pages/NewOrganizationPage';
 import TranscriptHistory from './components/TranscriptHistory';
@@ -564,6 +566,9 @@ function App() {
                 </div>
               ) : <Login onLogin={handleLogin} />)
             } />
+            
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             
             <Route path="/" element={
               <ProtectedRoute>

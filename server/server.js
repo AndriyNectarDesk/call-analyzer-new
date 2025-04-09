@@ -453,15 +453,15 @@ app.post('/api/analyze', async (req, res, next) => {
     try {
       const analysisData = sanitizeJson(jsonMatch[0]);
 
-      // Save transcript and analysis to database
-      const newTranscript = new Transcript({
-        rawTranscript: transcript,
+// Save transcript and analysis to database
+const newTranscript = new Transcript({
+  rawTranscript: transcript,
         analysis: analysisData,
         source: 'web',
         callType: callType || 'auto'
-      });
+});
 
-      await newTranscript.save();
+await newTranscript.save();
 
       return res.json({
         success: true,
@@ -579,11 +579,11 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
     } catch (jsonError) {
       console.error('Error parsing JSON from Claude response:', jsonError);
       console.error('Raw match content:', jsonMatch[0]);
-      return res.status(500).json({
+    return res.status(500).json({ 
         error: 'Failed to parse Claude JSON response',
         details: jsonError.message,
         transcript: transcript
-      });
+    });
     }
   } catch (error) {
     next(error); // Pass to the error handling middleware
@@ -1055,3 +1055,18 @@ app.use('/api/organizations', organizationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/transcripts', transcriptRoutes);
 app.use('/api/master-admin', masterAdminRoutes);
+
+const { emailService } = require('./services');
+
+// Check email service configuration on startup
+emailService.verifyEmailConfig()
+  .then(isConfigured => {
+    if (isConfigured) {
+      console.log('Email service is configured and ready');
+    } else {
+      console.log('Email service is not fully configured - password reset emails will not be sent');
+    }
+  })
+  .catch(err => {
+    console.error('Error checking email service configuration:', err);
+  });

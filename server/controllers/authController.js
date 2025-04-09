@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const Organization = require('../models/organization');
 const crypto = require('crypto');
+const { emailService } = require('../services');
 
 // Environment variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
@@ -280,8 +281,8 @@ exports.forgotPassword = async (req, res) => {
     user.passwordResetExpires = resetTokenExpiry;
     await user.save();
     
-    // In a real application, send email with reset link
-    // For now, just return the token in the response
+    // Send email with reset link
+    await emailService.sendPasswordResetEmail(user, resetToken);
     
     res.status(200).json({
       message: 'If your email exists in our system, you will receive password reset instructions',
