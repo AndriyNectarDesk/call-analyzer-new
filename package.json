@@ -6,6 +6,9 @@
     "install-server": "cd server && npm install"
   },
   "dependencies": {
-    "call-analyzer": "file:"
+    "bcryptjs": "^3.0.2",
+    "call-analyzer": "file:",
+    "crypto": "^1.0.1",
+    "jsonwebtoken": "^9.0.2"
   }
 }
