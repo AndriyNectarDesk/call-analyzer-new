@@ -284,7 +284,10 @@ function App() {
       <div className="analyzer-page">
         <div className="main-content">
           <div className="combined-input-container">
-            <form className="transcript-form" onSubmit={handleAnalyzeTranscript}>
+            <form className="transcript-form" onSubmit={(e) => {
+              e.preventDefault();
+              analyzeTranscript();
+            }}>
               <div className="form-group">
                 <label htmlFor="transcript">Paste call transcript:</label>
                 <textarea
