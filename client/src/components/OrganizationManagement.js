@@ -38,11 +38,46 @@ const OrganizationManagement = () => {
   const fetchOrganizations = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/master-admin/organizations');
+      
+      // Use environment variable for API URL if available
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Fetching organizations from:', `${apiUrl}/api/master-admin/organizations`);
+      
+      const response = await axios.get(`${apiUrl}/api/master-admin/organizations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('Organizations API Response:', response.data);
       setOrganizations(response.data);
       setError('');
     } catch (err) {
-      setError('Failed to fetch organizations. Please try again.');
+      console.error('Full error object:', err);
+      let errorMessage = 'Failed to fetch organizations: ';
+      
+      if (err.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        errorMessage += `Server responded with ${err.response.status}: ${err.response.data?.message || err.response.data?.error || JSON.stringify(err.response.data)}`;
+        console.error('Response data:', err.response.data);
+      } else if (err.request) {
+        // The request was made but no response was received
+        errorMessage += 'No response received from server. Please check your internet connection.';
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        errorMessage += err.message;
+      }
+      
+      setError(errorMessage);
       console.error('Error fetching organizations:', err);
     } finally {
       setLoading(false);
@@ -91,6 +126,16 @@ const OrganizationManagement = () => {
     try {
       setLoading(true);
       
+      // Get API URL and token
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        setLoading(false);
+        return;
+      }
+      
       // Convert numeric string values to numbers
       const dataToSubmit = {
         ...formData,
@@ -113,14 +158,25 @@ const OrganizationManagement = () => {
       
       if (isEditing) {
         // Update existing organization
-        response = await axios.put(`/api/master-admin/organizations/${editingId}`, {
+        console.log('Updating organization:', editingId);
+        response = await axios.put(`${apiUrl}/api/master-admin/organizations/${editingId}`, {
           name: dataToSubmit.name,
           code: dataToSubmit.code,
           active: dataToSubmit.active
+        }, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         });
         
         // Update subscription separately
-        await axios.put(`/api/master-admin/organizations/${editingId}/subscription`, subscriptionData);
+        await axios.put(`${apiUrl}/api/master-admin/organizations/${editingId}/subscription`, subscriptionData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
         
         setSuccessMessage('Organization updated successfully');
       } else {
@@ -137,7 +193,13 @@ const OrganizationManagement = () => {
           }
         };
         
-        response = await axios.post('/api/master-admin/organizations', newOrgData);
+        console.log('Creating new organization:', newOrgData);
+        response = await axios.post(`${apiUrl}/api/master-admin/organizations`, newOrgData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
         setSuccessMessage('Organization created successfully');
       }
       
@@ -148,7 +210,14 @@ const OrganizationManagement = () => {
       // Refresh organizations list
       fetchOrganizations();
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'An error occurred. Please try again.';
+      console.error('Full error object:', err);
+      let errorMessage = 'An error occurred. Please try again.';
+      
+      if (err.response) {
+        errorMessage = err.response.data?.message || errorMessage;
+        console.error('Response data:', err.response.data);
+      }
+      
       setError(errorMessage);
       console.error('Error submitting organization:', err);
     } finally {
@@ -177,9 +246,26 @@ const OrganizationManagement = () => {
     try {
       setLoading(true);
       
+      // Get API URL and token
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        setLoading(false);
+        return;
+      }
+      
       const newStatus = !org.active;
-      await axios.put(`/api/master-admin/organizations/${org._id}/status`, {
+      console.log(`Toggling organization ${org._id} status to ${newStatus}`);
+      
+      await axios.put(`${apiUrl}/api/master-admin/organizations/${org._id}/status`, {
         active: newStatus
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       setSuccessMessage(`Organization ${newStatus ? 'activated' : 'deactivated'} successfully`);
@@ -187,7 +273,14 @@ const OrganizationManagement = () => {
       // Refresh organizations list
       fetchOrganizations();
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'An error occurred. Please try again.';
+      console.error('Full error object:', err);
+      let errorMessage = 'An error occurred. Please try again.';
+      
+      if (err.response) {
+        errorMessage = err.response.data?.message || errorMessage;
+        console.error('Response data:', err.response.data);
+      }
+      
       setError(errorMessage);
       console.error('Error toggling organization status:', err);
     } finally {
