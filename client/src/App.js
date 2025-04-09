@@ -41,9 +41,10 @@ function App() {
       }
 
       try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/auth/me`, {
+        const apiUrl = process.env.REACT_APP_API_URL || '';
+        const response = await fetch(apiUrl + '/api/auth/me', {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': 'Bearer ' + token
           }
         });
 
@@ -59,9 +60,9 @@ function App() {
 
         // If user is master admin, fetch all organizations
         if (data.user.isMasterAdmin) {
-          const orgsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/master-admin/organizations`, {
+          const orgsResponse = await fetch(apiUrl + '/api/master-admin/organizations', {
             headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': 'Bearer ' + token
             }
           });
           
@@ -91,9 +92,8 @@ function App() {
   useEffect(() => {
     const fetchCallTypes = async () => {
       try {
-        // In real implementation, this would be organization-specific
-        // For now, use mock data
-        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/call-types`);
+        const apiUrl = process.env.REACT_APP_API_URL || '';
+        const response = await fetch(apiUrl + '/api/call-types');
         if (response.ok) {
           const data = await response.json();
           setAvailableCallTypes(data);
@@ -108,7 +108,8 @@ function App() {
 
   const handleLogin = async (email, password) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/auth/login`, {
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const response = await fetch(apiUrl + '/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,9 +133,9 @@ function App() {
       
       // If user is master admin, fetch all organizations
       if (data.user.isMasterAdmin) {
-        const orgsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/master-admin/organizations`, {
+        const orgsResponse = await fetch(apiUrl + '/api/master-admin/organizations', {
           headers: {
-            'Authorization': `Bearer ${data.token}`
+            'Authorization': 'Bearer ' + data.token
           }
         });
         
@@ -168,7 +169,6 @@ function App() {
 
   const handleSwitchOrganization = (org) => {
     setCurrentOrganization(org);
-    // In real implementation, may need to refresh data based on new organization
   };
 
   const toggleDarkMode = () => {
@@ -178,7 +178,6 @@ function App() {
   };
 
   const analyzeTranscript = async (e) => {
-    // Handle case where this is called directly from form submit
     if (e && e.preventDefault) {
       e.preventDefault();
     }
@@ -193,88 +192,73 @@ function App() {
     setAnalysis(null);
 
     try {
-      // Use environment variable for API URL if available
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/analyze`, {
+      const response = await fetch(apiUrl + '/api/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
         },
-        body: JSON.stringify({ 
-          transcript, 
-          callType,
-          organizationId: currentOrganization?.id
+        body: JSON.stringify({
+          transcript: transcript,
+          callType: callType,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to analyze transcript');
+        throw new Error('Failed to analyze transcript. Please try again.');
       }
 
       const data = await response.json();
       setAnalysis(data);
     } catch (err) {
-      setError('Error analyzing transcript: ' + (err.message || 'Please try again.'));
-      console.error('Transcript analysis error:', err);
+      console.error('Analysis error:', err);
+      setError(err.message || 'Failed to analyze transcript. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleAudioTranscribe = async (formData) => {
-    if (currentOrganization) {
-      formData.append('organizationId', currentOrganization.id);
-    }
-    
     setIsLoading(true);
     setError('');
-    setTranscript('');
     setAnalysis(null);
-
+    
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/transcribe`, {
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const fallbackUrl = 'http://localhost:3001';  // Fallback for local development
+      
+      // Add call type to the FormData
+      formData.append('callType', callType);
+      
+      const response = await fetch(apiUrl + '/api/transcribe' || fallbackUrl + '/api/transcribe', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
         },
-        body: formData,
+        body: formData
       });
-
-      const data = await response.json();
-      console.log("Received data from transcription API:", data);
       
       if (!response.ok) {
-        console.error("API Error:", data);
-        throw new Error(data.error || 'Failed to transcribe audio');
+        throw new Error('Failed to transcribe audio');
       }
+      
+      const data = await response.json();
       
       if (data.transcript) {
         setTranscript(data.transcript);
-        console.log("Transcript set:", data.transcript.substring(0, 100) + "...");
-      }
-      
-      if (data.analysis) {
-        console.log("Setting analysis data:", data.analysis);
-        setAnalysis(data);
         
-        // Save analysis ID for history tracking
-        if (data.id) {
-          console.log("Analysis saved with ID:", data.id);
-          // We could use this ID to redirect to history view later
+        if (data.analysis) {
+          setAnalysis(data.analysis);
+        } else {
+          setError('The audio was transcribed but could not be analyzed. Please try again.');
         }
       } else {
-        console.error("No analysis data in the response", data);
-        const errorMsg = data.details 
-          ? `The audio was transcribed but could not be analyzed: ${data.details}` 
-          : "The audio was transcribed but could not be analyzed. Please try again.";
-        setError(errorMsg);
+        setError('Failed to transcribe audio. Please try another file or method.');
       }
     } catch (err) {
-      setError('Error transcribing audio: ' + (err.message || 'Unknown error'));
-      console.error("Audio transcription error:", err);
+      console.error('Transcription error:', err);
+      setError(err.message || 'Failed to transcribe audio. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -282,310 +266,270 @@ function App() {
 
   const clearAll = () => {
     setTranscript('');
-    setCallType('auto');
     setAnalysis(null);
     setError('');
+    setCallType('auto');
   };
 
-  // Component for the main analyzer page
+  // Main analyzer page component
   const AnalyzerPage = () => {
     return (
       <div className="analyzer-page">
         <div className="main-content">
           <div className="combined-input-container">
-            <form className="transcript-form" onSubmit={analyzeTranscript}>
-              <div className="form-group">
-                <label htmlFor="transcript">Paste call transcript:</label>
-                <textarea
-                  id="transcript"
-                  className="transcript-input"
-                  value={transcript}
-                  onChange={(e) => setTranscript(e.target.value)}
-                  placeholder="Paste your call transcript here..."
-                  rows={10}
-                  required
-                ></textarea>
-              </div>
-              
-              <div className="call-type-selector">
-                <label>Call type:</label>
-                <div className="call-type-buttons">
-                  {(availableCallTypes && availableCallTypes.length > 0) ? availableCallTypes.map(type => (
-                    <button
-                      key={type._id || type.code}
-                      type="button"
-                      className={`call-type-button ${callType === type.code ? 'selected' : ''}`}
-                      onClick={() => setCallType(type.code)}
-                    >
-                      {type.name}
-                    </button>
-                  )) : (
-                    <button
-                      type="button"
-                      className={`call-type-button ${callType === 'auto' ? 'selected' : ''}`}
-                      onClick={() => setCallType('auto')}
-                    >
-                      Auto-detect
-                    </button>
-                  )}
+            <div className="text-input-section">
+              <h2>Text Transcript</h2>
+              <form onSubmit={analyzeTranscript}>
+                <div className="form-group">
+                  <label htmlFor="transcript">Call Transcript</label>
+                  <textarea
+                    id="transcript"
+                    className="transcript-input"
+                    value={transcript}
+                    onChange={(e) => setTranscript(e.target.value)}
+                    placeholder="Paste your call transcript here..."
+                    rows={10}
+                    disabled={isLoading}
+                  ></textarea>
                 </div>
-              </div>
-              
-              <button 
-                type="submit" 
-                className="analyze-button"
-                disabled={isLoading || !transcript.trim()}
-              >
-                {isLoading ? 'Analyzing...' : 'Analyze Call'}
-              </button>
-              
-              <div className="version-info">
-                Version 2.1 - Multi-tenant Edition (Updated: {new Date().toLocaleDateString()})
-              </div>
-            </form>
-            
-            <div className="input-separator">
-              <span>OR</span>
+                
+                <div className="form-group">
+                  <label htmlFor="callType">Call Type</label>
+                  <select
+                    id="callType"
+                    value={callType}
+                    onChange={(e) => setCallType(e.target.value)}
+                    className="select"
+                    disabled={isLoading}
+                  >
+                    <option value="auto">Auto-detect</option>
+                    {availableCallTypes.map(type => (
+                      <option key={type.id} value={type.id}>{type.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="action-container">
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={clearAll}
+                    disabled={isLoading || (!transcript && !analysis)}
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="submit"
+                    className="button"
+                    disabled={isLoading || !transcript.trim()}
+                  >
+                    {isLoading ? 'Analyzing...' : 'Analyze Call'}
+                  </button>
+                </div>
+              </form>
             </div>
             
-            <div className="audio-upload-container">
-              <AudioUploader onTranscribe={handleAudioTranscribe} />
+            <div className="input-separator">
+              OR
+            </div>
+            
+            <div className="audio-input-section">
+              <h2>Audio Upload</h2>
+              <AudioUploader
+                onTranscribe={handleAudioTranscribe}
+                isLoading={isLoading}
+              />
             </div>
           </div>
           
-          {error && <div className="error-message">{error}</div>}
-          
-          {isLoading && (
-            <div className="loading-container">
-              <div className="loading-spinner"></div>
-              <p>Analyzing your call transcript...</p>
-            </div>
-          )}
-          
-          {!isLoading && analysis && (
-            <div className="analysis-results">
-              <h2>Call Analysis Results</h2>
-              
-              <div className="results-container">
-                <div className="summary-section">
-                  <h3>Call Summary</h3>
-                  <p>{analysis.analysis.callSummary}</p>
+          <div className="results-section">
+            {error && (
+              <div className="error-message">
+                {error}
+              </div>
+            )}
+            
+            {isLoading && (
+              <div className="loading-container">
+                <div className="spinner"></div>
+                <p>Analyzing your call...</p>
+              </div>
+            )}
+            
+            {analysis && !isLoading && !error && (
+              <div className="analysis-container">
+                <h2>Call Summary</h2>
+                
+                <div className="summary-card">
+                  <h3>Overview</h3>
+                  <p>{analysis.summary}</p>
                 </div>
                 
-                <div className="agent-section">
-                  <h3>Agent Performance</h3>
-                  
-                  <div className="agent-metrics">
-                    <div className="metric">
-                      <h4>Strengths</h4>
-                      <ul>
-                        {analysis.analysis.agentPerformance.strengths.map((strength, index) => (
-                          <li key={index}>{strength}</li>
-                        ))}
-                      </ul>
+                <div className="metrics-grid">
+                  <div className="metric-card">
+                    <h3>Sentiment</h3>
+                    <div className="score-display">
+                      <div className="score-indicator" style={{
+                        backgroundColor: getScoreColor(analysis.sentiment)
+                      }}></div>
+                      <span>{analysis.sentiment >= 0.7 ? 'Positive' : analysis.sentiment <= 0.3 ? 'Negative' : 'Neutral'}</span>
                     </div>
-                    
-                    <div className="metric">
-                      <h4>Areas for Improvement</h4>
-                      <ul>
-                        {analysis.analysis.agentPerformance.areasForImprovement.map((area, index) => (
-                          <li key={index}>{area}</li>
-                        ))}
-                      </ul>
+                  </div>
+                  
+                  <div className="metric-card">
+                    <h3>Customer Satisfaction</h3>
+                    <div className="score-display">
+                      <div className="score-indicator" style={{
+                        backgroundColor: getScoreColor(analysis.customerSatisfaction)
+                      }}></div>
+                      <span>{Math.round(analysis.customerSatisfaction * 100)}%</span>
+                    </div>
+                  </div>
+                  
+                  <div className="metric-card">
+                    <h3>Agent Performance</h3>
+                    <div className="score-display">
+                      <div className="score-indicator" style={{
+                        backgroundColor: getScoreColor(analysis.agentPerformance)
+                      }}></div>
+                      <span>{Math.round(analysis.agentPerformance * 100)}%</span>
+                    </div>
+                  </div>
+                  
+                  <div className="metric-card">
+                    <h3>Call Efficiency</h3>
+                    <div className="score-display">
+                      <div className="score-indicator" style={{
+                        backgroundColor: getScoreColor(analysis.callEfficiency)
+                      }}></div>
+                      <span>{Math.round(analysis.callEfficiency * 100)}%</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="suggestions-section">
-                  <h3>Improvement Suggestions</h3>
-                  <ul>
-                    {analysis.analysis.improvementSuggestions.map((suggestion, index) => (
-                      <li key={index}>{suggestion}</li>
+                <div className="insights-card">
+                  <h3>Key Insights</h3>
+                  <ul className="summary-list">
+                    {analysis.keyInsights.map((insight, index) => (
+                      <li key={index}>{insight}</li>
                     ))}
                   </ul>
                 </div>
                 
-                <div className="scorecard-section">
-                  <h3>Performance Scorecard</h3>
-                  <div className="scorecard">
-                    <div className="score-item">
-                      <span className="score-label">Customer Service</span>
-                      <div className="score-bar-container">
-                        <div 
-                          className="score-bar" 
-                          style={{width: `${analysis.analysis.scorecard.customerService * 10}%`}}
-                        ></div>
-                        <span className="score-value">{analysis.analysis.scorecard.customerService}/10</span>
-                      </div>
-                    </div>
-                    
-                    <div className="score-item">
-                      <span className="score-label">Product Knowledge</span>
-                      <div className="score-bar-container">
-                        <div 
-                          className="score-bar" 
-                          style={{width: `${analysis.analysis.scorecard.productKnowledge * 10}%`}}
-                        ></div>
-                        <span className="score-value">{analysis.analysis.scorecard.productKnowledge}/10</span>
-                      </div>
-                    </div>
-                    
-                    <div className="score-item">
-                      <span className="score-label">Process Efficiency</span>
-                      <div className="score-bar-container">
-                        <div 
-                          className="score-bar" 
-                          style={{width: `${analysis.analysis.scorecard.processEfficiency * 10}%`}}
-                        ></div>
-                        <span className="score-value">{analysis.analysis.scorecard.processEfficiency}/10</span>
-                      </div>
-                    </div>
-                    
-                    <div className="score-item">
-                      <span className="score-label">Problem Solving</span>
-                      <div className="score-bar-container">
-                        <div 
-                          className="score-bar" 
-                          style={{width: `${analysis.analysis.scorecard.problemSolving * 10}%`}}
-                        ></div>
-                        <span className="score-value">{analysis.analysis.scorecard.problemSolving}/10</span>
-                      </div>
-                    </div>
-                    
-                    <div className="score-item overall-score">
-                      <span className="score-label">Overall Score</span>
-                      <div className="score-bar-container">
-                        <div 
-                          className="score-bar" 
-                          style={{width: `${analysis.analysis.scorecard.overallScore * 10}%`}}
-                        ></div>
-                        <span className="score-value">{analysis.analysis.scorecard.overallScore}/10</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="action-items-card">
+                  <h3>Recommended Actions</h3>
+                  <ul className="summary-list">
+                    {analysis.actionItems.map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     );
   };
 
-  // Auth protection wrapper
+  // Protected route component
   const ProtectedRoute = ({ children }) => {
-    if (!isAuthenticated) {
-      return <Navigate to="/login" />;
-    }
-    return children;
+    return isAuthenticated ? children : <Navigate to="/login" />;
   };
 
   // Helper function to get color based on score
   const getScoreColor = (score) => {
-    if (score >= 9) return 'var(--success-color)';
-    if (score >= 7) return 'var(--primary-color)';
-    if (score >= 5) return 'var(--warning-color)';
-    return 'var(--error-color)';
+    if (score >= 0.7) return 'var(--apple-green)';
+    if (score >= 0.5) return 'var(--apple-yellow)';
+    return 'var(--apple-red)';
   };
 
   return (
     <Router>
-      <div className={`app-container ${isDarkMode ? 'dark' : ''}`}>
-        {isAuthenticated && (
+      <div className="app-container">
+        {isAuthenticated ? (
           <header className="app-header">
             <div className="header-content">
               <div className="header-left">
-                <Link to="/" className="app-title">
-                  <h1>AI Nectar Desk</h1>
+                <Link to="/" className="logo">
+                  AI Nectar Desk
                 </Link>
+                
+                <nav className="main-nav">
+                  <ul>
+                    <li>
+                      <Link to="/">Analyze</Link>
+                    </li>
+                    <li>
+                      <Link to="/history">History</Link>
+                    </li>
+                    <li>
+                      <Link to="/call-types">Call Types</Link>
+                    </li>
+                    {currentUser && currentUser.role === 'admin' && (
+                      <>
+                        <li>
+                          <Link to="/agents">Agent Analytics</Link>
+                        </li>
+                        <li>
+                          <Link to="/api">API</Link>
+                        </li>
+                      </>
+                    )}
+                    {currentUser && currentUser.isMasterAdmin && (
+                      <li>
+                        <Link to={'/organizations/' + (currentOrganization?.id || '1') + '/users'}>Users</Link>
+                      </li>
+                    )}
+                  </ul>
+                </nav>
               </div>
               
-              <nav className="header-center">
-                <ul className="nav-links">
-                  <li>
-                    <Link to="/" className="nav-link">Analyze</Link>
-                  </li>
-                  <li>
-                    <Link to="/history" className="nav-link">History</Link>
-                  </li>
-                  <li>
-                    <Link to="/call-types" className="nav-link">Call Types</Link>
-                  </li>
-                  {currentUser?.isMasterAdmin && (
-                    <>
-                      <li>
-                        <Link to="/organizations" className="nav-link">Organizations</Link>
-                      </li>
-                      <li>
-                        <Link to={`/organizations/${currentOrganization?.id || '1'}/users`} className="nav-link">Users</Link>
-                      </li>
-                      <li>
-                        <Link to="/admin" className="nav-link">Admin Dashboard</Link>
-                      </li>
-                    </>
-                  )}
-                </ul>
-              </nav>
-              
               <div className="header-right">
-                <OrganizationSelector 
-                  currentOrganization={currentOrganization}
-                  organizations={userOrganizations}
-                  onSelectOrganization={handleSwitchOrganization}
-                  isMasterAdmin={currentUser?.isMasterAdmin}
-                />
+                {userOrganizations.length > 0 && (
+                  <OrganizationSelector
+                    organizations={userOrganizations}
+                    currentOrganization={currentOrganization}
+                    onSwitchOrganization={handleSwitchOrganization}
+                  />
+                )}
                 
                 <div className="user-menu">
-                  <div className="toggle-container" onClick={toggleDarkMode}>
-                    <input type="checkbox" className="toggle-input" checked={isDarkMode} onChange={() => {}} />
-                    <span className="toggle-slider"></span>
-                  </div>
+                  {currentUser && (
+                    <div className="user-info">
+                      <span className="user-name">{currentUser.firstName}</span>
+                    </div>
+                  )}
                   
-                  <div className="user-info">
-                    <span className="user-name">{currentUser?.firstName}</span>
-                    <button onClick={handleLogout} className="button button-subtle">Logout</button>
-                  </div>
+                  <button
+                    className="icon-button"
+                    title="Toggle Dark Mode"
+                    onClick={toggleDarkMode}
+                  >
+                    {isDarkMode ? '☀️' : '🌙'}
+                  </button>
+                  
+                  <button
+                    className="button button-subtle"
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </button>
                 </div>
               </div>
             </div>
           </header>
-        )}
+        ) : null}
         
         <main className="app-main">
           <Routes>
             <Route path="/login" element={
-              isAuthenticated ? 
-                <Navigate to="/" /> : 
-                <Login onLogin={handleLogin} />
+              isAuthenticated ? <Navigate to="/" /> : <Login onLogin={handleLogin} />
             } />
             
             <Route path="/" element={
               <ProtectedRoute>
                 <AnalyzerPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/organizations" element={
-              <ProtectedRoute>
-                <OrganizationsPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/organizations/new" element={
-              <ProtectedRoute>
-                <NewOrganizationPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/organizations/:id" element={
-              <ProtectedRoute>
-                <OrganizationDetails />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin" element={
-              <ProtectedRoute>
-                <MasterAdminDashboard />
               </ProtectedRoute>
             } />
             
@@ -603,105 +547,9 @@ function App() {
         </main>
         
         <footer className="app-footer">
-          <p>AI Nectar Desk © {new Date().getFullYear()}</p>
+          <p>AI Nectar Desk © 2023</p>
         </footer>
       </div>
-      
-      {/* Additional app styling */}
-      <style jsx>{`
-        .app-container {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .app-main {
-          flex: 1;
-        }
-        
-        .header-content {
-          width: 100%;
-          max-width: 1200px;
-          margin: 0 auto;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        
-        .header-left, .header-right {
-          display: flex;
-          align-items: center;
-        }
-        
-        .user-menu {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-md);
-        }
-        
-        .user-info {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-sm);
-        }
-        
-        .user-name {
-          font-weight: 500;
-        }
-        
-        .combined-input-container {
-          display: flex;
-          gap: var(--spacing-lg);
-          margin-bottom: var(--spacing-lg);
-        }
-        
-        .text-input-section, .audio-input-section {
-          flex: 1;
-          background-color: var(--card-background);
-          padding: var(--spacing-lg);
-          border-radius: var(--border-radius-md);
-          box-shadow: var(--shadow-md);
-        }
-        
-        .input-separator {
-          display: flex;
-          align-items: center;
-          font-weight: 500;
-          color: var(--apple-mid-gray);
-        }
-        
-        .action-container {
-          margin-top: var(--spacing-md);
-          display: flex;
-          justify-content: flex-end;
-        }
-        
-        .summary-list {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-        }
-        
-        .summary-list li {
-          padding: var(--spacing-sm) 0;
-          border-bottom: 1px solid var(--border-color);
-        }
-        
-        .summary-list li:last-child {
-          border-bottom: none;
-        }
-        
-        @media (max-width: 768px) {
-          .combined-input-container {
-            flex-direction: column;
-          }
-          
-          .input-separator {
-            margin: var(--spacing-md) 0;
-            justify-content: center;
-          }
-        }
-      `}</style>
     </Router>
   );
 }
