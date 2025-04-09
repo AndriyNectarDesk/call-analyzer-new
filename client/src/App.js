@@ -175,7 +175,12 @@ function App() {
     document.body.classList.toggle('dark', newDarkMode);
   };
 
-  const analyzeTranscript = async () => {
+  const analyzeTranscript = async (e) => {
+    // Handle case where this is called directly from form submit
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    
     if (!transcript.trim()) {
       setError('Please enter a call transcript');
       return;
@@ -183,6 +188,7 @@ function App() {
 
     setIsLoading(true);
     setError('');
+    setAnalysis(null);
 
     try {
       // Use environment variable for API URL if available
@@ -201,14 +207,15 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to analyze transcript');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to analyze transcript');
       }
 
       const data = await response.json();
       setAnalysis(data);
     } catch (err) {
-      setError('Error analyzing transcript. Please try again.');
-      console.error(err);
+      setError('Error analyzing transcript: ' + (err.message || 'Please try again.'));
+      console.error('Transcript analysis error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -284,10 +291,7 @@ function App() {
       <div className="analyzer-page">
         <div className="main-content">
           <div className="combined-input-container">
-            <form className="transcript-form" onSubmit={(e) => {
-              e.preventDefault();
-              analyzeTranscript();
-            }}>
+            <form className="transcript-form" onSubmit={analyzeTranscript}>
               <div className="form-group">
                 <label htmlFor="transcript">Paste call transcript:</label>
                 <textarea
@@ -304,16 +308,24 @@ function App() {
               <div className="call-type-selector">
                 <label>Call type:</label>
                 <div className="call-type-buttons">
-                  {availableCallTypes.map(type => (
+                  {(availableCallTypes && availableCallTypes.length > 0) ? availableCallTypes.map(type => (
                     <button
-                      key={type._id}
+                      key={type._id || type.code}
                       type="button"
                       className={`call-type-button ${callType === type.code ? 'selected' : ''}`}
                       onClick={() => setCallType(type.code)}
                     >
                       {type.name}
                     </button>
-                  ))}
+                  )) : (
+                    <button
+                      type="button"
+                      className={`call-type-button ${callType === 'auto' ? 'selected' : ''}`}
+                      onClick={() => setCallType('auto')}
+                    >
+                      Auto-detect
+                    </button>
+                  )}
                 </div>
               </div>
               
