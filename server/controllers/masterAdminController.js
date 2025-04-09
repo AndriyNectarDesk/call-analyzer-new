@@ -258,4 +258,117 @@ exports.resetUserPassword = async (req, res) => {
     console.error('Error resetting user password:', error);
     res.status(500).json({ message: 'Failed to reset password' });
   }
+};
+
+// Create a new Master Admin user
+exports.createMasterAdminUser = async (req, res) => {
+  try {
+    const { email, firstName, lastName, password } = req.body;
+    
+    // Validate required fields
+    if (!email || !firstName || !lastName || !password) {
+      return res.status(400).json({ message: 'Required fields missing' });
+    }
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already in use' });
+    }
+    
+    // Create new master admin user
+    const newUser = new User({
+      email,
+      firstName,
+      lastName,
+      password, // Will be hashed by the model's pre-save hook
+      role: 'admin', // Master admins are also admins
+      organizationId: null, // Master admins don't belong to any specific organization
+      isMasterAdmin: true
+    });
+    
+    await newUser.save();
+    
+    // Return the new user without password
+    const userResponse = newUser.toObject();
+    delete userResponse.password;
+    
+    res.status(201).json(userResponse);
+  } catch (error) {
+    console.error('Error creating master admin user:', error);
+    res.status(500).json({ message: 'Failed to create master admin user' });
+  }
+};
+
+// Get all Master Admin users
+exports.getAllMasterAdmins = async (req, res) => {
+  try {
+    const masterAdmins = await User.find({ isMasterAdmin: true })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    res.json(masterAdmins);
+  } catch (error) {
+    console.error('Error getting master admin users:', error);
+    res.status(500).json({ message: 'Failed to retrieve master admin users' });
+  }
+};
+
+// Update Master Admin user
+exports.updateMasterAdmin = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { firstName, lastName, isActive } = req.body;
+    
+    // Check if user exists and is a master admin
+    const masterAdmin = await User.findOne({ _id: userId, isMasterAdmin: true });
+    if (!masterAdmin) {
+      return res.status(404).json({ message: 'Master Admin user not found' });
+    }
+    
+    // Prepare update object
+    const updates = {};
+    if (firstName) updates.firstName = firstName;
+    if (lastName) updates.lastName = lastName;
+    if (isActive !== undefined) updates.isActive = isActive;
+    
+    // Update the user
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Error updating master admin user:', error);
+    res.status(500).json({ message: 'Failed to update master admin user' });
+  }
+};
+
+// Reset Master Admin password
+exports.resetMasterAdminPassword = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { newPassword } = req.body;
+    
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    }
+    
+    // Find the user
+    const masterAdmin = await User.findOne({ _id: userId, isMasterAdmin: true });
+    if (!masterAdmin) {
+      return res.status(404).json({ message: 'Master Admin user not found' });
+    }
+    
+    // Update password
+    masterAdmin.password = newPassword; // Will be hashed by the model's pre-save hook
+    await masterAdmin.save();
+    
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Error resetting master admin password:', error);
+    res.status(500).json({ message: 'Failed to reset password' });
+  }
 }; 

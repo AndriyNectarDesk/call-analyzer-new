@@ -19,4 +19,10 @@ router.get('/organizations/:id/users/:userId', masterAdminController.getOrganiza
 router.put('/organizations/:id/users/:userId', masterAdminController.updateOrganizationUser);
 router.post('/organizations/:id/users/:userId/reset-password', masterAdminController.resetUserPassword);
 
+// Master Admin user management routes
+router.get('/master-admins', masterAdminController.getAllMasterAdmins);
+router.post('/master-admins', masterAdminController.createMasterAdminUser);
+router.put('/master-admins/:id', masterAdminController.updateMasterAdmin);
+router.post('/master-admins/:id/reset-password', masterAdminController.resetMasterAdminPassword);
+
 module.exports = router; 

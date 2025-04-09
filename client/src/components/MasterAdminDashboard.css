@@ -138,4 +138,33 @@ th {
   background: #ffe3e3;
   border-radius: 8px;
   margin: 1rem;
+}
+
+/* Add the following CSS for dashboard tabs */
+.dashboard-tabs {
+  display: flex;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab-button {
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: var(--primary-color);
+}
+
+.tab-button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
 } 
