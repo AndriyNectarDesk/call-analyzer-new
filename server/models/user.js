@@ -83,7 +83,6 @@ UserSchema.methods.getFullName = function() {
 };
 
 // Indexes for faster queries
-UserSchema.index({ email: 1 });
 UserSchema.index({ organizationId: 1 });
 UserSchema.index({ isMasterAdmin: 1 });
 
