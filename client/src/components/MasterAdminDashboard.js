@@ -22,7 +22,16 @@ const MasterAdminDashboard = () => {
 
   const fetchOrganizations = async () => {
     try {
-      const response = await axios.get('/api/master-admin/organizations');
+      // Use environment variable for API URL if available
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const token = localStorage.getItem('auth_token');
+      
+      const response = await axios.get(`${apiUrl}/api/master-admin/organizations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
       setOrganizations(response.data);
       
       // Calculate stats
@@ -37,7 +46,7 @@ const MasterAdminDashboard = () => {
         totalTranscripts
       });
     } catch (err) {
-      setError('Failed to fetch organizations');
+      setError('Failed to fetch organizations: ' + (err.response?.data?.message || err.message));
       console.error('Error fetching organizations:', err);
     } finally {
       setLoading(false);
@@ -46,7 +55,7 @@ const MasterAdminDashboard = () => {
 
   const handleOrganizationClick = (org) => {
     setSelectedOrganization(org);
-    navigate(`/master-admin/organizations/${org._id}`);
+    navigate(`/organizations/${org._id}`);
   };
 
   const getSubscriptionBadge = (tier, status) => {
