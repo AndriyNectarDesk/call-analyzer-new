@@ -1056,17 +1056,22 @@ app.use('/api/users', userRoutes);
 app.use('/api/transcripts', transcriptRoutes);
 app.use('/api/master-admin', masterAdminRoutes);
 
-const { emailService } = require('./services');
-
-// Check email service configuration on startup
-emailService.verifyEmailConfig()
-  .then(isConfigured => {
-    if (isConfigured) {
-      console.log('Email service is configured and ready');
-    } else {
-      console.log('Email service is not fully configured - password reset emails will not be sent');
-    }
-  })
-  .catch(err => {
-    console.error('Error checking email service configuration:', err);
-  });
+let emailService;
+try {
+  emailService = require('./services').emailService;
+  
+  emailService.verifyEmailConfig()
+    .then(isConfigured => {
+      if (isConfigured) {
+        console.log('Email service is configured and ready');
+      } else {
+        console.log('Email service is not fully configured - password reset emails will not be sent');
+      }
+    })
+    .catch(err => {
+      console.error('Error checking email service configuration:', err);
+    });
+} catch (error) {
+  console.error('Failed to initialize email service:', error.message);
+  console.log('The application will continue without email functionality');
+}

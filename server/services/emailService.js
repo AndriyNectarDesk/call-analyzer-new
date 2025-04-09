@@ -1,4 +1,16 @@
-const nodemailer = require('nodemailer');
+let nodemailer;
+try {
+  nodemailer = require('nodemailer');
+} catch (error) {
+  console.error('Failed to load nodemailer:', error.message);
+  // Create a fallback version of nodemailer that doesn't crash the app
+  nodemailer = {
+    createTransport: () => ({
+      verify: () => Promise.resolve(false),
+      sendMail: () => Promise.resolve({ messageId: 'mock-email-id' })
+    })
+  };
+}
 
 // Get email configuration from environment variables
 const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
@@ -21,13 +33,13 @@ const transporter = nodemailer.createTransport({
 
 // Test email configuration on startup
 const verifyEmailConfig = async () => {
-  // Skip verification if credentials are not available (development/testing)
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.log('Email service: No credentials provided, skipping verification.');
-    return false;
-  }
-  
   try {
+    // Skip verification if credentials are not available (development/testing)
+    if (!EMAIL_USER || !EMAIL_PASS) {
+      console.log('Email service: No credentials provided, skipping verification.');
+      return false;
+    }
+    
     await transporter.verify();
     console.log('Email service: Ready to send emails');
     return true;
@@ -39,13 +51,13 @@ const verifyEmailConfig = async () => {
 
 // Send email with provided options
 const sendEmail = async (options) => {
-  // Skip sending if credentials are not available (development/testing)
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.log('Email not sent (development mode):', options.subject);
-    return false;
-  }
-  
   try {
+    // Skip sending if credentials are not available (development/testing)
+    if (!EMAIL_USER || !EMAIL_PASS) {
+      console.log('Email not sent (development mode):', options.subject);
+      return false;
+    }
+    
     const result = await transporter.sendMail({
       from: `"AI Nectar Desk" <${EMAIL_FROM}>`,
       to: options.to,
@@ -64,49 +76,54 @@ const sendEmail = async (options) => {
 
 // Send password reset email
 const sendPasswordResetEmail = async (user, resetToken) => {
-  const resetUrl = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
-  
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #4a69bd;">Reset Your Password</h2>
-      <p>Hello ${user.firstName},</p>
-      <p>We received a request to reset your password for your AI Nectar Desk account.</p>
-      <p>To reset your password, click the button below:</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${resetUrl}" style="background-color: #4a69bd; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">
-          Reset Password
-        </a>
+  try {
+    const resetUrl = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #4a69bd;">Reset Your Password</h2>
+        <p>Hello ${user.firstName},</p>
+        <p>We received a request to reset your password for your AI Nectar Desk account.</p>
+        <p>To reset your password, click the button below:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" style="background-color: #4a69bd; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+            Reset Password
+          </a>
+        </div>
+        <p>If you didn't request this password reset, you can safely ignore this email.</p>
+        <p>This link is valid for 1 hour.</p>
+        <p>Thanks,<br/>The AI Nectar Desk Team</p>
       </div>
-      <p>If you didn't request this password reset, you can safely ignore this email.</p>
-      <p>This link is valid for 1 hour.</p>
-      <p>Thanks,<br/>The AI Nectar Desk Team</p>
-    </div>
-  `;
-  
-  const text = `
-    Reset Your Password
+    `;
     
-    Hello ${user.firstName},
+    const text = `
+      Reset Your Password
+      
+      Hello ${user.firstName},
+      
+      We received a request to reset your password for your AI Nectar Desk account.
+      
+      To reset your password, visit this link:
+      ${resetUrl}
+      
+      If you didn't request this password reset, you can safely ignore this email.
+      
+      This link is valid for 1 hour.
+      
+      Thanks,
+      The AI Nectar Desk Team
+    `;
     
-    We received a request to reset your password for your AI Nectar Desk account.
-    
-    To reset your password, visit this link:
-    ${resetUrl}
-    
-    If you didn't request this password reset, you can safely ignore this email.
-    
-    This link is valid for 1 hour.
-    
-    Thanks,
-    The AI Nectar Desk Team
-  `;
-  
-  return await sendEmail({
-    to: user.email,
-    subject: 'Reset Your AI Nectar Desk Password',
-    text,
-    html
-  });
+    return await sendEmail({
+      to: user.email,
+      subject: 'Reset Your AI Nectar Desk Password',
+      text,
+      html
+    });
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    return false;
+  }
 };
 
 module.exports = {
