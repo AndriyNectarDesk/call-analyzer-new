@@ -338,7 +338,7 @@ function App() {
               </button>
               
               <div className="version-info">
-                Version 2.0 - Multi-tenant Edition
+                Version 2.1 - Multi-tenant Edition (Updated: {new Date().toLocaleDateString()})
               </div>
             </form>
             
