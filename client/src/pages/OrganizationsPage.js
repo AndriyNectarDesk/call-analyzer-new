@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import '../styles/appleDesign.css';
 
 // Icons
@@ -50,57 +51,35 @@ const OrganizationsPage = () => {
       try {
         setIsLoading(true);
         
-        // Would be replaced with actual API call in real implementation
-        // const response = await fetch('/api/organizations/all');
-        // const data = await response.json();
+        const apiUrl = process.env.REACT_APP_API_URL || '';
+        const token = localStorage.getItem('auth_token');
         
-        // For demo, using mock data
-        const mockData = [
-          {
-            id: '1',
-            name: 'Acme Corporation',
-            code: 'acme',
-            subscriptionTier: 'enterprise',
-            contactEmail: 'admin@acme.com',
-            usersCount: 24,
-            apiKeysCount: 3,
-            status: 'active',
-            createdAt: '2023-06-15T10:30:00Z'
-          },
-          {
-            id: '2',
-            name: 'Smith & Partners',
-            code: 'smith',
-            subscriptionTier: 'professional',
-            contactEmail: 'john@smithpartners.com',
-            usersCount: 10,
-            apiKeysCount: 1,
-            status: 'active',
-            createdAt: '2023-08-22T14:45:00Z'
-          },
-          {
-            id: '3',
-            name: 'Tech Innovators',
-            code: 'techinno',
-            subscriptionTier: 'trial',
-            contactEmail: 'support@techinnovators.com',
-            usersCount: 3,
-            apiKeysCount: 1,
-            status: 'active',
-            createdAt: '2023-12-05T09:15:00Z'
-          }
-        ];
-        
-        // Simulate API delay
-        setTimeout(() => {
-          setOrganizations(mockData);
+        if (!token) {
+          setError('Authentication token not found. Please log in again.');
           setIsLoading(false);
-        }, 800);
+          return;
+        }
         
-      } catch (err) {
-        setError('Failed to load organizations');
+        // Call the same endpoint as the Master Admin Dashboard to ensure consistency
+        const response = await axios.get(`${apiUrl}/api/master-admin/organizations`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        console.log('Organizations API response:', response.data);
+        setOrganizations(response.data);
         setIsLoading(false);
-        console.error('Error fetching organizations:', err);
+      } catch (err) {
+        console.error('Full error:', err);
+        let errorMessage = 'Failed to load organizations';
+        
+        if (err.response) {
+          errorMessage += `: ${err.response.status} - ${err.response.data?.message || err.response.data?.error || JSON.stringify(err.response.data)}`;
+        }
+        
+        setError(errorMessage);
+        setIsLoading(false);
       }
     };
     
@@ -111,6 +90,26 @@ const OrganizationsPage = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+  };
+  
+  // Helper function to get badge class based on subscription tier
+  const getTierBadgeClass = (tier) => {
+    if (!tier) return 'secondary';
+    
+    switch (tier.toLowerCase()) {
+      case 'premium':
+      case 'enterprise':
+        return 'success';
+      case 'professional':
+      case 'business':
+        return 'primary';
+      case 'basic':
+        return 'secondary';
+      case 'trial':
+        return 'warning';
+      default:
+        return 'secondary';
+    }
   };
   
   return (
@@ -153,36 +152,36 @@ const OrganizationsPage = () => {
               </div>
             ) : (
               organizations.map(org => (
-                <div key={org.id} className="table-row">
+                <div key={org._id} className="table-row">
                   <div className="cell name-cell">
-                    <Link to={`/organizations/${org.id}`} className="org-name-link">
+                    <Link to={`/organizations/${org._id}`} className="org-name-link">
                       <span className="org-name">{org.name}</span>
                       <span className="org-code">{org.code}</span>
                     </Link>
                   </div>
                   <div className="cell tier-cell">
                     <span className={`badge badge-${getTierBadgeClass(org.subscriptionTier)}`}>
-                      {org.subscriptionTier}
+                      {org.subscriptionTier || 'free'}
                     </span>
                   </div>
                   <div className="cell users-cell">
-                    {org.usersCount}
+                    {org.usageStats?.totalUsers || 0}
                   </div>
                   <div className="cell date-cell">
                     {formatDate(org.createdAt)}
                   </div>
                   <div className="cell actions-cell">
                     <div className="actions-buttons">
-                      <Link to={`/organizations/${org.id}/edit`} className="action-button" title="Edit Organization">
+                      <Link to={`/organizations/${org._id}/edit`} className="action-button" title="Edit Organization">
                         <EditIcon />
                       </Link>
-                      <Link to={`/organizations/${org.id}/api-keys`} className="action-button" title="Manage API Keys">
+                      <Link to={`/organizations/${org._id}/api-keys`} className="action-button" title="Manage API Keys">
                         <ApiKeyIcon />
                       </Link>
-                      <Link to={`/organizations/${org.id}/users`} className="action-button" title="Manage Users">
+                      <Link to={`/organizations/${org._id}/users`} className="action-button" title="Manage Users">
                         <UsersIcon />
                       </Link>
-                      <Link to={`/organizations/${org.id}`} className="action-button" title="View Details">
+                      <Link to={`/organizations/${org._id}`} className="action-button" title="View Details">
                         <ChevronRightIcon />
                       </Link>
                     </div>
@@ -340,22 +339,4 @@ const OrganizationsPage = () => {
   );
 };
 
-// Helper function to get badge class based on subscription tier
-const getTierBadgeClass = (tier) => {
-  switch (tier.toLowerCase()) {
-    case 'premium':
-    case 'enterprise':
-      return 'success';
-    case 'professional':
-    case 'business':
-      return 'primary';
-    case 'basic':
-      return 'secondary';
-    case 'trial':
-      return 'warning';
-    default:
-      return 'secondary';
-  }
-};
-
-export default OrganizationsPage; 
+export default OrganizationsPage;

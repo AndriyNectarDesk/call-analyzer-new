@@ -57,7 +57,7 @@ function App() {
 
         // If user is master admin, fetch all organizations
         if (data.user.isMasterAdmin) {
-          const orgsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/organizations/all`, {
+          const orgsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/master-admin/organizations`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -130,7 +130,7 @@ function App() {
       
       // If user is master admin, fetch all organizations
       if (data.user.isMasterAdmin) {
-        const orgsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/organizations/all`, {
+        const orgsResponse = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/master-admin/organizations`, {
           headers: {
             'Authorization': `Bearer ${data.token}`
           }
