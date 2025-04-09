@@ -564,50 +564,84 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
       }
     );
     
-    // Extract and parse the JSON response from Claude
-    console.log('Claude API response received, extracting content...');
+    // Extract the response content
     const assistantMessage = response.data.content[0].text;
     
-    // Log the full Claude response text
-    console.log('Raw Claude response:', assistantMessage.substring(0, 500) + '...(truncated)');
+    // Get the raw response for debugging
+    console.log('Claude raw response for audio analysis:', assistantMessage);
     
-    console.log('Looking for JSON in Claude response...');
-    // Find JSON in the response
-    const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
-    if (!jsonMatch) {
-      console.error('No JSON found in Claude response. Raw response:', assistantMessage);
-      return res.status(500).json({ 
-        error: 'Failed to parse Claude response',
-        details: 'Claude response did not contain valid JSON',
-        transcript: transcript
-      });
+    // Extract just the JSON part
+    console.log('Extracting JSON from response...');
+    // Instead of using regex, let's try a more reliable approach
+    let jsonData = null;
+    let jsonStart = assistantMessage.indexOf('{');
+    let jsonEnd = assistantMessage.lastIndexOf('}');
+    
+    console.log(`JSON markers found: start=${jsonStart}, end=${jsonEnd}`);
+    
+    if (jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart) {
+      const jsonStr = assistantMessage.substring(jsonStart, jsonEnd + 1);
+      console.log('Extracted JSON string:', jsonStr);
+      
+      try {
+        jsonData = JSON.parse(jsonStr);
+        console.log('Successfully parsed JSON directly');
+      } catch (parseError) {
+        console.error('Initial JSON parse failed:', parseError.message);
+        
+        try {
+          // Fallback to sanitized parsing
+          jsonData = sanitizeJson(jsonStr);
+          console.log('Successfully parsed JSON after sanitization');
+        } catch (sanitizeError) {
+          console.error('Sanitized JSON parsing failed:', sanitizeError.message);
+          console.error('Attempted to parse this string:', jsonStr);
+          throw new Error('Failed to parse Claude response as JSON: ' + sanitizeError.message);
+        }
+      }
+    } else {
+      console.error('Could not find JSON markers in Claude response');
+      // Try the regex approach as a fallback
+      const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
+      if (jsonMatch) {
+        console.log('Found JSON via regex fallback');
+        try {
+          jsonData = sanitizeJson(jsonMatch[0]);
+          console.log('Successfully parsed JSON via regex fallback');
+        } catch (fallbackError) {
+          console.error('Fallback JSON parsing failed:', fallbackError.message);
+          throw new Error('Claude response did not contain valid JSON format');
+        }
+      } else {
+        throw new Error('Claude response did not contain valid JSON format');
+      }
     }
     
-    console.log('Found JSON match:', jsonMatch[0].substring(0, 500) + '...(truncated)');
-    console.log('Parsing JSON from Claude response...');
+    // Check if we have valid data
+    if (!jsonData) {
+      throw new Error('Failed to extract valid JSON from Claude response');
+    }
+    
+    // Log the structure of the parsed data
+    console.log('Parsed JSON data structure:', Object.keys(jsonData));
+    
+    // Verify the data has the expected structure
+    if (!jsonData.callSummary) {
+      console.warn('Missing callSummary in analysis data');
+    }
+    if (!jsonData.agentPerformance) {
+      console.warn('Missing agentPerformance in analysis data');
+    }
+    if (!jsonData.scorecard) {
+      console.warn('Missing scorecard in analysis data');
+    }
+    
     try {
-      const analysisData = sanitizeJson(jsonMatch[0]);
-      
-      // Verify analysis object has required structure
-      console.log('Checking analysis data structure...');
-      if (!analysisData.callSummary) {
-        console.error('Missing callSummary in analysis data');
-      }
-      if (!analysisData.agentPerformance) {
-        console.error('Missing agentPerformance in analysis data');
-      }
-      if (!analysisData.improvementSuggestions) {
-        console.error('Missing improvementSuggestions in analysis data');
-      }
-      if (!analysisData.scorecard) {
-        console.error('Missing scorecard in analysis data');
-      }
-      
-      console.log('Saving transcript to MongoDB...');
-      // Save transcript and analysis to database
+      // Save transcript and analysis to database (same as analyze endpoint)
+      console.log('Saving audio transcript to database...');
       const newTranscript = new Transcript({
         rawTranscript: transcript,
-        analysis: analysisData,
+        analysis: jsonData,
         source: 'api',
         metadata: metadata || {},
         callType: callType || 'auto',
@@ -615,23 +649,25 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
       });
 
       await newTranscript.save();
-      console.log('Transcript saved successfully, returning response...');
-
-      // Return both transcript and analysis
+      console.log('Transcript saved successfully to database with ID:', newTranscript._id);
+      
+      // Return success response
       return res.json({
         success: true,
         transcript: transcript,
-        analysis: analysisData,
+        analysis: jsonData,
         id: newTranscript._id
       });
-    } catch (jsonError) {
-      console.error('Error parsing JSON from Claude response:', jsonError);
-      console.error('Raw match content:', jsonMatch[0]);
-    return res.status(500).json({ 
-        error: 'Failed to parse Claude JSON response',
-        details: jsonError.message,
-        transcript: transcript
-    });
+    } catch (dbError) {
+      console.error('Error saving transcript to database:', dbError);
+      // If there's a database error, still return the analysis to the client
+      return res.json({
+        success: true,
+        transcript: transcript,
+        analysis: jsonData,
+        error: 'Warning: Analysis not saved to database',
+        details: dbError.message
+      });
     }
   } catch (error) {
     next(error); // Pass to the error handling middleware
@@ -913,7 +949,7 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       const assistantMessage = claudeResponse.data.content[0].text;
       
       // Get the raw response for debugging
-      console.log('Claude raw response for audio analysis:', assistantMessage.substring(0, 200) + '...');
+      console.log('Claude raw response for audio analysis:', assistantMessage);
       
       // Extract just the JSON part
       console.log('Extracting JSON from response...');
@@ -922,9 +958,11 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       let jsonStart = assistantMessage.indexOf('{');
       let jsonEnd = assistantMessage.lastIndexOf('}');
       
+      console.log(`JSON markers found: start=${jsonStart}, end=${jsonEnd}`);
+      
       if (jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart) {
         const jsonStr = assistantMessage.substring(jsonStart, jsonEnd + 1);
-        console.log('Extracted JSON string:', jsonStr.substring(0, 100) + '...');
+        console.log('Extracted JSON string:', jsonStr);
         
         try {
           jsonData = JSON.parse(jsonStr);
@@ -938,12 +976,26 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
             console.log('Successfully parsed JSON after sanitization');
           } catch (sanitizeError) {
             console.error('Sanitized JSON parsing failed:', sanitizeError.message);
+            console.error('Attempted to parse this string:', jsonStr);
             throw new Error('Failed to parse Claude response as JSON: ' + sanitizeError.message);
           }
         }
       } else {
         console.error('Could not find JSON markers in Claude response');
-        throw new Error('Claude response did not contain valid JSON format');
+        // Try the regex approach as a fallback
+        const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
+        if (jsonMatch) {
+          console.log('Found JSON via regex fallback');
+          try {
+            jsonData = sanitizeJson(jsonMatch[0]);
+            console.log('Successfully parsed JSON via regex fallback');
+          } catch (fallbackError) {
+            console.error('Fallback JSON parsing failed:', fallbackError.message);
+            throw new Error('Claude response did not contain valid JSON format');
+          }
+        } else {
+          throw new Error('Claude response did not contain valid JSON format');
+        }
       }
       
       // Check if we have valid data
@@ -951,26 +1003,53 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
         throw new Error('Failed to extract valid JSON from Claude response');
       }
       
-      // Save transcript and analysis to database (same as analyze endpoint)
-      console.log('Saving audio transcript to database...');
-      const newTranscript = new Transcript({
-        rawTranscript: transcript,
-        analysis: jsonData,
-        source: 'audio',
-        callType: callType || 'auto',
-        organizationId: organizationId,
-        createdBy: userId
-      });
-
-      await newTranscript.save();
+      // Log the structure of the parsed data
+      console.log('Parsed JSON data structure:', Object.keys(jsonData));
       
-      // Return success response
-      return res.json({
-        success: true,
-        transcript: transcript,
-        analysis: jsonData,
-        id: newTranscript._id
-      });
+      // Verify the data has the expected structure
+      if (!jsonData.callSummary) {
+        console.warn('Missing callSummary in analysis data');
+      }
+      if (!jsonData.agentPerformance) {
+        console.warn('Missing agentPerformance in analysis data');
+      }
+      if (!jsonData.scorecard) {
+        console.warn('Missing scorecard in analysis data');
+      }
+      
+      try {
+        // Save transcript and analysis to database (same as analyze endpoint)
+        console.log('Saving audio transcript to database...');
+        const newTranscript = new Transcript({
+          rawTranscript: transcript,
+          analysis: jsonData,
+          source: 'audio',
+          callType: callType || 'auto',
+          organizationId: organizationId,
+          createdBy: userId
+        });
+
+        await newTranscript.save();
+        console.log('Transcript saved successfully to database with ID:', newTranscript._id);
+        
+        // Return success response
+        return res.json({
+          success: true,
+          transcript: transcript,
+          analysis: jsonData,
+          id: newTranscript._id
+        });
+      } catch (dbError) {
+        console.error('Error saving transcript to database:', dbError);
+        // If there's a database error, still return the analysis to the client
+        return res.json({
+          success: true,
+          transcript: transcript,
+          analysis: jsonData,
+          error: 'Warning: Analysis not saved to database',
+          details: dbError.message
+        });
+      }
     } catch (analyzeError) {
       console.error('Error during audio transcript analysis:', analyzeError);
       console.error('Error stack:', analyzeError.stack);
