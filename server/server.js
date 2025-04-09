@@ -491,12 +491,19 @@ app.post('/api/analyze', async (req, res, next) => {
     try {
       const analysisData = sanitizeJson(jsonMatch[0]);
 
+      // Ensure callType is a string, not an array
+      let callTypeValue = callType || 'auto';
+      if (Array.isArray(callTypeValue)) {
+        console.log('callType is an array, using first value:', callTypeValue);
+        callTypeValue = callTypeValue[0] || 'auto';
+      }
+
       // Save transcript and analysis to database
       const newTranscript = new Transcript({
         rawTranscript: transcript,
         analysis: analysisData,
         source: 'web',
-        callType: callType || 'auto',
+        callType: callTypeValue,
         organizationId: organizationId,
         createdBy: userId
       });
@@ -639,12 +646,20 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
     try {
       // Save transcript and analysis to database (same as analyze endpoint)
       console.log('Saving audio transcript to database...');
+      
+      // Ensure callType is a string, not an array
+      let callTypeValue = callType || 'auto';
+      if (Array.isArray(callTypeValue)) {
+        console.log('callType is an array, using first value:', callTypeValue);
+        callTypeValue = callTypeValue[0] || 'auto';
+      }
+      
       const newTranscript = new Transcript({
         rawTranscript: transcript,
         analysis: jsonData,
         source: 'api',
         metadata: metadata || {},
-        callType: callType || 'auto',
+        callType: callTypeValue,
         organizationId: organizationId
       });
 
@@ -1020,11 +1035,19 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       try {
         // Save transcript and analysis to database (same as analyze endpoint)
         console.log('Saving audio transcript to database...');
+        
+        // Ensure callType is a string, not an array
+        let callTypeValue = callType || 'auto';
+        if (Array.isArray(callTypeValue)) {
+          console.log('callType is an array, using first value:', callTypeValue);
+          callTypeValue = callTypeValue[0] || 'auto';
+        }
+        
         const newTranscript = new Transcript({
           rawTranscript: transcript,
           analysis: jsonData,
           source: 'audio',
-          callType: callType || 'auto',
+          callType: callTypeValue,
           organizationId: organizationId,
           createdBy: userId
         });
