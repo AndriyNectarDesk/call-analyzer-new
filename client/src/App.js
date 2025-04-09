@@ -285,76 +285,112 @@ function App() {
 
   // Main analyzer page component
   const AnalyzerPage = () => {
+    const [inputType, setInputType] = useState('text'); // 'text' or 'audio'
+
     return (
       <div className="analyzer-page">
-        <div className="main-content">
-          <div className="combined-input-container">
-            <div className="text-input-section">
-              <h2>Text Transcript</h2>
-              <form onSubmit={analyzeTranscript}>
-                <div className="form-group">
-                  <label htmlFor="transcript">Call Transcript</label>
-                  <textarea
-                    id="transcript"
-                    className="transcript-input"
-                    value={transcript}
-                    onChange={(e) => setTranscript(e.target.value)}
-                    placeholder="Paste your call transcript here..."
-                    rows={10}
-                    disabled={isLoading}
-                  ></textarea>
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="callType">Call Type</label>
-                  <select
-                    id="callType"
-                    value={callType}
-                    onChange={(e) => setCallType(e.target.value)}
-                    className="select"
-                    disabled={isLoading}
-                  >
-                    <option value="auto">Auto-detect</option>
-                    {availableCallTypes.map(type => (
-                      <option key={type.id} value={type.id}>{type.name}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="action-container">
-                  <button
-                    type="button"
-                    className="button button-secondary"
-                    onClick={clearAll}
-                    disabled={isLoading || (!transcript && !analysis)}
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="submit"
-                    className="button"
-                    disabled={isLoading || !transcript.trim()}
-                  >
-                    {isLoading ? 'Analyzing...' : 'Analyze Call'}
-                  </button>
-                </div>
-              </form>
+        <div className="main-content two-column-layout">
+          {/* Input Section (Left Column) */}
+          <div className="input-column">
+            <div className="input-tabs">
+              <button 
+                className={`tab-button ${inputType === 'text' ? 'active' : ''}`}
+                onClick={() => setInputType('text')}
+              >
+                Text Transcript
+              </button>
+              <button 
+                className={`tab-button ${inputType === 'audio' ? 'active' : ''}`}
+                onClick={() => setInputType('audio')}
+              >
+                Audio Upload
+              </button>
             </div>
-            
-            <div className="input-separator">
-              OR
-            </div>
-            
-            <div className="audio-input-section">
-              <h2>Audio Upload</h2>
-              <AudioUploader
-                onTranscribe={handleAudioTranscribe}
-                isLoading={isLoading}
-              />
+
+            <div className="input-content">
+              {inputType === 'text' ? (
+                // Text Input Section
+                <div className="text-input-section">
+                  <form onSubmit={analyzeTranscript}>
+                    <div className="form-group">
+                      <label htmlFor="transcript">Call Transcript</label>
+                      <textarea
+                        id="transcript"
+                        className="transcript-input"
+                        value={transcript}
+                        onChange={(e) => setTranscript(e.target.value)}
+                        placeholder="Paste your call transcript here..."
+                        rows={12}
+                        disabled={isLoading}
+                      ></textarea>
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="callType">Call Type</label>
+                      <select
+                        id="callType"
+                        value={callType}
+                        onChange={(e) => setCallType(e.target.value)}
+                        className="select"
+                        disabled={isLoading}
+                      >
+                        <option value="auto">Auto-detect</option>
+                        {availableCallTypes.map(type => (
+                          <option key={type.id} value={type.id}>{type.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="action-container">
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={clearAll}
+                        disabled={isLoading || (!transcript && !analysis)}
+                      >
+                        Clear
+                      </button>
+                      <button
+                        type="submit"
+                        className="button"
+                        disabled={isLoading || !transcript.trim()}
+                      >
+                        {isLoading ? 'Analyzing...' : 'Analyze Call'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                // Audio Upload Section
+                <div className="audio-input-section">
+                  <AudioUploader
+                    onTranscribe={handleAudioTranscribe}
+                    isLoading={isLoading}
+                    callType={callType}
+                    setError={setError}
+                  />
+                  <div className="form-group call-type-select">
+                    <label htmlFor="audioCallType">Call Type</label>
+                    <select
+                      id="audioCallType"
+                      value={callType}
+                      onChange={(e) => setCallType(e.target.value)}
+                      className="select"
+                      disabled={isLoading}
+                    >
+                      <option value="auto">Auto-detect</option>
+                      {availableCallTypes.map(type => (
+                        <option key={type.id} value={type.id}>{type.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          
-          <div className="results-section">
+
+          {/* Results Section (Right Column) */}
+          <div className="results-column">
             {error && (
               <div className="error-message">
                 {error}
@@ -368,7 +404,7 @@ function App() {
               </div>
             )}
             
-            {analysis && !isLoading && !error && (
+            {analysis && !isLoading && !error ? (
               <div className="analysis-container">
                 <h2>Call Summary</h2>
                 
@@ -435,6 +471,13 @@ function App() {
                       <li key={index}>{item}</li>
                     ))}
                   </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-results">
+                <div className="empty-results-message">
+                  <h3>No Analysis Results</h3>
+                  <p>Enter a transcript or upload audio to see analysis results here.</p>
                 </div>
               </div>
             )}
