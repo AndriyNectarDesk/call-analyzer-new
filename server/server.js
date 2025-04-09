@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
 const os = require('os');
+const jwt = require('jsonwebtoken');
 
 const mongoose = require('mongoose');
 const Transcript = require(require('path').resolve(__dirname, 'models', 'transcript'));
@@ -415,6 +416,29 @@ app.post('/api/analyze', async (req, res, next) => {
       return res.status(400).json({ error: 'Transcript is required' });
     }
     
+    // Extract user info from token
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    // Verify and decode the token
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (tokenError) {
+      console.error('Token verification failed:', tokenError);
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const userId = decodedToken.userId;
+    const organizationId = decodedToken.organizationId;
+    
+    if (!organizationId) {
+      console.error('Missing organizationId in token for user:', userId);
+      return res.status(400).json({ error: 'Organization ID is required' });
+    }
+    
     // Call Claude API with the async createPrompt
     const prompt = await createPrompt(transcript, callType);
     
@@ -453,15 +477,17 @@ app.post('/api/analyze', async (req, res, next) => {
     try {
       const analysisData = sanitizeJson(jsonMatch[0]);
 
-// Save transcript and analysis to database
-const newTranscript = new Transcript({
-  rawTranscript: transcript,
+      // Save transcript and analysis to database
+      const newTranscript = new Transcript({
+        rawTranscript: transcript,
         analysis: analysisData,
         source: 'web',
-        callType: callType || 'auto'
-});
+        callType: callType || 'auto',
+        organizationId: organizationId,
+        createdBy: userId
+      });
 
-await newTranscript.save();
+      await newTranscript.save();
 
       return res.json({
         success: true,
@@ -491,6 +517,13 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
     if (!transcript) {
       return res.status(400).json({ error: 'Transcript is required' });
     }
+    
+    // Get organization ID from the request (set by validateApiKey middleware)
+    if (!req.organization || !req.organization.id) {
+      return res.status(400).json({ error: 'Organization ID is required' });
+    }
+    
+    const organizationId = req.organization.id;
     
     // Call Claude API with the async createPrompt
     const prompt = await createPrompt(transcript, callType);
@@ -563,7 +596,8 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
         analysis: analysisData,
         source: 'api',
         metadata: metadata || {},
-        callType: callType || 'auto'
+        callType: callType || 'auto',
+        organizationId: organizationId
       });
 
       await newTranscript.save();
@@ -642,6 +676,29 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
   try {
     const callType = req.body.callType || 'auto';
     let audioBuffer = null;
+    
+    // Extract user info from token
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    // Verify and decode the token
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (tokenError) {
+      console.error('Token verification failed:', tokenError);
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const userId = decodedToken.userId;
+    const organizationId = decodedToken.organizationId;
+    
+    if (!organizationId) {
+      console.error('Missing organizationId in token for user:', userId);
+      return res.status(400).json({ error: 'Organization ID is required' });
+    }
     
     // Handle audio URL if provided instead of file upload
     if (req.body.audioUrl) {
@@ -872,7 +929,9 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
         rawTranscript: transcript,
         analysis: jsonData,
         source: 'audio',
-        callType: callType || 'auto'
+        callType: callType || 'auto',
+        organizationId: organizationId,
+        createdBy: userId
       });
 
       await newTranscript.save();
