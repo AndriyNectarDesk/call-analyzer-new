@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
+import axios from 'axios';
+import { Toaster, toast } from 'react-hot-toast';
 import './App.css';
 import './styles/appleDesign.css';
 import AudioUploader from './components/AudioUploader';
@@ -26,6 +28,7 @@ function App() {
   const [analysis, setAnalysis] = useState(null);
   const [availableCallTypes, setAvailableCallTypes] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [userOrganizations, setUserOrganizations] = useState([]);
@@ -34,9 +37,11 @@ function App() {
   // Check authentication status
   useEffect(() => {
     const checkAuth = async () => {
+      setAuthLoading(true);
       const token = localStorage.getItem('auth_token');
       if (!token) {
         setIsAuthenticated(false);
+        setAuthLoading(false);
         return;
       }
 
@@ -51,6 +56,7 @@ function App() {
         if (!response.ok) {
           localStorage.removeItem('auth_token');
           setIsAuthenticated(false);
+          setAuthLoading(false);
           return;
         }
 
@@ -78,10 +84,13 @@ function App() {
           setUserOrganizations([data.user.organization]);
           setCurrentOrganization(data.user.organization);
         }
+        
+        setAuthLoading(false);
       } catch (err) {
         console.error('Auth check error:', err);
         localStorage.removeItem('auth_token');
         setIsAuthenticated(false);
+        setAuthLoading(false);
       }
     };
     
@@ -434,6 +443,13 @@ function App() {
 
   // Protected route component
   const ProtectedRoute = ({ children }) => {
+    if (authLoading) {
+      return (
+        <div className="auth-loading">
+          <div className="spinner"></div>
+        </div>
+      );
+    }
     return isAuthenticated ? children : <Navigate to="/login" />;
   };
 
@@ -447,7 +463,7 @@ function App() {
   return (
     <Router>
       <div className="app-container">
-        {isAuthenticated ? (
+        {isAuthenticated && !authLoading ? (
           <header className="app-header">
             <div className="header-content">
               <div className="header-left">
@@ -524,7 +540,11 @@ function App() {
         <main className="app-main">
           <Routes>
             <Route path="/login" element={
-              isAuthenticated ? <Navigate to="/" /> : <Login onLogin={handleLogin} />
+              isAuthenticated ? <Navigate to="/" /> : (authLoading ? (
+                <div className="auth-loading">
+                  <div className="spinner"></div>
+                </div>
+              ) : <Login onLogin={handleLogin} />)
             } />
             
             <Route path="/" element={
