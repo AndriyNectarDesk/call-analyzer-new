@@ -10,7 +10,8 @@ try {
     verifyEmailConfig: async () => false,
     sendEmail: async () => false,
     sendPasswordResetEmail: async () => false,
-    sendMasterAdminInvitation: async () => false
+    sendMasterAdminInvitation: async () => false,
+    sendTestEmail: async () => false
   };
 }
 

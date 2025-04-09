@@ -40,9 +40,47 @@ const verifyEmailConfig = async () => {
       return false;
     }
     
-    await transporter.verify();
-    console.log('Email service: Ready to send emails');
-    return true;
+    console.log('Verifying email configuration...');
+    console.log(`EMAIL_HOST: ${EMAIL_HOST}`);
+    console.log(`EMAIL_PORT: ${EMAIL_PORT}`);
+    console.log(`EMAIL_USER: ${EMAIL_USER ? EMAIL_USER : 'not set'}`);
+    console.log(`EMAIL_FROM: ${EMAIL_FROM}`);
+    
+    try {
+      await transporter.verify();
+      console.log('Email service: SMTP connection successful!');
+      return true;
+    } catch (verifyError) {
+      console.error('Email service SMTP verification failed:');
+      console.error(`- Error name: ${verifyError.name}`);
+      console.error(`- Error message: ${verifyError.message}`);
+      console.error(`- Error code: ${verifyError.code || 'none'}`);
+      if (verifyError.stack) {
+        console.error(`- Stack trace: ${verifyError.stack}`);
+      }
+      
+      // Try with different secure setting
+      const altTransporter = nodemailer.createTransport({
+        host: EMAIL_HOST,
+        port: EMAIL_PORT,
+        secure: !Boolean(EMAIL_PORT === 465), // Opposite of current setting
+        auth: {
+          user: EMAIL_USER,
+          pass: EMAIL_PASS
+        }
+      });
+      
+      try {
+        console.log(`Retrying with secure=${!Boolean(EMAIL_PORT === 465)}`);
+        await altTransporter.verify();
+        console.log('Email service: Alternative SMTP connection successful!');
+        console.log('Consider changing your secure setting in the emailService.js file');
+        return true;
+      } catch (altError) {
+        console.error('Alternative SMTP configuration also failed');
+        return false;
+      }
+    }
   } catch (error) {
     console.error('Email service configuration error:', error);
     return false;
@@ -195,9 +233,56 @@ const sendMasterAdminInvitation = async (user, resetToken) => {
   }
 };
 
+// Test sending a simple email
+const sendTestEmail = async (to) => {
+  console.log(`Attempting to send test email to: ${to}`);
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #4a69bd;">Test Email from AI Nectar Desk</h2>
+      <p>This is a test email to verify that the email service is working correctly.</p>
+      <p>Email configuration:</p>
+      <ul>
+        <li>EMAIL_HOST: ${EMAIL_HOST}</li>
+        <li>EMAIL_PORT: ${EMAIL_PORT}</li>
+        <li>EMAIL_USER: ${EMAIL_USER ? 'set' : 'not set'}</li>
+        <li>EMAIL_FROM: ${EMAIL_FROM}</li>
+        <li>FRONTEND_URL: ${FRONTEND_URL}</li>
+      </ul>
+      <p>If you're receiving this email, your email service is configured correctly!</p>
+      <p>Timestamp: ${new Date().toISOString()}</p>
+    </div>
+  `;
+  
+  const text = `
+    Test Email from AI Nectar Desk
+    
+    This is a test email to verify that the email service is working correctly.
+    
+    Email configuration:
+    - EMAIL_HOST: ${EMAIL_HOST}
+    - EMAIL_PORT: ${EMAIL_PORT}
+    - EMAIL_USER: ${EMAIL_USER ? 'set' : 'not set'}
+    - EMAIL_FROM: ${EMAIL_FROM}
+    - FRONTEND_URL: ${FRONTEND_URL}
+    
+    If you're receiving this email, your email service is configured correctly!
+    
+    Timestamp: ${new Date().toISOString()}
+  `;
+  
+  return await sendEmail({
+    to,
+    subject: 'AI Nectar Desk - Email Service Test',
+    text,
+    html
+  });
+};
+
 module.exports = {
   verifyEmailConfig,
   sendEmail,
   sendPasswordResetEmail,
-  sendMasterAdminInvitation
+  sendMasterAdminInvitation,
+  sendTestEmail
 }; 

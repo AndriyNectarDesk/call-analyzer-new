@@ -1042,36 +1042,69 @@ const sanitizeJson = (jsonString) => {
   }
 };
 
-// Import routes
-const authRoutes = require('./routes/authRoutes');
-const organizationRoutes = require('./routes/organizationRoutes');
-const userRoutes = require('./routes/userRoutes');
-const transcriptRoutes = require('./routes/transcriptRoutes');
-const masterAdminRoutes = require('./routes/masterAdminRoutes');
+// Initialize email service
+const initEmailService = require('./init-email-service');
+initEmailService().catch(err => {
+  console.error('Error during email service initialization:', err);
+});
 
-// Use routes
-app.use('/api/auth', authRoutes);
-app.use('/api/organizations', organizationRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/transcripts', transcriptRoutes);
-app.use('/api/master-admin', masterAdminRoutes);
+// Create routes
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/organizations', require('./routes/organizationRoutes'));
+app.use('/api/transcripts', require('./routes/transcriptRoutes'));
+app.use('/api/call-types', require('./routes/callTypeRoutes'));
+app.use('/api/master-admin', require('./routes/masterAdminRoutes'));
 
-let emailService;
-try {
-  emailService = require('./services').emailService;
-  
-  emailService.verifyEmailConfig()
-    .then(isConfigured => {
-      if (isConfigured) {
-        console.log('Email service is configured and ready');
-      } else {
-        console.log('Email service is not fully configured - password reset emails will not be sent');
+// Test email service endpoint
+// TEMPORARY: available in production for troubleshooting
+const { emailService } = require('./services');
+
+app.get('/api/test-email', async (req, res) => {
+  try {
+    // Log environment variables
+    console.log('====== EMAIL ENVIRONMENT VARIABLES ======');
+    console.log(`EMAIL_HOST: ${process.env.EMAIL_HOST || 'not set'}`);
+    console.log(`EMAIL_PORT: ${process.env.EMAIL_PORT || 'not set'}`);
+    console.log(`EMAIL_USER: ${process.env.EMAIL_USER ? 'set' : 'not set'}`);
+    console.log(`EMAIL_PASS: ${process.env.EMAIL_PASS ? 'set' : 'not set'}`);
+    console.log(`EMAIL_FROM: ${process.env.EMAIL_FROM || 'not set'}`);
+    console.log(`FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set'}`);
+    
+    // Verify email configuration
+    console.log('====== TESTING EMAIL CONFIGURATION ======');
+    const configValid = await emailService.verifyEmailConfig();
+    console.log(`Email configuration valid: ${configValid}`);
+    
+    // Test sending email if config is valid
+    if (!req.query.email) {
+      return res.status(400).json({ 
+        message: 'Email parameter required',
+        usage: '/api/test-email?email=test@example.com' 
+      });
+    }
+    
+    console.log('====== SENDING TEST EMAIL ======');
+    const emailSent = await emailService.sendTestEmail(req.query.email);
+    
+    res.json({
+      success: emailSent,
+      message: emailSent 
+        ? `Test email sent to ${req.query.email}` 
+        : 'Failed to send test email',
+      emailConfig: {
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: process.env.EMAIL_PORT || 587,
+        user: process.env.EMAIL_USER ? 'set' : 'not set',
+        pass: process.env.EMAIL_PASS ? 'set' : 'not set',
+        from: process.env.EMAIL_FROM || 'noreply@nectardesk.ai'
       }
-    })
-    .catch(err => {
-      console.error('Error checking email service configuration:', err);
     });
-} catch (error) {
-  console.error('Failed to initialize email service:', error.message);
-  console.log('The application will continue without email functionality');
-}
+  } catch (error) {
+    console.error('Test email endpoint error:', error);
+    res.status(500).json({ 
+      error: 'Email test failed',
+      message: error.message
+    });
+  }
+});
