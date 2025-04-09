@@ -1031,6 +1031,16 @@ app.listen(PORT, () => {
     }
   });
   
+  // Ensure Master Organization exists and all Master Admins are assigned to it
+  const masterAdminController = require('./controllers/masterAdminController');
+  masterAdminController.ensureMasterOrganization()
+    .then(masterOrg => {
+      console.log('Master Organization check complete:', masterOrg.name);
+    })
+    .catch(err => {
+      console.error('Error ensuring Master Organization:', err);
+    });
+  
   // Set up periodic API key check (every 6 hours)
   const SIX_HOURS = 6 * 60 * 60 * 1000;
   setInterval(async () => {

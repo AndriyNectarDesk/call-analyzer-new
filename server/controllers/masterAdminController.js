@@ -1,7 +1,9 @@
-const Organization = require('../models/organization');
-const User = require('../models/user');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const User = require('../models/user');
+const Organization = require('../models/organization');
+const { emailService } = require('../services');
 
 // Get all organizations with detailed information
 exports.getAllOrganizations = async (req, res) => {
@@ -307,8 +309,6 @@ exports.createMasterAdminUser = async (req, res) => {
     
     // Send invitation email
     try {
-      const { emailService } = require('../services');
-      
       // Log email configuration
       console.log('Email Configuration:');
       console.log(`- FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set (using default)'}`);
@@ -441,5 +441,62 @@ exports.deleteMasterAdmin = async (req, res) => {
   } catch (error) {
     console.error('Error deleting master admin user:', error);
     res.status(500).json({ message: 'Failed to delete master admin user' });
+  }
+};
+
+// Ensure Master Organization exists and all Master Admins are assigned to it
+exports.ensureMasterOrganization = async () => {
+  try {
+    console.log('Checking/creating Master Organization and assigning Master Admins...');
+    
+    // Find or create the Master Organization
+    let masterOrg = await Organization.findOne({ code: 'master-org' });
+    
+    if (!masterOrg) {
+      console.log('Creating Master Organization...');
+      masterOrg = new Organization({
+        name: 'AI Nectar Desk',
+        code: 'master-org',
+        contactEmail: 'admin@nectardesk.ai',
+        subscriptionTier: 'enterprise',
+        features: {
+          maxUsers: 999999,
+          maxCalls: 999999,
+          apiAccess: true,
+          customPrompts: true,
+          customBranding: true
+        }
+      });
+      
+      await masterOrg.save();
+      console.log('Master Organization created with ID:', masterOrg._id);
+    }
+    
+    // Find all Master Admins without an organization and update them
+    const masterAdminsToUpdate = await User.find({ 
+      isMasterAdmin: true, 
+      $or: [
+        { organizationId: { $exists: false } },
+        { organizationId: null }
+      ] 
+    });
+    
+    if (masterAdminsToUpdate.length > 0) {
+      console.log(`Found ${masterAdminsToUpdate.length} Master Admins without organization, updating...`);
+      
+      // Update each Master Admin
+      for (const admin of masterAdminsToUpdate) {
+        admin.organizationId = masterOrg._id;
+        await admin.save();
+        console.log(`Assigned Master Admin ${admin._id} to Master Organization`);
+      }
+    } else {
+      console.log('All Master Admins already have an organization assigned.');
+    }
+    
+    return masterOrg;
+  } catch (error) {
+    console.error('Error ensuring Master Organization:', error);
+    throw error;
   }
 }; 
