@@ -410,7 +410,7 @@ function App() {
                 
                 <div className="summary-card">
                   <h3>Overview</h3>
-                  <p>{analysis.summary}</p>
+                  <p>{analysis && analysis.callSummary ? Object.values(analysis.callSummary).filter(Boolean).join('. ') : 'No summary available'}</p>
                 </div>
                 
                 <div className="metrics-grid">
@@ -418,10 +418,10 @@ function App() {
                     <h3>Sentiment</h3>
                     <div className="score-display">
                       <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis && analysis.sentiment ? analysis.sentiment : 0)
+                        backgroundColor: getScoreColor(analysis && analysis.scorecard && analysis.scorecard.customerService ? analysis.scorecard.customerService / 10 : 0)
                       }}></div>
-                      <span>{analysis && analysis.sentiment ? 
-                        (analysis.sentiment >= 0.7 ? 'Positive' : analysis.sentiment <= 0.3 ? 'Negative' : 'Neutral') 
+                      <span>{analysis && analysis.scorecard && analysis.scorecard.customerService 
+                        ? (analysis.scorecard.customerService > 7 ? 'Positive' : analysis.scorecard.customerService < 4 ? 'Negative' : 'Neutral') 
                         : 'N/A'}</span>
                     </div>
                   </div>
@@ -430,9 +430,9 @@ function App() {
                     <h3>Customer Satisfaction</h3>
                     <div className="score-display">
                       <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis && analysis.customerSatisfaction ? analysis.customerSatisfaction : 0)
+                        backgroundColor: getScoreColor(analysis && analysis.scorecard && analysis.scorecard.customerService ? analysis.scorecard.customerService / 10 : 0)
                       }}></div>
-                      <span>{analysis && analysis.customerSatisfaction ? Math.round(analysis.customerSatisfaction * 100) : 0}%</span>
+                      <span>{analysis && analysis.scorecard && analysis.scorecard.customerService ? Math.round(analysis.scorecard.customerService * 10) : 0}%</span>
                     </div>
                   </div>
                   
@@ -440,9 +440,9 @@ function App() {
                     <h3>Agent Performance</h3>
                     <div className="score-display">
                       <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis && analysis.agentPerformance ? analysis.agentPerformance : 0)
+                        backgroundColor: getScoreColor(analysis && analysis.scorecard && analysis.scorecard.overallScore ? analysis.scorecard.overallScore / 10 : 0)
                       }}></div>
-                      <span>{analysis && analysis.agentPerformance ? Math.round(analysis.agentPerformance * 100) : 0}%</span>
+                      <span>{analysis && analysis.scorecard && analysis.scorecard.overallScore ? Math.round(analysis.scorecard.overallScore * 10) : 0}%</span>
                     </div>
                   </div>
                   
@@ -450,9 +450,9 @@ function App() {
                     <h3>Call Efficiency</h3>
                     <div className="score-display">
                       <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis && analysis.callEfficiency ? analysis.callEfficiency : 0)
+                        backgroundColor: getScoreColor(analysis && analysis.scorecard && analysis.scorecard.processEfficiency ? analysis.scorecard.processEfficiency / 10 : 0)
                       }}></div>
-                      <span>{analysis && analysis.callEfficiency ? Math.round(analysis.callEfficiency * 100) : 0}%</span>
+                      <span>{analysis && analysis.scorecard && analysis.scorecard.processEfficiency ? Math.round(analysis.scorecard.processEfficiency * 10) : 0}%</span>
                     </div>
                   </div>
                 </div>
@@ -460,8 +460,11 @@ function App() {
                 <div className="insights-card">
                   <h3>Key Insights</h3>
                   <ul className="summary-list">
-                    {analysis && analysis.keyInsights && analysis.keyInsights.map((insight, index) => (
-                      <li key={index}>{insight}</li>
+                    {analysis && analysis.agentPerformance && analysis.agentPerformance.strengths && analysis.agentPerformance.strengths.map((insight, index) => (
+                      <li key={`strength-${index}`}>{insight}</li>
+                    ))}
+                    {analysis && analysis.agentPerformance && analysis.agentPerformance.areasForImprovement && analysis.agentPerformance.areasForImprovement.map((insight, index) => (
+                      <li key={`improvement-${index}`}>{insight}</li>
                     ))}
                   </ul>
                 </div>
@@ -469,7 +472,7 @@ function App() {
                 <div className="action-items-card">
                   <h3>Recommended Actions</h3>
                   <ul className="summary-list">
-                    {analysis && analysis.actionItems && analysis.actionItems.map((item, index) => (
+                    {analysis && analysis.improvementSuggestions && analysis.improvementSuggestions.map((item, index) => (
                       <li key={index}>{item}</li>
                     ))}
                   </ul>
