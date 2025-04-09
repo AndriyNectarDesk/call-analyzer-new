@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { formatDistanceToNow } from 'date-fns';
-import { FaEye, FaEdit, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import './OrganizationManagement.css';
 
 const OrganizationManagement = () => {
@@ -53,7 +51,37 @@ const OrganizationManagement = () => {
         {loading ? (
           <div className="loading-indicator">Loading organizations...</div>
         ) : organizations.length > 0 ? (
-          <div>Organizations loaded successfully</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {organizations.map(org => (
+                <tr key={org._id}>
+                  <td>{org.name}</td>
+                  <td>{org.code}</td>
+                  <td>
+                    <span className={`status-indicator ${org.active ? 'active' : 'inactive'}`}>
+                      {org.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="actions">
+                      <button className="action-button edit">Edit</button>
+                      <button className={`action-button ${org.active ? 'deactivate' : 'activate'}`}>
+                        {org.active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : (
           <div className="no-data">No organizations found.</div>
         )}
