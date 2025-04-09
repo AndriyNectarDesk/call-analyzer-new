@@ -13,6 +13,7 @@ import CallTypeManager from './components/CallTypeManager';
 import AgentAnalytics from './components/AgentAnalytics';
 import ApiPage from './components/ApiPage';
 import UsersPage from './pages/UsersPage';
+import OrganizationDetails from './components/OrganizationDetails';
 
 function App() {
   const [transcript, setTranscript] = useState('');
@@ -526,6 +527,12 @@ function App() {
             <Route path="/organizations/new" element={
               <ProtectedRoute>
                 <NewOrganizationPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/organizations/:id" element={
+              <ProtectedRoute>
+                <OrganizationDetails />
               </ProtectedRoute>
             } />
             
