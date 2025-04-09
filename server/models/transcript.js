@@ -5,6 +5,12 @@ const TranscriptSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true,
+    index: true
+  },
   analysis: {
     callSummary: mongoose.Schema.Types.Mixed,
     agentPerformance: {
@@ -34,10 +40,17 @@ const TranscriptSchema = new mongoose.Schema({
     of: mongoose.Schema.Types.Mixed,
     default: {}
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
+
+// Add compound index for organization + creation date for efficient queries
+TranscriptSchema.index({ organizationId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Transcript', TranscriptSchema);

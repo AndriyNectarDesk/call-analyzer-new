@@ -1,4 +1,4 @@
-# Call Center Transcript Analyzer
+# AI Nectar Desk
 
 An application for analyzing call center transcripts and providing performance insights. Supports both text transcript analysis and audio file transcription and analysis.
 

@@ -122,7 +122,6 @@ const sendNotification = async (type, message) => {
     console.log(`NOTIFICATION [${type}]: ${message}`);
     
     // Example: Email notification (commented out - implement with your preferred email service)
-    /*
     if (process.env.NOTIFICATION_EMAIL) {
       const nodemailer = require('nodemailer');
       const transporter = nodemailer.createTransport({
@@ -133,23 +132,22 @@ const sendNotification = async (type, message) => {
         }
       });
       
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: process.env.NOTIFICATION_EMAIL,
-        subject: `ALERT: Call Analyzer - ${type}`,
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || 'alerts@example.com',
+        to: process.env.EMAIL_TO || 'admin@example.com',
+        subject: `ALERT: AI Nectar Desk - ${type}`,
         text: message
-      });
+      };
+      
+      await transporter.sendMail(mailOptions);
     }
-    */
     
     // Example: Slack notification (commented out - implement with your preferred method)
-    /*
     if (process.env.SLACK_WEBHOOK_URL) {
       await axios.post(process.env.SLACK_WEBHOOK_URL, {
-        text: `*ALERT: Call Analyzer - ${type}*\n${message}`
+        text: `*ALERT: AI Nectar Desk - ${type}*\n${message}`
       });
     }
-    */
     
   } catch (notificationError) {
     console.error('Failed to send notification:', notificationError);

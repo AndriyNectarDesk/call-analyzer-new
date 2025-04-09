@@ -320,7 +320,7 @@ function App() {
         <header className="app-header">
           <div className="header-content">
             <Link to="/" className="app-title">
-              <h1>Call Center Transcript Analyzer</h1>
+              <h1>AI Nectar Desk</h1>
             </Link>
             <p className="subtitle">Analyze call transcripts for better customer service</p>
           </div>

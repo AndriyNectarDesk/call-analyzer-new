@@ -1,6 +1,6 @@
-# Agent Performance Tracking Implementation
+# Agent Performance Analytics Integration
 
-To add agent name tracking and performance analytics to your Call Analyzer application, you'll need to implement the following changes:
+To add agent name tracking and performance analytics to your AI Nectar Desk application, you'll need to implement the following changes:
 
 ## 1. Update the Server-Side Prompt Template
 
