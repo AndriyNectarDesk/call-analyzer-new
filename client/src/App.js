@@ -19,6 +19,7 @@ import UserAddPage from './pages/UserAddPage';
 import UserEditPage from './pages/UserEditPage';
 import OrganizationDetails from './components/OrganizationDetails';
 import MasterAdminDashboard from './components/MasterAdminDashboard';
+import Settings from './components/Settings';
 
 function App() {
   const [transcript, setTranscript] = useState('');
@@ -491,6 +492,9 @@ function App() {
                     <li>
                       <Link to="/call-types">Call Types</Link>
                     </li>
+                    <li>
+                      <Link to="/settings">Settings</Link>
+                    </li>
                     {currentUser && currentUser.role === 'admin' && (
                       <>
                         <li>
@@ -618,6 +622,12 @@ function App() {
             <Route path="/organizations/:organizationId/users/:userId/edit" element={
               <ProtectedRoute>
                 <UserEditPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             } />
             
