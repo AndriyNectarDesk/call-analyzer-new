@@ -432,11 +432,25 @@ app.post('/api/analyze', async (req, res, next) => {
     }
     
     const userId = decodedToken.userId;
-    const organizationId = decodedToken.organizationId;
+    let organizationId = decodedToken.organizationId;
     
+    // If organizationId is missing in the token, fetch it from the user record
     if (!organizationId) {
-      console.error('Missing organizationId in token for user:', userId);
-      return res.status(400).json({ error: 'Organization ID is required' });
+      console.log(`organizationId missing in token for user: ${userId}, fetching from database...`);
+      try {
+        const User = require('./models/user');
+        const user = await User.findById(userId);
+        if (user && user.organizationId) {
+          organizationId = user.organizationId;
+          console.log(`Retrieved organizationId ${organizationId} for user ${userId}`);
+        } else {
+          console.error(`User ${userId} has no organization assigned`);
+          return res.status(400).json({ error: 'User has no organization assigned' });
+        }
+      } catch (userLookupError) {
+        console.error('Error fetching user organization:', userLookupError);
+        return res.status(500).json({ error: 'Error verifying user organization' });
+      }
     }
     
     // Call Claude API with the async createPrompt
@@ -693,11 +707,25 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     }
     
     const userId = decodedToken.userId;
-    const organizationId = decodedToken.organizationId;
+    let organizationId = decodedToken.organizationId;
     
+    // If organizationId is missing in the token, fetch it from the user record
     if (!organizationId) {
-      console.error('Missing organizationId in token for user:', userId);
-      return res.status(400).json({ error: 'Organization ID is required' });
+      console.log(`organizationId missing in token for user: ${userId}, fetching from database...`);
+      try {
+        const User = require('./models/user');
+        const user = await User.findById(userId);
+        if (user && user.organizationId) {
+          organizationId = user.organizationId;
+          console.log(`Retrieved organizationId ${organizationId} for user ${userId}`);
+        } else {
+          console.error(`User ${userId} has no organization assigned`);
+          return res.status(400).json({ error: 'User has no organization assigned' });
+        }
+      } catch (userLookupError) {
+        console.error('Error fetching user organization:', userLookupError);
+        return res.status(500).json({ error: 'Error verifying user organization' });
+      }
     }
     
     // Handle audio URL if provided instead of file upload
