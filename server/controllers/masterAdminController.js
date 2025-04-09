@@ -415,4 +415,31 @@ exports.resetMasterAdminPassword = async (req, res) => {
     console.error('Error resetting master admin password:', error);
     res.status(500).json({ message: 'Failed to reset password' });
   }
+};
+
+// Delete (deactivate) a Master Admin user
+exports.deleteMasterAdmin = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Don't allow users to delete themselves
+    if (userId === req.user.userId) {
+      return res.status(400).json({ message: 'You cannot delete your own account' });
+    }
+    
+    // Find the user and ensure they are a master admin
+    const masterAdmin = await User.findOne({ _id: userId, isMasterAdmin: true });
+    if (!masterAdmin) {
+      return res.status(404).json({ message: 'Master Admin user not found' });
+    }
+    
+    // Soft delete by deactivating the user
+    masterAdmin.isActive = false;
+    await masterAdmin.save();
+    
+    res.json({ message: 'Master Admin user deactivated successfully' });
+  } catch (error) {
+    console.error('Error deleting master admin user:', error);
+    res.status(500).json({ message: 'Failed to delete master admin user' });
+  }
 }; 

@@ -24,5 +24,6 @@ router.get('/master-admins', masterAdminController.getAllMasterAdmins);
 router.post('/master-admins', masterAdminController.createMasterAdminUser);
 router.put('/master-admins/:id', masterAdminController.updateMasterAdmin);
 router.post('/master-admins/:id/reset-password', masterAdminController.resetMasterAdminPassword);
+router.delete('/master-admins/:id', masterAdminController.deleteMasterAdmin);
 
 module.exports = router; 

@@ -9,6 +9,7 @@ const MasterAdminManagement = () => {
   const [success, setSuccess] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   
   // Form data for new master admin
@@ -236,6 +237,51 @@ const MasterAdminManagement = () => {
     setShowResetModal(true);
   };
 
+  const openDeleteModal = (admin) => {
+    setSelectedAdmin(admin);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteAdmin = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const token = localStorage.getItem('auth_token');
+      
+      await axios.delete(
+        `${apiUrl}/api/master-admin/master-admins/${selectedAdmin._id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Remove the admin from the list (or update to show as inactive)
+      setMasterAdmins(
+        masterAdmins.map(admin => 
+          admin._id === selectedAdmin._id 
+            ? {...admin, isActive: false} 
+            : admin
+        )
+      );
+      
+      // Close modal and show success message
+      setShowDeleteModal(false);
+      setSelectedAdmin(null);
+      setSuccess('Master Admin user deleted successfully');
+      setTimeout(() => setSuccess(''), 3000);
+      
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Error deleting master admin:', err);
+      setError(err.response?.data?.message || 'Failed to delete Master Admin user');
+      setIsLoading(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'Never';
     
@@ -310,6 +356,14 @@ const MasterAdminManagement = () => {
                         title={admin.isActive ? 'Deactivate' : 'Activate'}
                       >
                         {admin.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button 
+                        className="button button-small button-danger"
+                        onClick={() => openDeleteModal(admin)}
+                        title="Delete User"
+                        disabled={!admin.isActive}
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -476,6 +530,60 @@ const MasterAdminManagement = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedAdmin && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Delete Master Admin</h2>
+              <button 
+                className="modal-close"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <p>Are you sure you want to delete <strong>{selectedAdmin.firstName} {selectedAdmin.lastName}</strong>?</p>
+              <p>This action cannot be undone. The user will no longer be able to access the system.</p>
+              
+              {error && (
+                <div className="error-message">
+                  {error}
+                </div>
+              )}
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                type="button"
+                className="button button-secondary"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                className="button button-danger"
+                onClick={handleDeleteAdmin}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <span className="spinner-small"></span>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  'Delete User'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
