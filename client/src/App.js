@@ -222,7 +222,16 @@ function App() {
       }
 
       const data = await response.json();
-      setAnalysis(data);
+      console.log('API Response:', data); // Log the full response for debugging
+      
+      // The API returns data.analysis which contains the actual analysis
+      if (data && data.analysis) {
+        setAnalysis(data.analysis);
+      } else if (data) {
+        setAnalysis(data);
+      } else {
+        throw new Error('No analysis data returned from the server.');
+      }
     } catch (err) {
       console.error('Analysis error:', err);
       setError(err.message || 'Failed to analyze transcript. Please try again.');
@@ -256,12 +265,14 @@ function App() {
       }
       
       const data = await response.json();
+      console.log('Transcribe API Response:', data); // Log the full response for debugging
       
       if (data.transcript) {
         setTranscript(data.transcript);
         
         if (data.analysis) {
           setAnalysis(data.analysis);
+          console.log('Setting analysis data:', data.analysis);
         } else {
           setError('The audio was transcribed but could not be analyzed. Please try again.');
         }
@@ -407,6 +418,17 @@ function App() {
             {analysis && !isLoading && !error ? (
               <div className="analysis-container">
                 <h2>Call Summary</h2>
+                
+                {/* Debug information - remove in production */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div style={{ display: 'none' }}>
+                    <p>Analysis data structure: {JSON.stringify(Object.keys(analysis))}</p>
+                    <p>Has callSummary: {Boolean(analysis.callSummary)}</p>
+                    <p>Has scorecard: {Boolean(analysis.scorecard)}</p>
+                    <p>Has agentPerformance: {Boolean(analysis.agentPerformance)}</p>
+                    <p>Has improvementSuggestions: {Boolean(analysis.improvementSuggestions)}</p>
+                  </div>
+                )}
                 
                 <div className="summary-card">
                   <h3>Overview</h3>
