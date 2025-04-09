@@ -15,6 +15,8 @@ router.get('/organizations/:id/stats', masterAdminController.getOrganizationStat
 
 // User management routes
 router.post('/organizations/:id/users', masterAdminController.createOrganizationUser);
+router.get('/organizations/:id/users/:userId', masterAdminController.getOrganizationUser);
 router.put('/organizations/:id/users/:userId', masterAdminController.updateOrganizationUser);
+router.post('/organizations/:id/users/:userId/reset-password', masterAdminController.resetUserPassword);
 
 module.exports = router; 

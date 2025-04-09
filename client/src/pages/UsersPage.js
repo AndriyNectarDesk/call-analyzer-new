@@ -36,56 +36,140 @@ const UsersPage = () => {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [organization, setOrganization] = useState(null);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetUserId, setResetUserId] = useState(null);
+  const [resetUserName, setResetUserName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState('');
   
   // Fetch users data
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setIsLoading(true);
-        
-        const apiUrl = process.env.REACT_APP_API_URL || '';
-        const token = localStorage.getItem('auth_token');
-        
-        if (!token) {
-          setError('Authentication token not found. Please log in again.');
-          setIsLoading(false);
-          return;
-        }
-        
-        // Fetch organization details and users from the master-admin endpoint
-        const response = await axios.get(`${apiUrl}/api/master-admin/organizations/${organizationId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        console.log('Organization and users data:', response.data);
-        
-        if (response.data.organization) {
-          setOrganization(response.data.organization);
-        }
-        
-        if (response.data.users) {
-          setUsers(response.data.users);
-        }
-        
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Full error:', err);
-        let errorMessage = 'Failed to load users';
-        
-        if (err.response) {
-          errorMessage += `: ${err.response.status} - ${err.response.data?.message || err.response.data?.error || JSON.stringify(err.response.data)}`;
-        }
-        
-        setError(errorMessage);
-        setIsLoading(false);
-      }
-    };
-    
     fetchUsers();
   }, [organizationId]);
+  
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true);
+      
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Fetch organization details and users from the master-admin endpoint
+      const response = await axios.get(`${apiUrl}/api/master-admin/organizations/${organizationId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('Organization and users data:', response.data);
+      
+      if (response.data.organization) {
+        setOrganization(response.data.organization);
+      }
+      
+      if (response.data.users) {
+        setUsers(response.data.users);
+      }
+      
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Full error:', err);
+      let errorMessage = 'Failed to load users';
+      
+      if (err.response) {
+        errorMessage += `: ${err.response.status} - ${err.response.data?.message || err.response.data?.error || JSON.stringify(err.response.data)}`;
+      }
+      
+      setError(errorMessage);
+      setIsLoading(false);
+    }
+  };
+  
+  const handleOpenResetModal = (userId, firstName, lastName) => {
+    setResetUserId(userId);
+    setResetUserName(`${firstName} ${lastName}`);
+    setNewPassword('');
+    setConfirmPassword('');
+    setResetError('');
+    setShowResetModal(true);
+  };
+  
+  const handleCloseResetModal = () => {
+    setShowResetModal(false);
+    setResetUserId(null);
+    setResetUserName('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setResetError('');
+  };
+  
+  const handleResetPassword = async () => {
+    if (!newPassword) {
+      setResetError('Password is required');
+      return;
+    }
+    
+    if (newPassword.length < 8) {
+      setResetError('Password must be at least 8 characters long');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      setResetError('Passwords do not match');
+      return;
+    }
+    
+    setResetLoading(true);
+    setResetError('');
+    
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const token = localStorage.getItem('auth_token');
+      
+      await axios.post(
+        `${apiUrl}/api/master-admin/organizations/${organizationId}/users/${resetUserId}/reset-password`,
+        { newPassword },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      setShowResetModal(false);
+      setSuccess(`Password for ${resetUserName} has been reset`);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess('');
+      }, 3000);
+      
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      let errorMessage = 'Failed to reset password';
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      }
+      
+      setResetError(errorMessage);
+    } finally {
+      setResetLoading(false);
+    }
+  };
   
   // Format date as MM/DD/YYYY HH:MM AM/PM
   const formatDate = (dateString) => {
@@ -138,6 +222,12 @@ const UsersPage = () => {
       {error && (
         <div className="error-message">
           {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="success-message">
+          {success}
         </div>
       )}
       
@@ -196,7 +286,11 @@ const UsersPage = () => {
                       <Link to={`/organizations/${organizationId}/users/${user._id}/edit`} className="action-button" title="Edit User">
                         <EditIcon />
                       </Link>
-                      <button className="action-button" title="Reset Password">
+                      <button 
+                        className="action-button" 
+                        title="Reset Password" 
+                        onClick={() => handleOpenResetModal(user._id, user.firstName, user.lastName)}
+                      >
                         <ResetIcon />
                       </button>
                       <button className="action-button danger" title="Deactivate User">
@@ -211,206 +305,168 @@ const UsersPage = () => {
         </div>
       )}
       
-      {/* Additional styling */}
+      {/* Password Reset Modal */}
+      {showResetModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Reset Password</h2>
+              <button className="modal-close" onClick={handleCloseResetModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>Enter a new password for <strong>{resetUserName}</strong>:</p>
+              
+              {resetError && (
+                <div className="error-message">
+                  {resetError}
+                </div>
+              )}
+              
+              <div className="form-group">
+                <label htmlFor="newPassword">New Password</label>
+                <input
+                  type="password"
+                  id="newPassword"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="input"
+                  placeholder="Enter new password"
+                  disabled={resetLoading}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="confirmPassword">Confirm Password</label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="input"
+                  placeholder="Confirm new password"
+                  disabled={resetLoading}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                className="button button-secondary" 
+                onClick={handleCloseResetModal}
+                disabled={resetLoading}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="button" 
+                onClick={handleResetPassword}
+                disabled={resetLoading}
+              >
+                {resetLoading ? (
+                  <>
+                    <span className="spinner-small"></span>
+                    <span>Resetting...</span>
+                  </>
+                ) : (
+                  'Reset Password'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Additional CSS */}
       <style jsx>{`
-        .page-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: var(--spacing-lg);
+        .success-message {
+          background-color: rgba(52, 199, 89, 0.1);
+          border-radius: var(--border-radius-md);
+          color: var(--success-color);
+          padding: 12px 16px;
+          margin-bottom: 20px;
+          animation: fadeIn 0.3s ease-out;
         }
         
-        .page-header {
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+        
+        .modal {
+          background: var(--card-background);
+          border-radius: var(--border-radius-lg);
+          box-shadow: var(--shadow-lg);
+          width: 100%;
+          max-width: 500px;
+          animation: modalFadeIn 0.3s;
+        }
+        
+        @keyframes modalFadeIn {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal-header {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: var(--spacing-lg);
-        }
-        
-        .page-header h1 {
-          margin: 0;
-          margin-bottom: var(--spacing-xs);
-        }
-        
-        .organization-context {
-          display: flex;
           align-items: center;
-          gap: var(--spacing-sm);
-          color: var(--apple-mid-gray);
-          margin: 0;
-        }
-        
-        .users-container {
-          background-color: var(--card-background);
-          border-radius: var(--border-radius-md);
-          box-shadow: var(--shadow-md);
-          overflow: hidden;
-        }
-        
-        .users-table {
-          width: 100%;
-        }
-        
-        .table-header {
-          display: flex;
-          background-color: var(--background-secondary);
+          padding: 16px 24px;
           border-bottom: 1px solid var(--border-color);
-          font-weight: 500;
-          font-size: 14px;
         }
         
-        .header-cell {
-          padding: 16px;
-          color: var(--apple-mid-gray);
+        .modal-header h2 {
+          margin: 0;
+          font-size: 18px;
         }
         
-        .table-row {
-          display: flex;
-          border-bottom: 1px solid var(--border-color);
-          transition: background-color var(--transition-fast);
-        }
-        
-        .table-row:last-child {
-          border-bottom: none;
-        }
-        
-        .table-row:hover {
-          background-color: var(--background-secondary);
-        }
-        
-        .inactive-row {
-          opacity: 0.6;
-        }
-        
-        .cell {
-          padding: 16px;
-          display: flex;
-          align-items: center;
-        }
-        
-        .name-cell {
-          flex: 3;
-          min-width: 200px;
-        }
-        
-        .role-cell, .status-cell {
-          flex: 1;
-          min-width: 100px;
-        }
-        
-        .login-cell {
-          flex: 2;
-          min-width: 180px;
-        }
-        
-        .actions-cell {
-          flex: 1;
-          min-width: 150px;
-          justify-content: flex-end;
-        }
-        
-        .user-info {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-md);
-        }
-        
-        .user-avatar {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background-color: var(--primary-color);
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 500;
-          font-size: 14px;
-        }
-        
-        .user-details {
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .user-name {
-          font-weight: 500;
-          margin-bottom: 2px;
-        }
-        
-        .user-email {
-          font-size: 13px;
-          color: var(--apple-mid-gray);
-        }
-        
-        .status-indicator {
-          display: inline-flex;
-          align-items: center;
-          font-size: 14px;
-        }
-        
-        .status-indicator:before {
-          content: "";
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          margin-right: 6px;
-        }
-        
-        .status-indicator.active:before {
-          background-color: var(--success-color);
-        }
-        
-        .status-indicator.inactive:before {
-          background-color: var(--apple-mid-gray);
-        }
-        
-        .actions-buttons {
-          display: flex;
-          gap: 8px;
-        }
-        
-        .action-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          border-radius: var(--border-radius-sm);
-          color: var(--apple-mid-gray);
-          background-color: transparent;
+        .modal-close {
+          background: none;
           border: none;
+          font-size: 24px;
           cursor: pointer;
-          transition: all var(--transition-fast);
+          color: var(--text-muted);
         }
         
-        .action-button:hover {
-          background-color: var(--apple-light-gray);
-          color: var(--primary-color);
+        .modal-body {
+          padding: 24px;
         }
         
-        .empty-state {
-          padding: var(--spacing-xl);
-          text-align: center;
-          color: var(--apple-mid-gray);
-        }
-        
-        .empty-state p {
-          margin-bottom: var(--spacing-md);
-        }
-        
-        .loading-container {
+        .modal-footer {
+          padding: 16px 24px;
+          border-top: 1px solid var(--border-color);
           display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: var(--spacing-xl);
-          text-align: center;
-          color: var(--apple-mid-gray);
+          justify-content: flex-end;
+          gap: 12px;
         }
         
-        .spinner {
-          margin-bottom: var(--spacing-md);
+        .spinner-small {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          display: inline-block;
+          margin-right: 8px;
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

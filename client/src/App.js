@@ -13,6 +13,8 @@ import CallTypeManager from './components/CallTypeManager';
 import AgentAnalytics from './components/AgentAnalytics';
 import ApiPage from './components/ApiPage';
 import UsersPage from './pages/UsersPage';
+import UserAddPage from './pages/UserAddPage';
+import UserEditPage from './pages/UserEditPage';
 import OrganizationDetails from './components/OrganizationDetails';
 import MasterAdminDashboard from './components/MasterAdminDashboard';
 
@@ -593,6 +595,8 @@ function App() {
             <Route path="/agents" element={<AgentAnalytics />} />
             <Route path="/api" element={<ApiPage />} />
             <Route path="/organizations/:organizationId/users" element={<UsersPage />} />
+            <Route path="/organizations/:organizationId/users/new" element={<UserAddPage />} />
+            <Route path="/organizations/:organizationId/users/:userId/edit" element={<UserEditPage />} />
             
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

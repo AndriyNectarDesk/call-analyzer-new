@@ -143,31 +143,59 @@ exports.createOrganizationUser = async (req, res) => {
 // Update user in organization
 exports.updateOrganizationUser = async (req, res) => {
   try {
-    const { role, isActive } = req.body;
+    const { firstName, lastName, role, isActive, password } = req.body;
     
-    const user = await User.findOneAndUpdate(
-      { 
-        _id: req.params.userId,
-        organizationId: req.params.id
-      },
-      {
-        $set: {
-          role,
-          isActive,
-          updatedAt: Date.now()
-        }
-      },
-      { new: true }
-    );
-
-    if (!user) {
+    // Find the user first to ensure they exist
+    const existingUser = await User.findOne({
+      _id: req.params.userId,
+      organizationId: req.params.id
+    });
+    
+    if (!existingUser) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    res.json(user);
+    
+    // Update basic info
+    existingUser.firstName = firstName;
+    existingUser.lastName = lastName;
+    existingUser.role = role;
+    existingUser.isActive = isActive;
+    existingUser.updatedAt = Date.now();
+    
+    // Update password if provided
+    if (password) {
+      existingUser.password = password; // Model should hash this via pre-save hook
+    }
+    
+    await existingUser.save();
+    
+    // Return user object without password
+    const userResponse = existingUser.toObject();
+    delete userResponse.password;
+    
+    res.json(userResponse);
   } catch (error) {
     console.error('Error updating organization user:', error);
     res.status(500).json({ message: 'Failed to update organization user' });
+  }
+};
+
+// Get single user from organization
+exports.getOrganizationUser = async (req, res) => {
+  try {
+    const user = await User.findOne({
+      _id: req.params.userId,
+      organizationId: req.params.id
+    }).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Error getting organization user:', error);
+    res.status(500).json({ message: 'Failed to retrieve user' });
   }
 };
 
@@ -198,5 +226,36 @@ exports.getOrganizationStats = async (req, res) => {
   } catch (error) {
     console.error('Error getting organization stats:', error);
     res.status(500).json({ message: 'Failed to retrieve organization statistics' });
+  }
+};
+
+// Reset user password
+exports.resetUserPassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    }
+    
+    // Find the user
+    const user = await User.findOne({
+      _id: req.params.userId,
+      organizationId: req.params.id
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Update password
+    user.password = newPassword;
+    user.updatedAt = Date.now();
+    await user.save();
+    
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Error resetting user password:', error);
+    res.status(500).json({ message: 'Failed to reset password' });
   }
 }; 
