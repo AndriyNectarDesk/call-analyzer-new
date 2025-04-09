@@ -484,7 +484,7 @@ function App() {
                 <nav className="main-nav">
                   <ul>
                     <li>
-                      <Link to="/">Analyze</Link>
+                      <Link to="/analyzer">Analyze</Link>
                     </li>
                     <li>
                       <Link to="/history">History</Link>
@@ -568,6 +568,12 @@ function App() {
             <Route path="/" element={
               <ProtectedRoute>
                 {currentUser?.isMasterAdmin ? <MasterAdminDashboard /> : <AnalyzerPage />}
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/analyzer" element={
+              <ProtectedRoute>
+                <AnalyzerPage />
               </ProtectedRoute>
             } />
             
