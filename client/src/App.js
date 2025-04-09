@@ -513,7 +513,7 @@ function App() {
                           <Link to="/organizations">Organizations</Link>
                         </li>
                         <li>
-                          <Link to={'/organizations/' + (currentOrganization?.id || '1') + '/users'}>Users</Link>
+                          <Link to={`/organizations/${currentOrganization?.id || '1'}/users`}>Users</Link>
                         </li>
                       </>
                     )}

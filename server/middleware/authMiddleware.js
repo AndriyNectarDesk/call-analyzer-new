@@ -7,16 +7,59 @@ exports.authenticateJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader) {
+    console.error('Authentication failed: No authorization header');
     return res.status(401).json({ error: 'Access denied. No token provided' });
+  }
+  
+  // Check if header has correct format
+  if (!authHeader.startsWith('Bearer ')) {
+    console.error('Authentication failed: Invalid authorization header format');
+    return res.status(401).json({ error: 'Invalid authorization format. Use Bearer token' });
   }
   
   const token = authHeader.split(' ')[1];
   
+  if (!token) {
+    console.error('Authentication failed: Empty token');
+    return res.status(401).json({ error: 'Empty token provided' });
+  }
+  
+  // Log token details for debugging (in development only)
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const tokenParts = token.split('.');
+    if (tokenParts.length === 3) {
+      const header = JSON.parse(Buffer.from(tokenParts[0], 'base64').toString());
+      const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+      console.log('JWT header:', header);
+      console.log('JWT payload:', payload);
+    }
+  } catch (decodeErr) {
+    console.error('Error decoding token for debug:', decodeErr);
+  }
+  
+  try {
+    const jwtSecret = process.env.JWT_SECRET;
+    
+    if (!jwtSecret) {
+      console.error('JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+    
+    console.log('Verifying token with secret:', jwtSecret ? 'Secret is defined' : 'Secret is MISSING');
+    
+    const decoded = jwt.verify(token, jwtSecret);
+    console.log('Token successfully verified for user:', decoded.userId);
     req.user = decoded;
     next();
   } catch (error) {
+    console.error('JWT verification error:', error.name, error.message);
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired. Please log in again.' });
+    } else if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token. Please log in again.' });
+    }
+    
     return res.status(401).json({ error: 'Invalid token' });
   }
 };

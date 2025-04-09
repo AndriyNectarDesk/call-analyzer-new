@@ -3,3 +3,23 @@
 [33m2426ba3[m Add robust API key error handling and health checks
 [33mf275c81[m Add Vercel configuration to fix build issues
 [33m81d9680[m Add required public directory with essential files for React build
+[33mcommit 9d9dc00bf4ab79d2a5344f003c75fa7f10733fac[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: andriy <pocmarketing@gmail.com>
+Date:   Tue Apr 8 22:13:54 2025 -0400
+
+    Rename application to AI Nectar Desk
+
+README.md
+agent-performance-updates.md
+client/public/index.html
+client/public/manifest.json
+client/src/App.js
+server/controllers/authController.js
+server/controllers/organizationController.js
+server/middleware/authMiddleware.js
+server/models/callType.js
+server/models/organization.js
+server/models/transcript.js
+server/models/user.js
+server/routes/organizationRoutes.js
+server/server.js
