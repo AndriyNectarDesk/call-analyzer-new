@@ -6,8 +6,8 @@ function TranscriptHistory() {
   const [filteredTranscripts, setFilteredTranscripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filterAgent, setFilterAgent] = useState('');
-  const [agents, setAgents] = useState([]);
+  const [filterOrganization, setFilterOrganization] = useState('');
+  const [organizations, setOrganizations] = useState([]);
 
   useEffect(() => {
     const fetchTranscripts = async () => {
@@ -23,12 +23,12 @@ function TranscriptHistory() {
         setTranscripts(data);
         setFilteredTranscripts(data);
         
-        // Extract unique agent names
-        const uniqueAgents = [...new Set(data
-          .map(t => t.analysis.callSummary.agentName)
-          .filter(name => name && name.trim() !== '')
+        // Extract unique organization names
+        const uniqueOrganizations = [...new Set(data
+          .filter(t => t.organizationId && t.organizationId.name)
+          .map(t => t.organizationId.name)
         )];
-        setAgents(uniqueAgents);
+        setOrganizations(uniqueOrganizations);
       } catch (err) {
         setError('Error loading transcript history');
         console.error(err);
@@ -40,16 +40,16 @@ function TranscriptHistory() {
     fetchTranscripts();
   }, []);
   
-  // Filter transcripts when filterAgent changes
+  // Filter transcripts when filterOrganization changes
   useEffect(() => {
-    if (!filterAgent) {
+    if (!filterOrganization) {
       setFilteredTranscripts(transcripts);
     } else {
       setFilteredTranscripts(transcripts.filter(
-        t => t.analysis.callSummary.agentName === filterAgent
+        t => t.organizationId && t.organizationId.name === filterOrganization
       ));
     }
-  }, [filterAgent, transcripts]);
+  }, [filterOrganization, transcripts]);
 
   // Get a human-readable call type
   const getCallTypeLabel = (type) => {
@@ -89,27 +89,18 @@ function TranscriptHistory() {
       
       <div className="filter-controls">
         <div className="filter-group">
-          <label htmlFor="agentFilter">Filter by Agent:</label>
+          <label htmlFor="organizationFilter">Filter by Organization:</label>
           <select 
-            id="agentFilter" 
-            value={filterAgent} 
-            onChange={(e) => setFilterAgent(e.target.value)}
+            id="organizationFilter" 
+            value={filterOrganization} 
+            onChange={(e) => setFilterOrganization(e.target.value)}
           >
-            <option value="">All Agents</option>
-            {agents.map(agent => (
-              <option key={agent} value={agent}>{agent}</option>
+            <option value="">All Organizations</option>
+            {organizations.map(org => (
+              <option key={org} value={org}>{org}</option>
             ))}
           </select>
         </div>
-        
-        {filterAgent && (
-          <div className="agent-analytics-link">
-            <p>
-              View detailed analytics for this agent on the 
-              <Link to={`/agents`} className="analytics-link"> Agent Analytics page</Link>
-            </p>
-          </div>
-        )}
       </div>
       
       {filteredTranscripts.length === 0 ? (
@@ -168,8 +159,8 @@ function TranscriptHistory() {
       )}
       
       <div className="history-footer">
-        {filterAgent && (
-          <button className="clear-filter-button" onClick={() => setFilterAgent('')}>
+        {filterOrganization && (
+          <button className="clear-filter-button" onClick={() => setFilterOrganization('')}>
             Clear Filter
           </button>
         )}
