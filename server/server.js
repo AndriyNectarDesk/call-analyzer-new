@@ -692,7 +692,11 @@ app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
 // Route to get transcript history
 app.get('/api/transcripts', async (req, res) => {
   try {
-    const transcripts = await Transcript.find().sort({ createdAt: -1 });
+    // Find transcripts and populate the organization name
+    const transcripts = await Transcript.find()
+      .populate('organizationId', 'name code')
+      .sort({ createdAt: -1 });
+    
     res.json(transcripts);
   } catch (error) {
     console.error('Error fetching transcripts:', error);
@@ -703,7 +707,9 @@ app.get('/api/transcripts', async (req, res) => {
 // Route to get a single transcript by ID
 app.get('/api/transcripts/:id', async (req, res) => {
   try {
-    const transcript = await Transcript.findById(req.params.id);
+    const transcript = await Transcript.findById(req.params.id)
+      .populate('organizationId', 'name code subscriptionTier');
+      
     if (!transcript) {
       return res.status(404).json({ error: 'Transcript not found' });
     }

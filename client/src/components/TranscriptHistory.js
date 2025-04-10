@@ -131,6 +131,11 @@ function TranscriptHistory() {
                 <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
                   {getCallTypeLabel(transcript.callType)}
                 </span>
+                {transcript.organizationId && (
+                  <span className="organization-badge">
+                    Org: {transcript.organizationId.name}
+                  </span>
+                )}
               </div>
               
               <div className="card-summary">

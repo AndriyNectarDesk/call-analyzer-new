@@ -43,7 +43,7 @@ function TranscriptDetail() {
     return <div className="error-message">{error || 'Transcript not found'}</div>;
   }
 
-  const { analysis, rawTranscript, createdAt, source, metadata, callType } = transcript;
+  const { analysis, rawTranscript, createdAt, source, metadata, callType, organizationId } = transcript;
 
   // Format metadata for display if it exists
   const metadataEntries = metadata ? Object.entries(metadata) : [];
@@ -62,9 +62,27 @@ function TranscriptDetail() {
     <div className="detail-container">
       <div className="detail-header">
         <h2>Transcript Analysis</h2>
-        <p className="date">Analyzed on: {new Date(createdAt).toLocaleString()}</p>
-        <p className="source">Source: {source === 'api' ? 'External API' : 'Web UI'}</p>
-        <p className="call-type">Call Type: {getCallTypeLabel(callType || 'auto')}</p>
+        <div className="detail-meta">
+          <p>
+            <strong>Date:</strong> {new Date(createdAt).toLocaleString()}
+          </p>
+          <p>
+            <strong>Source:</strong> {source === 'api' ? 'API' : source === 'audio' ? 'Audio Upload' : 'Web UI'}
+          </p>
+          <p>
+            <strong>Call Type:</strong> {getCallTypeLabel(callType)}
+          </p>
+          {organizationId && (
+            <p>
+              <strong>Organization:</strong> {organizationId.name} 
+              {organizationId.subscriptionTier && (
+                <span className={`subscription-badge ${organizationId.subscriptionTier}`}>
+                  {organizationId.subscriptionTier}
+                </span>
+              )}
+            </p>
+          )}
+        </div>
       </div>
       
       {metadataEntries.length > 0 && (
