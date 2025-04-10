@@ -78,8 +78,14 @@ function App() {
           if (orgsResponse.ok) {
             const organizations = await orgsResponse.json();
             setUserOrganizations(organizations);
-            if (organizations.length > 0) {
+            // Find the master organization (code: 'master-org') or use the first organization
+            const masterOrg = organizations.find(org => org.code === 'master-org') || organizations[0];
+            if (masterOrg) {
+              setCurrentOrganization(masterOrg);
+              console.log('Set current organization for master admin:', masterOrg.name, masterOrg._id);
+            } else if (organizations.length > 0) {
               setCurrentOrganization(organizations[0]);
+              console.log('No master org found, using first organization:', organizations[0].name);
             }
           }
         } else if (data.user.organization) {
@@ -154,8 +160,14 @@ function App() {
         if (orgsResponse.ok) {
           const organizations = await orgsResponse.json();
           setUserOrganizations(organizations);
-          if (organizations.length > 0) {
+          // Find the master organization (code: 'master-org') or use the first organization
+          const masterOrg = organizations.find(org => org.code === 'master-org') || organizations[0];
+          if (masterOrg) {
+            setCurrentOrganization(masterOrg);
+            console.log('Set current organization for master admin:', masterOrg.name, masterOrg._id);
+          } else if (organizations.length > 0) {
             setCurrentOrganization(organizations[0]);
+            console.log('No master org found, using first organization:', organizations[0].name);
           }
         }
       } else if (data.user.organization) {
@@ -416,86 +428,138 @@ function App() {
             )}
             
             {analysis && !isLoading && !error ? (
-              <div className="analysis-container">
-                <h2>Call Summary</h2>
-                
-                {/* Debug information - remove in production */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div style={{ display: 'none' }}>
-                    <p>Analysis data structure: {JSON.stringify(Object.keys(analysis))}</p>
-                    <p>Has callSummary: {Boolean(analysis.callSummary)}</p>
-                    <p>Has scorecard: {Boolean(analysis.scorecard)}</p>
-                    <p>Has agentPerformance: {Boolean(analysis.agentPerformance)}</p>
-                    <p>Has improvementSuggestions: {Boolean(analysis.improvementSuggestions)}</p>
+              <div className="analyzer-results">
+                <div className="call-summary-section">
+                  <h2>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 19H2v-8H6V5h12v6h4v8h-9" />
+                      <circle cx="9" cy="9" r="2" />
+                      <path d="M13 11l2 2 4-4" />
+                    </svg>
+                    Call Summary
+                  </h2>
+                  
+                  <div className="overview-card">
+                    <div className="overview-text">
+                      {analysis && analysis.callSummary ? Object.values(analysis.callSummary).filter(Boolean).join('. ') : 'No summary available'}
+                    </div>
                   </div>
-                )}
-                
-                <div className="summary-card">
-                  <h3>Overview</h3>
-                  <p>{analysis && analysis.callSummary ? Object.values(analysis.callSummary).filter(Boolean).join('. ') : 'No summary available'}</p>
+                  
+                  <div className="metrics-grid">
+                    <div className={`metric-card ${analysis && analysis.scorecard && analysis.scorecard.customerService ? 
+                      (analysis.scorecard.customerService > 7 ? 'positive-sentiment' : 
+                       analysis.scorecard.customerService < 4 ? 'negative-sentiment' : 
+                       'neutral-sentiment') : ''}`}>
+                      <h3>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                          <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                          <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                        </svg>
+                        Sentiment
+                      </h3>
+                      <div className="metric-value">
+                        {analysis && analysis.scorecard && analysis.scorecard.customerService 
+                          ? (analysis.scorecard.customerService > 7 ? 'Positive' : 
+                             analysis.scorecard.customerService < 4 ? 'Negative' : 'Neutral') 
+                          : 'N/A'}
+                      </div>
+                      <div className="metric-decoration"></div>
+                    </div>
+                    
+                    <div className="metric-card satisfaction-metric">
+                      <h3>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                        </svg>
+                        Customer Satisfaction
+                      </h3>
+                      <div className="metric-value">
+                        {analysis && analysis.scorecard && analysis.scorecard.customerService ? Math.round(analysis.scorecard.customerService * 10) : 0}
+                        <span>%</span>
+                      </div>
+                      <div className="metric-decoration"></div>
+                    </div>
+                    
+                    <div className="metric-card agent-metric">
+                      <h3>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Agent Performance
+                      </h3>
+                      <div className="metric-value">
+                        {analysis && analysis.scorecard && analysis.scorecard.overallScore ? Math.round(analysis.scorecard.overallScore * 10) : 0}
+                        <span>%</span>
+                      </div>
+                      <div className="metric-decoration"></div>
+                    </div>
+                    
+                    <div className="metric-card efficiency-metric">
+                      <h3>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        Call Efficiency
+                      </h3>
+                      <div className="metric-value">
+                        {analysis && analysis.scorecard && analysis.scorecard.processEfficiency ? Math.round(analysis.scorecard.processEfficiency * 10) : 0}
+                        <span>%</span>
+                      </div>
+                      <div className="metric-decoration"></div>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="metrics-grid">
-                  <div className="metric-card">
-                    <h3>Sentiment</h3>
-                    <div className="score-display">
-                      <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis && analysis.scorecard && analysis.scorecard.customerService ? analysis.scorecard.customerService / 10 : 0)
-                      }}></div>
-                      <span>{analysis && analysis.scorecard && analysis.scorecard.customerService 
-                        ? (analysis.scorecard.customerService > 7 ? 'Positive' : analysis.scorecard.customerService < 4 ? 'Negative' : 'Neutral') 
-                        : 'N/A'}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="metric-card">
-                    <h3>Customer Satisfaction</h3>
-                    <div className="score-display">
-                      <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis && analysis.scorecard && analysis.scorecard.customerService ? analysis.scorecard.customerService / 10 : 0)
-                      }}></div>
-                      <span>{analysis && analysis.scorecard && analysis.scorecard.customerService ? Math.round(analysis.scorecard.customerService * 10) : 0}%</span>
-                    </div>
-                  </div>
-                  
-                  <div className="metric-card">
-                    <h3>Agent Performance</h3>
-                    <div className="score-display">
-                      <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis && analysis.scorecard && analysis.scorecard.overallScore ? analysis.scorecard.overallScore / 10 : 0)
-                      }}></div>
-                      <span>{analysis && analysis.scorecard && analysis.scorecard.overallScore ? Math.round(analysis.scorecard.overallScore * 10) : 0}%</span>
-                    </div>
-                  </div>
-                  
-                  <div className="metric-card">
-                    <h3>Call Efficiency</h3>
-                    <div className="score-display">
-                      <div className="score-indicator" style={{
-                        backgroundColor: getScoreColor(analysis && analysis.scorecard && analysis.scorecard.processEfficiency ? analysis.scorecard.processEfficiency / 10 : 0)
-                      }}></div>
-                      <span>{analysis && analysis.scorecard && analysis.scorecard.processEfficiency ? Math.round(analysis.scorecard.processEfficiency * 10) : 0}%</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="insights-card">
-                  <h3>Key Insights</h3>
-                  <ul className="summary-list">
+                <div className="key-insights-section">
+                  <h2>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    Key Insights
+                  </h2>
+                  <ul className="insights-list">
                     {analysis && analysis.agentPerformance && analysis.agentPerformance.strengths && analysis.agentPerformance.strengths.map((insight, index) => (
-                      <li key={`strength-${index}`}>{insight}</li>
+                      <li key={`strength-${index}`} className="insight-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                        </svg>
+                        <div className="insight-content">{insight}</div>
+                      </li>
                     ))}
                     {analysis && analysis.agentPerformance && analysis.agentPerformance.areasForImprovement && analysis.agentPerformance.areasForImprovement.map((insight, index) => (
-                      <li key={`improvement-${index}`}>{insight}</li>
+                      <li key={`improvement-${index}`} className="insight-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+                        </svg>
+                        <div className="insight-content">{insight}</div>
+                      </li>
                     ))}
                   </ul>
                 </div>
                 
-                <div className="action-items-card">
-                  <h3>Recommended Actions</h3>
-                  <ul className="summary-list">
+                <div className="recommendation-section">
+                  <h2>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                    </svg>
+                    Recommended Actions
+                  </h2>
+                  <ul className="recommendations-list">
                     {analysis && analysis.improvementSuggestions && analysis.improvementSuggestions.map((item, index) => (
-                      <li key={index}>{item}</li>
+                      <li key={index} className="recommendation-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="12" y1="8" x2="12" y2="16"></line>
+                          <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                        <div className="recommendation-content">{item}</div>
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -526,11 +590,32 @@ function App() {
     return isAuthenticated ? children : <Navigate to="/login" />;
   };
 
+  // Helper function to get badge class based on subscription tier
+  const getTierBadgeClass = (tier) => {
+    switch (tier.toLowerCase()) {
+      case 'premium':
+      case 'enterprise':
+        return 'badge-success';
+      case 'pro':
+      case 'professional':
+      case 'business':
+        return 'badge-primary';
+      case 'basic':
+        return 'badge-secondary';
+      case 'free':
+      case 'trial':
+        return 'badge-warning';
+      default:
+        return 'badge-secondary';
+    }
+  };
+
   // Helper function to get color based on score
   const getScoreColor = (score) => {
-    if (score >= 0.7) return 'var(--apple-green)';
-    if (score >= 0.5) return 'var(--apple-yellow)';
-    return 'var(--apple-red)';
+    if (score >= 0.8) return '#4CAF50'; // green
+    if (score >= 0.6) return '#2196F3'; // blue
+    if (score >= 0.4) return '#FF9800'; // orange
+    return '#F44336'; // red
   };
 
   return (
@@ -582,9 +667,11 @@ function App() {
                         <li>
                           <Link to="/organizations">Organizations</Link>
                         </li>
-                        <li>
-                          <Link to={`/organizations/${currentOrganization?.id || '1'}/users`}>Users</Link>
-                        </li>
+                        {currentOrganization && (
+                          <li>
+                            <Link to={`/organizations/${currentOrganization.id}/users`}>Users</Link>
+                          </li>
+                        )}
                       </>
                     )}
                   </ul>
