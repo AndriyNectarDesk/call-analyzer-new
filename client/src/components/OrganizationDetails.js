@@ -18,12 +18,20 @@ const OrganizationDetails = () => {
 
   const fetchOrganizationDetails = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const response = await axios.get(`/api/master-admin/organizations/${id}`);
       setOrganization(response.data.organization);
       setUsers(response.data.users);
     } catch (err) {
-      setError('Failed to fetch organization details');
       console.error('Error fetching organization details:', err);
+      if (err.response && err.response.status === 400 && err.response.data.message === 'Invalid organization ID format') {
+        setError('Invalid organization ID format. Please check the URL and try again.');
+      } else if (err.response && err.response.status === 404) {
+        setError('Organization not found. It may have been deleted or you may not have permission to view it.');
+      } else {
+        setError('Failed to fetch organization details. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
