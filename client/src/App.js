@@ -420,14 +420,12 @@ function App() {
               </div>
             )}
             
-            {isLoading && (
+            {isLoading ? (
               <div className="loading-container">
                 <div className="spinner"></div>
                 <p>Analyzing your call...</p>
               </div>
-            )}
-            
-            {analysis && !isLoading && !error ? (
+            ) : analysis && !error ? (
               <div className="analyzer-results">
                 <div className="call-summary-section">
                   <h2>
