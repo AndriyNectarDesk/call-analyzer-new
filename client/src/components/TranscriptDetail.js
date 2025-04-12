@@ -127,16 +127,13 @@ function TranscriptDetail() {
                 <div className="score-label">
                   {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                 </div>
-                <div className="score-bar-container">
-                  <div 
-                    className="score-bar" 
-                    style={{ 
-                      width: `${value * 10}%`,
-                      backgroundColor: value >= 8 ? 'var(--success-color)' : 
-                                     value >= 6 ? 'var(--warning-color)' : 
-                                     'var(--error-color)'
-                    }}
-                  />
+                <div className="score-bar-wrapper">
+                  <div className="score-bar-container">
+                    <div 
+                      className={`score-bar ${value >= 8 ? 'high' : value >= 6 ? 'medium' : 'low'}`}
+                      style={{ width: `${value * 10}%` }}
+                    />
+                  </div>
                   <span className="score-value">{value}/10</span>
                 </div>
               </div>
