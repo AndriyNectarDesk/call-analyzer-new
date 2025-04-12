@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const Transcript = require(require('path').resolve(__dirname, 'models', 'transcript'));
 const CallType = require(require('path').resolve(__dirname, 'models', 'callType'));
+const Organization = require(require('path').resolve(__dirname, 'models', 'organization'));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -509,6 +510,12 @@ app.post('/api/analyze', async (req, res, next) => {
       });
 
       await newTranscript.save();
+
+      // Update organization transcript count
+      await Organization.findByIdAndUpdate(
+        organizationId,
+        { $inc: { 'usageStats.totalTranscripts': 1 } }
+      );
 
       return res.json({
         success: true,
@@ -1060,6 +1067,12 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
 
         await newTranscript.save();
         console.log('Transcript saved successfully to database with ID:', newTranscript._id);
+        
+        // Update organization transcript count
+        await Organization.findByIdAndUpdate(
+          organizationId,
+          { $inc: { 'usageStats.totalTranscripts': 1 } }
+        );
         
         // Return success response
         return res.json({

@@ -73,13 +73,17 @@ const MasterAdminDashboard = () => {
       });
       
       const masterAdminsCount = masterAdminsResponse.data.length;
-      const totalUsers = response.data.reduce((sum, org) => sum + (org.usageStats?.totalUsers || 0), 0);
+      const organizationUsers = response.data.reduce((sum, org) => sum + (org.usageStats?.totalUsers || 0), 0);
+      const totalTranscripts = response.data.reduce((sum, org) => sum + (org.usageStats?.totalTranscripts || 0), 0);
+      
+      // Add master admins to total users count
+      const totalUsers = organizationUsers + masterAdminsCount;
       
       setStats({
         totalOrganizations: response.data.length,
         activeOrganizations: activeOrgs,
         totalUsers: totalUsers,
-        totalTranscripts: response.data.reduce((sum, org) => sum + (org.usageStats?.totalTranscripts || 0), 0)
+        totalTranscripts: totalTranscripts
       });
     } catch (err) {
       console.error('Full error object:', err);

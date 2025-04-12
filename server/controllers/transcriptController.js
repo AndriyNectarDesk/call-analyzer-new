@@ -1,5 +1,6 @@
 const Transcript = require('../models/transcript');
 const mongoose = require('mongoose');
+const Organization = require('../models/organization');
 
 // Get all transcripts
 exports.getAllTranscripts = async (req, res) => {
@@ -100,6 +101,12 @@ exports.createTranscript = async (req, res) => {
     });
     
     await transcript.save();
+    
+    // Update organization transcript count
+    await Organization.findByIdAndUpdate(
+      organizationId,
+      { $inc: { 'usageStats.totalTranscripts': 1 } }
+    );
     
     // Return the created transcript data
     res.status(201).json(transcript);
