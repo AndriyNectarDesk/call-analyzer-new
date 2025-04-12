@@ -287,6 +287,12 @@ exports.createMasterAdminUser = async (req, res) => {
       return res.status(400).json({ message: 'Email already in use' });
     }
     
+    // Get master organization
+    const masterOrg = await Organization.findOne({ code: 'master-org' });
+    if (!masterOrg) {
+      return res.status(500).json({ message: 'Master organization not found' });
+    }
+    
     // Generate a temporary password (will be reset by user)
     const tempPassword = crypto.randomBytes(16).toString('hex');
     
@@ -297,11 +303,17 @@ exports.createMasterAdminUser = async (req, res) => {
       lastName,
       password: tempPassword, // Will be hashed by the model's pre-save hook
       role: 'admin', // Master admins are also admins
-      organizationId: null, // Master admins don't belong to any specific organization
+      organizationId: masterOrg._id,
       isMasterAdmin: true
     });
     
     await newUser.save();
+    
+    // Update master organization user count
+    await Organization.findByIdAndUpdate(
+      masterOrg._id,
+      { $inc: { 'usageStats.totalUsers': 1 } }
+    );
     
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -315,37 +327,18 @@ exports.createMasterAdminUser = async (req, res) => {
     console.log(`Creating Master Admin user: ${firstName} ${lastName} (${email})`);
     console.log(`Reset token generated with expiry: ${new Date(resetExpiry).toISOString()}`);
     
-    // Send invitation email
-    try {
-      // Log email configuration
-      console.log('Email Configuration:');
-      console.log(`- FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set (using default)'}`);
-      console.log(`- EMAIL_HOST: ${process.env.EMAIL_HOST || 'not set (using default)'}`);
-      console.log(`- EMAIL_PORT: ${process.env.EMAIL_PORT || 'not set (using default)'}`);
-      console.log(`- EMAIL_USER: ${process.env.EMAIL_USER ? 'set' : 'not set'}`);
-      console.log(`- EMAIL_FROM: ${process.env.EMAIL_FROM || 'not set (using default)'}`);
-      
-      const emailSent = await emailService.sendMasterAdminInvitation(newUser, resetToken);
-      console.log(`Invitation email for ${email} sent successfully: ${emailSent}`);
-      
-      if (!emailSent) {
-        console.log('Email was not sent but created user anyway.');
-        // Only include token in non-production environments
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`Reset token for debugging: ${resetToken}`);
-          console.log(`Reset URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&welcome=true`);
-        }
+    // Send password reset email
+    await emailService.sendMasterAdminWelcomeEmail(email, firstName, resetToken);
+    
+    res.status(201).json({
+      message: 'Master Admin user created successfully. Check email for password reset instructions.',
+      user: {
+        id: newUser._id,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName
       }
-    } catch (emailError) {
-      console.error('Error sending invitation email:', emailError);
-      // Continue execution - we'll still create the user
-    }
-    
-    // Return the new user without password
-    const userResponse = newUser.toObject();
-    delete userResponse.password;
-    
-    res.status(201).json(userResponse);
+    });
   } catch (error) {
     console.error('Error creating master admin user:', error);
     res.status(500).json({ message: 'Failed to create master admin user' });

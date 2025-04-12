@@ -64,14 +64,22 @@ const MasterAdminDashboard = () => {
       
       // Calculate stats
       const activeOrgs = response.data.filter(org => org.active || org.isActive).length;
+      
+      // Get master admins count
+      const masterAdminsResponse = await axios.get(`${apiUrl}/api/master-admin/master-admins`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const masterAdminsCount = masterAdminsResponse.data.length;
       const totalUsers = response.data.reduce((sum, org) => sum + (org.usageStats?.totalUsers || 0), 0);
-      const totalTranscripts = response.data.reduce((sum, org) => sum + (org.usageStats?.totalTranscripts || 0), 0);
       
       setStats({
         totalOrganizations: response.data.length,
         activeOrganizations: activeOrgs,
-        totalUsers,
-        totalTranscripts
+        totalUsers: totalUsers,
+        totalTranscripts: response.data.reduce((sum, org) => sum + (org.usageStats?.totalTranscripts || 0), 0)
       });
     } catch (err) {
       console.error('Full error object:', err);
