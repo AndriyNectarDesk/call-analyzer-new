@@ -500,12 +500,15 @@ a:hover {
   background-color: var(--background-secondary);
   border-radius: var(--border-radius-md);
   padding: var(--spacing-lg);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .scorecard {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+  padding-right: var(--spacing-md);
 }
 
 .score-item {
@@ -513,10 +516,11 @@ a:hover {
   align-items: center;
   gap: var(--spacing-lg);
   padding: var(--spacing-sm) 0;
+  width: 100%;
 }
 
 .score-label {
-  flex: 0 0 200px;
+  flex: 0 0 180px;
   font-weight: 500;
   color: var(--apple-black);
   font-size: 15px;
@@ -528,6 +532,7 @@ a:hover {
   align-items: center;
   gap: var(--spacing-md);
   height: 24px;
+  min-width: 0; /* Allows flex item to shrink below content size */
 }
 
 .score-bar-container {
@@ -536,6 +541,7 @@ a:hover {
   background-color: var(--apple-light-gray);
   border-radius: var(--border-radius-pill);
   overflow: hidden;
+  min-width: 100px; /* Ensures minimum width for the progress bar */
 }
 
 .score-bar {
@@ -557,11 +563,13 @@ a:hover {
 }
 
 .score-value {
-  flex: 0 0 48px;
+  flex: 0 0 40px;
   text-align: right;
   font-weight: 600;
   font-size: 14px;
   color: var(--apple-dark-gray);
+  margin-left: var(--spacing-sm);
+  white-space: nowrap;
 }
 
 /* Navigation Buttons */
