@@ -505,22 +505,25 @@ a:hover {
 .scorecard {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
 }
 
 .score-item {
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
+  align-items: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-sm) 0;
 }
 
 .score-label {
+  flex: 0 0 200px;
   font-weight: 500;
   color: var(--apple-black);
   font-size: 15px;
 }
 
 .score-bar-wrapper {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
@@ -533,13 +536,9 @@ a:hover {
   background-color: var(--apple-light-gray);
   border-radius: var(--border-radius-pill);
   overflow: hidden;
-  position: relative;
 }
 
 .score-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
   height: 100%;
   border-radius: var(--border-radius-pill);
   transition: width var(--transition-normal);
@@ -558,12 +557,11 @@ a:hover {
 }
 
 .score-value {
-  min-width: 48px;
+  flex: 0 0 48px;
   text-align: right;
   font-weight: 600;
   font-size: 14px;
   color: var(--apple-dark-gray);
-  padding-left: var(--spacing-sm);
 }
 
 /* Navigation Buttons */
@@ -750,22 +748,25 @@ a:hover {
 .scorecard {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
 }
 
 .score-item {
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
+  align-items: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-sm) 0;
 }
 
 .score-label {
+  flex: 0 0 200px;
   font-weight: 500;
   color: var(--apple-black);
   font-size: 15px;
 }
 
 .score-bar-wrapper {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
@@ -778,13 +779,9 @@ a:hover {
   background-color: var(--apple-light-gray);
   border-radius: var(--border-radius-pill);
   overflow: hidden;
-  position: relative;
 }
 
 .score-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
   height: 100%;
   border-radius: var(--border-radius-pill);
   transition: width var(--transition-normal);
@@ -803,12 +800,11 @@ a:hover {
 }
 
 .score-value {
-  min-width: 48px;
+  flex: 0 0 48px;
   text-align: right;
   font-weight: 600;
   font-size: 14px;
   color: var(--apple-dark-gray);
-  padding-left: var(--spacing-sm);
 }
 
 /* Navigation Buttons */

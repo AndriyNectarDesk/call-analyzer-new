@@ -22,14 +22,22 @@ exports.getAllOrganizations = async (req, res) => {
 // Get organization details with users
 exports.getOrganizationDetails = async (req, res) => {
   try {
-    const organization = await Organization.findById(req.params.id)
+    const { id } = req.params;
+    
+    // Check if the provided ID is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.error(`Error getting organization details: Invalid ObjectId format for id "${id}"`);
+      return res.status(400).json({ message: 'Invalid organization ID format' });
+    }
+    
+    const organization = await Organization.findById(id)
       .populate('createdBy', 'firstName lastName email');
     
     if (!organization) {
       return res.status(404).json({ message: 'Organization not found' });
     }
 
-    const users = await User.find({ organizationId: req.params.id })
+    const users = await User.find({ organizationId: id })
       .select('-password')
       .sort({ createdAt: -1 });
 
