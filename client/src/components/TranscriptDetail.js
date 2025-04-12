@@ -45,24 +45,22 @@ function TranscriptDetail() {
 
   const { analysis, rawTranscript, createdAt, source, metadata, callType, organizationId } = transcript;
 
-  // Format metadata for display if it exists
-  const metadataEntries = metadata ? Object.entries(metadata) : [];
-
-  // Get a human-readable call type
-  const getCallTypeLabel = (type) => {
-    switch(type) {
-      case 'flower': return 'Flower Shop';
-      case 'hearing': return 'Hearing Aid Clinic';
-      case 'auto': return 'Auto-detected';
-      default: return type;
-    }
-  };
-
   return (
     <div className="detail-container">
-      <div className="detail-header">
-        <h2>Transcript Analysis</h2>
-        <div className="detail-meta">
+      {/* Left Column - Transcript */}
+      <div className="transcript-column">
+        <h2>Call Transcript</h2>
+        <div className="transcript-text">
+          {rawTranscript.split('\n').map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+      </div>
+
+      {/* Right Column - Analysis */}
+      <div className="analysis-column">
+        {/* Header Info */}
+        <div className="meta-info">
           <p>
             <strong>Date:</strong> {new Date(createdAt).toLocaleString()}
           </p>
@@ -70,121 +68,87 @@ function TranscriptDetail() {
             <strong>Source:</strong> {source === 'api' ? 'API' : source === 'audio' ? 'Audio Upload' : 'Web UI'}
           </p>
           <p>
-            <strong>Call Type:</strong> {getCallTypeLabel(callType)}
+            <strong>Call Type:</strong> {
+              callType === 'flower' ? 'Flower Shop' :
+              callType === 'hearing' ? 'Hearing Aid Clinic' :
+              callType === 'auto' ? 'Auto-detected' : callType
+            }
           </p>
-          {organizationId && (
-            <p>
-              <strong>Organization:</strong> {organizationId.name} 
-              {organizationId.subscriptionTier && (
-                <span className={`subscription-badge ${organizationId.subscriptionTier}`}>
-                  {organizationId.subscriptionTier}
-                </span>
-              )}
-            </p>
-          )}
         </div>
-      </div>
-      
-      {metadataEntries.length > 0 && (
-        <div className="metadata-section">
-          <h3>Additional Information</h3>
-          <div className="metadata-grid">
-            {metadataEntries.map(([key, value]) => (
-              <div key={key} className="metadata-item">
-                <span className="metadata-label">{key}:</span>
-                <span className="metadata-value">
-                  {typeof value === 'object' ? JSON.stringify(value) : value}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      <div className="content-grid">
-        <div className="raw-transcript">
-          <h3>Call Transcript</h3>
-          <div className="transcript-text">
-            {rawTranscript.split('\n').map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-          </div>
-        </div>
-        
-        <div className="analysis-results">
-          <div className="result-block">
-            <h3>Call Summary</h3>
-            <ul className="summary-list">
-              {Object.entries(analysis.callSummary).map(([key, value]) => (
-                <li key={key}>
-                  <span className="label">
-                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:
-                  </span> 
-                  <span>{value}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
 
-          <div className="result-block">
-            <h3>Agent Performance</h3>
-            <div className="performance-grid">
-              <div>
-                <h4 className="strength-header">Strengths</h4>
-                <ul>
-                  {analysis.agentPerformance.strengths.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h4 className="improvement-header">Areas for Improvement</h4>
-                <ul>
-                  {analysis.agentPerformance.areasForImprovement.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+        {/* Call Summary */}
+        <div className="call-summary">
+          <h3>Call Summary</h3>
+          {Object.entries(analysis.callSummary).map(([key, value]) => (
+            <div key={key} className="summary-item">
+              <span className="summary-label">
+                {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+              </span>
+              <span className="summary-value">{value}</span>
             </div>
-          </div>
+          ))}
+        </div>
 
-          <div className="result-block">
-            <h3>Improvement Suggestions</h3>
-            <ol>
-              {analysis.improvementSuggestions.map((suggestion, index) => (
-                <li key={index}>{suggestion}</li>
-              ))}
-            </ol>
-          </div>
+        {/* Agent Performance */}
+        <div className="performance-section">
+          <h3>Agent Performance</h3>
+          
+          <h4>Strengths</h4>
+          <ul className="strengths-list">
+            {analysis.agentPerformance.strengths.map((strength, index) => (
+              <li key={index}>{strength}</li>
+            ))}
+          </ul>
 
-          <div className="result-block">
-            <h3>Performance Scorecard</h3>
-            <div className="scorecard">
-              {Object.entries(analysis.scorecard).map(([key, value]) => (
-                <div key={key} className="score-item">
-                  <div className="score-label">
-                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                  </div>
-                  <div className="score-bar-container">
-                    <div 
-                      className="score-bar" 
-                      style={{ 
-                        width: `${value * 10}%`, 
-                        backgroundColor: value >= 8 ? '#4CAF50' : value >= 6 ? '#FFC107' : '#F44336' 
-                      }}
-                    ></div>
-                  </div>
-                  <div className="score-value">{value}/10</div>
+          <h4>Areas for Improvement</h4>
+          <ul className="improvements-list">
+            {analysis.agentPerformance.areasForImprovement.map((area, index) => (
+              <li key={index}>{area}</li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Improvement Suggestions */}
+        <div className="suggestions-section">
+          <h3>Recommended Actions</h3>
+          <ul className="improvements-list">
+            {analysis.improvementSuggestions.map((suggestion, index) => (
+              <li key={index}>{suggestion}</li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Scorecard */}
+        <div className="scorecard-section">
+          <h3>Performance Scorecard</h3>
+          <div className="scorecard">
+            {Object.entries(analysis.scorecard).map(([key, value]) => (
+              <div key={key} className="score-item">
+                <div className="score-label">
+                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                 </div>
-              ))}
-            </div>
+                <div className="score-bar-container">
+                  <div 
+                    className="score-bar" 
+                    style={{ 
+                      width: `${value * 10}%`,
+                      backgroundColor: value >= 8 ? 'var(--success-color)' : 
+                                     value >= 6 ? 'var(--warning-color)' : 
+                                     'var(--error-color)'
+                    }}
+                  />
+                  <span className="score-value">{value}/10</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
-      
-      <div className="detail-footer">
-        <Link to="/history" className="back-button">Back to History</Link>
-        <Link to="/" className="home-button">New Analysis</Link>
+
+        {/* Navigation */}
+        <div className="navigation-buttons">
+          <Link to="/history" className="button button-secondary">Back to History</Link>
+          <Link to="/" className="button">New Analysis</Link>
+        </div>
       </div>
     </div>
   );
