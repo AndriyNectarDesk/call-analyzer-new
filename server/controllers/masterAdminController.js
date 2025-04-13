@@ -220,9 +220,15 @@ exports.getOrganizationStats = async (req, res) => {
       organizationId: organizationId,
       isActive: true
     });
+
+    // Get current transcript count
+    const currentTranscriptCount = await mongoose.model('Transcript').countDocuments({
+      organizationId: organizationId
+    });
     
     res.json({
       currentUserCount,
+      currentTranscriptCount,
       timestamp: new Date()
     });
   } catch (error) {
