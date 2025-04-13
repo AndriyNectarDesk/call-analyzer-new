@@ -217,8 +217,8 @@ exports.getOrganizationStats = async (req, res) => {
     
     // Get current user count
     const currentUserCount = await User.countDocuments({
-      organization: organizationId,
-      active: true
+      organizationId: organizationId,
+      isActive: true
     });
     
     res.json({
