@@ -2,6 +2,7 @@ const Organization = require('../models/organization');
 const ApiKey = require('../models/ApiKey');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const User = require('../models/user');
 
 // Helper to generate API key
 const generateApiKey = () => {
@@ -219,46 +220,43 @@ exports.deleteApiKey = async (req, res) => {
   }
 };
 
-// Get organization statistics
+// Get organization stats
 exports.getOrganizationStats = async (req, res) => {
   try {
     const organizationId = req.params.id;
-    
+    console.log('Getting stats for organization:', organizationId);
+
     // Check if organization exists
-    const organization = await Organization.findOne({ 
-      _id: organizationId,
-      isActive: true
-    });
-    
+    const organization = await Organization.findOne({ _id: mongoose.Types.ObjectId(organizationId) });
     if (!organization) {
       return res.status(404).json({ message: 'Organization not found' });
     }
-    
-    // Get active API keys count
-    const apiKeysCount = await ApiKey.countDocuments({
-      organizationId,
+
+    // Get active API key count
+    const activeApiKeyCount = await ApiKey.countDocuments({
+      organizationId: mongoose.Types.ObjectId(organizationId),
       isActive: true
     });
-    
-    // Get call analysis counts (assuming Transcript model exists)
-    const transcriptCount = await mongoose.model('Transcript').countDocuments({
-      organizationId
+
+    // Get current transcript count
+    const currentTranscriptCount = await mongoose.model('Transcript').countDocuments({
+      organizationId: mongoose.Types.ObjectId(organizationId)
     });
-    
-    // Get user count (assuming User model exists)
-    const userCount = await mongoose.model('User').countDocuments({
-      organizationId,
+
+    // Get current user count
+    const currentUserCount = await User.countDocuments({
+      organizationId: mongoose.Types.ObjectId(organizationId),
       isActive: true
     });
-    
+
     res.json({
-      apiKeysCount,
-      transcriptCount: transcriptCount || 0,
-      userCount: userCount || 0,
-      createdAt: organization.createdAt
+      activeApiKeyCount,
+      currentTranscriptCount,
+      currentUserCount,
+      timestamp: new Date()
     });
   } catch (error) {
     console.error('Error getting organization stats:', error);
-    res.status(500).json({ message: 'Failed to retrieve organization statistics' });
+    res.status(500).json({ message: 'Error getting organization stats' });
   }
 }; 
