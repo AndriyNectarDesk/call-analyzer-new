@@ -60,10 +60,25 @@ const MasterAdminDashboard = () => {
       
       console.log('API Response:', response.data);
       
-      setOrganizations(response.data);
+      // Get user counts for each organization
+      const orgUserCounts = await Promise.all(response.data.map(org => 
+        axios.get(`${apiUrl}/api/master-admin/organizations/${org._id}/stats`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+      ));
+
+      // Add user counts to organizations
+      const orgsWithCounts = response.data.map((org, index) => ({
+        ...org,
+        actualUserCount: orgUserCounts[index].data.currentUserCount || 0
+      }));
+      
+      setOrganizations(orgsWithCounts);
       
       // Calculate stats
-      const activeOrgs = response.data.filter(org => org.active || org.isActive).length;
+      const activeOrgs = orgsWithCounts.filter(org => org.active || org.isActive).length;
       
       // Get master admins count
       const masterAdminsResponse = await axios.get(`${apiUrl}/api/master-admin/master-admins`, {
@@ -73,8 +88,8 @@ const MasterAdminDashboard = () => {
       });
       
       const masterAdminsCount = masterAdminsResponse.data.length;
-      const organizationUsers = response.data.reduce((sum, org) => sum + (org.usageStats?.totalUsers || 0), 0);
-      const totalTranscripts = response.data.reduce((sum, org) => sum + (org.usageStats?.totalTranscripts || 0), 0);
+      const organizationUsers = orgsWithCounts.reduce((sum, org) => sum + org.actualUserCount, 0);
+      const totalTranscripts = orgsWithCounts.reduce((sum, org) => sum + (org.usageStats?.totalTranscripts || 0), 0);
       
       // Add master admins to total users count
       const totalUsers = organizationUsers + masterAdminsCount;
@@ -219,7 +234,7 @@ const MasterAdminDashboard = () => {
                       <td>
                         {getSubscriptionBadge(org.subscriptionTier, org.subscriptionStatus)}
                       </td>
-                      <td>{org.usageStats?.totalUsers || 0}</td>
+                      <td>{org.actualUserCount || 0}</td>
                       <td>{org.usageStats?.totalTranscripts || 0}</td>
                       <td>
                         <span className={`status-indicator ${org.active ? 'active' : 'inactive'}`}>

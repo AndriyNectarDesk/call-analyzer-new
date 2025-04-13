@@ -210,33 +210,24 @@ exports.getOrganizationUser = async (req, res) => {
   }
 };
 
-// Get organization usage statistics
+// Get organization stats
 exports.getOrganizationStats = async (req, res) => {
   try {
-    const organization = await Organization.findById(req.params.id)
-      .select('usageStats features subscriptionTier subscriptionStatus');
+    const organizationId = req.params.id;
     
-    if (!organization) {
-      return res.status(404).json({ message: 'Organization not found' });
-    }
-
-    const userCount = await User.countDocuments({ 
-      organizationId: req.params.id,
-      isActive: true
+    // Get current user count
+    const currentUserCount = await User.countDocuments({
+      organization: organizationId,
+      active: true
     });
-
-    const transcriptCount = await mongoose.model('Transcript').countDocuments({
-      organizationId: req.params.id
-    });
-
+    
     res.json({
-      ...organization.toObject(),
-      currentUserCount: userCount,
-      currentTranscriptCount: transcriptCount
+      currentUserCount,
+      timestamp: new Date()
     });
   } catch (error) {
     console.error('Error getting organization stats:', error);
-    res.status(500).json({ message: 'Failed to retrieve organization statistics' });
+    res.status(500).json({ message: 'Error getting organization stats' });
   }
 };
 
