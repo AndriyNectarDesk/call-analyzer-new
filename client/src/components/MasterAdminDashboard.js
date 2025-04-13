@@ -72,7 +72,8 @@ const MasterAdminDashboard = () => {
       // Add user counts to organizations
       const orgsWithCounts = response.data.map((org, index) => ({
         ...org,
-        actualUserCount: orgUserCounts[index].data.currentUserCount || 0
+        actualUserCount: orgUserCounts[index].data.currentUserCount || 0,
+        actualTranscriptCount: orgUserCounts[index].data.currentTranscriptCount || 0
       }));
       
       setOrganizations(orgsWithCounts);
@@ -89,7 +90,7 @@ const MasterAdminDashboard = () => {
       
       const masterAdminsCount = masterAdminsResponse.data.length;
       const organizationUsers = orgsWithCounts.reduce((sum, org) => sum + org.actualUserCount, 0);
-      const totalTranscripts = orgsWithCounts.reduce((sum, org) => sum + (org.usageStats?.totalTranscripts || 0), 0);
+      const totalTranscripts = orgsWithCounts.reduce((sum, org) => sum + org.actualTranscriptCount, 0);
       
       // Add master admins to total users count
       const totalUsers = organizationUsers + masterAdminsCount;
@@ -235,7 +236,7 @@ const MasterAdminDashboard = () => {
                         {getSubscriptionBadge(org.subscriptionTier, org.subscriptionStatus)}
                       </td>
                       <td>{org.actualUserCount || 0}</td>
-                      <td>{org.usageStats?.totalTranscripts || 0}</td>
+                      <td>{org.actualTranscriptCount || 0}</td>
                       <td>
                         <span className={`status-indicator ${org.active ? 'active' : 'inactive'}`}>
                           {org.active ? 'Active' : 'Inactive'}
