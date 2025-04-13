@@ -92,8 +92,8 @@ const MasterAdminDashboard = () => {
       const organizationUsers = orgsWithCounts.reduce((sum, org) => sum + org.actualUserCount, 0);
       const totalTranscripts = orgsWithCounts.reduce((sum, org) => sum + org.actualTranscriptCount, 0);
       
-      // Add master admins to total users count
-      const totalUsers = organizationUsers + masterAdminsCount;
+      // Don't add master admins again since they're already counted in organization users
+      const totalUsers = organizationUsers;
       
       setStats({
         totalOrganizations: response.data.length,
