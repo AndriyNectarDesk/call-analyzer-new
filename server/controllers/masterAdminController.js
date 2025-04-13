@@ -214,17 +214,20 @@ exports.getOrganizationUser = async (req, res) => {
 exports.getOrganizationStats = async (req, res) => {
   try {
     const organizationId = req.params.id;
+    console.log('Getting stats for organization:', organizationId);
     
     // Get current user count
     const currentUserCount = await User.countDocuments({
       organizationId: organizationId,
       isActive: true
     });
+    console.log('Current user count:', currentUserCount);
 
     // Get current transcript count
     const currentTranscriptCount = await mongoose.model('Transcript').countDocuments({
       organizationId: organizationId
     });
+    console.log('Current transcript count:', currentTranscriptCount);
     
     res.json({
       currentUserCount,
@@ -345,7 +348,10 @@ exports.createMasterAdminUser = async (req, res) => {
 // Get all Master Admin users
 exports.getAllMasterAdmins = async (req, res) => {
   try {
-    const masterAdmins = await User.find({ isMasterAdmin: true })
+    const masterAdmins = await User.find({ 
+      isMasterAdmin: true,
+      isActive: true 
+    })
       .select('-password')
       .sort({ createdAt: -1 });
     
