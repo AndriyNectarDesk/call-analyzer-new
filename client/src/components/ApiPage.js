@@ -44,7 +44,7 @@ function ApiPage() {
       }
       
       // Fetch the API key from the server
-      const response = await axios.get(`${baseApiUrl}/api/organization/api-key`, {
+      const response = await axios.get(`${baseApiUrl}/api/organizations/api-key`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -83,7 +83,7 @@ function ApiPage() {
       }
       
       // Call the API to generate a new API key
-      const response = await axios.post(`${baseApiUrl}/api/organization/api-key`, {
+      const response = await axios.post(`${baseApiUrl}/api/organizations/api-key`, {
         name: `API Key - ${new Date().toLocaleDateString()}`
       }, {
         headers: {

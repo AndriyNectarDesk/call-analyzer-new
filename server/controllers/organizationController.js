@@ -288,6 +288,16 @@ exports.getCurrentApiKey = async (req, res) => {
   try {
     const organizationId = req.user.organizationId;
     console.log('Getting API key for organization:', organizationId);
+    
+    if (!organizationId) {
+      console.error('No organizationId found in user object:', req.user);
+      return res.status(400).json({ message: 'User organization not found' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+      console.error('Invalid organization ID format:', organizationId);
+      return res.status(400).json({ message: 'Invalid organization ID format' });
+    }
 
     // Find the most recently created active API key
     const apiKey = await ApiKey.findOne({
@@ -295,21 +305,27 @@ exports.getCurrentApiKey = async (req, res) => {
       isActive: true
     }).sort({ createdAt: -1 });
     
+    console.log('API key found:', apiKey ? 'Yes' : 'No');
+    
     if (!apiKey) {
       return res.status(404).json({ message: 'No active API key found' });
     }
 
     // Return only the prefix and masked key
-    res.json({
+    const response = {
       id: apiKey._id,
       name: apiKey.name,
       prefix: apiKey.prefix,
       key: `${apiKey.prefix}_${apiKey.key.substring(0, 4)}...`, // Mask the key
       createdAt: apiKey.createdAt,
       lastUsed: apiKey.lastUsed
-    });
+    };
+    
+    console.log('Returning API key info:', { ...response, key: '[MASKED]' });
+    res.json(response);
   } catch (error) {
     console.error('Error getting API key:', error);
+    console.error(error.stack);
     res.status(500).json({ message: 'Failed to retrieve API key' });
   }
 }; 

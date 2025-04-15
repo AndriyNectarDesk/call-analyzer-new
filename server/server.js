@@ -162,6 +162,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  // Log when request completes
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const userInfo = req.user ? `user: ${req.user.userId}, org: ${req.user.organizationId}` : 'unauthenticated';
+    console.log(`[${req.method}] ${req.path} - ${res.statusCode} - ${duration}ms - ${userInfo}`);
+  });
+  
+  next();
+});
+
 // Call Types API routes
 app.get('/api/call-types', async (req, res) => {
   try {
