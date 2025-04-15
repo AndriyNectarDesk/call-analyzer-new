@@ -271,9 +271,9 @@ exports.getOrganizationStats = async (req, res) => {
     }).select('_id email'));
 
     const response = {
-      activeApiKeyCount,
-      currentTranscriptCount,
       currentUserCount,
+      currentTranscriptCount,
+      activeApiKeyCount,
       timestamp: new Date()
     };
     console.log('Sending response:', response);

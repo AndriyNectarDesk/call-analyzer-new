@@ -13,7 +13,8 @@ const MasterAdminDashboard = () => {
     totalOrganizations: 0,
     activeOrganizations: 0,
     totalUsers: 0,
-    totalTranscripts: 0
+    totalTranscripts: 0,
+    totalApiKeys: 0
   });
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
@@ -74,7 +75,8 @@ const MasterAdminDashboard = () => {
           orgsWithCounts.push({
             ...org,
             actualUserCount: statsResponse.data.currentUserCount || 0,
-            actualTranscriptCount: statsResponse.data.currentTranscriptCount || 0
+            actualTranscriptCount: statsResponse.data.currentTranscriptCount || 0,
+            actualApiKeyCount: statsResponse.data.activeApiKeyCount || 0
           });
         } catch (statsError) {
           console.error(`Error fetching stats for organization ${org._id}:`, statsError);
@@ -82,7 +84,8 @@ const MasterAdminDashboard = () => {
           orgsWithCounts.push({
             ...org,
             actualUserCount: 0,
-            actualTranscriptCount: 0
+            actualTranscriptCount: 0,
+            actualApiKeyCount: 0
           });
         }
       }
@@ -100,8 +103,9 @@ const MasterAdminDashboard = () => {
       });
       
       const masterAdminsCount = masterAdminsResponse.data.length;
-      const organizationUsers = orgsWithCounts.reduce((sum, org) => sum + org.actualUserCount, 0);
-      const totalTranscripts = orgsWithCounts.reduce((sum, org) => sum + org.actualTranscriptCount, 0);
+      const organizationUsers = orgsWithCounts.reduce((sum, org) => sum + (org.actualUserCount || 0), 0);
+      const totalTranscripts = orgsWithCounts.reduce((sum, org) => sum + (org.actualTranscriptCount || 0), 0);
+      const totalApiKeys = orgsWithCounts.reduce((sum, org) => sum + (org.actualApiKeyCount || 0), 0);
       
       // Don't add master admins again since they're already counted in organization users
       const totalUsers = organizationUsers;
@@ -109,8 +113,9 @@ const MasterAdminDashboard = () => {
       setStats({
         totalOrganizations: response.data.length,
         activeOrganizations: activeOrgs,
-        totalUsers: totalUsers,
-        totalTranscripts: totalTranscripts
+        totalUsers,
+        totalTranscripts,
+        totalApiKeys
       });
     } catch (err) {
       console.error('Full error object:', err);
@@ -218,6 +223,10 @@ const MasterAdminDashboard = () => {
               <h3>Total Transcripts</h3>
               <p>{stats.totalTranscripts}</p>
             </div>
+            <div className="stat-card">
+              <h3>Total API Keys</h3>
+              <p>{stats.totalApiKeys}</p>
+            </div>
           </div>
 
           <div className="organizations-list">
@@ -231,6 +240,7 @@ const MasterAdminDashboard = () => {
                     <th>Subscription</th>
                     <th>Users</th>
                     <th>Transcripts</th>
+                    <th>API Keys</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -248,6 +258,7 @@ const MasterAdminDashboard = () => {
                       </td>
                       <td>{org.actualUserCount || 0}</td>
                       <td>{org.actualTranscriptCount || 0}</td>
+                      <td>{org.actualApiKeyCount || 0}</td>
                       <td>
                         <span className={`status-indicator ${org.active ? 'active' : 'inactive'}`}>
                           {org.active ? 'Active' : 'Inactive'}
