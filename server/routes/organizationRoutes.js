@@ -15,6 +15,8 @@ router.delete('/:id', authenticateJWT, isMasterAdmin, organizationController.dea
 // API key management
 router.post('/:id/api-keys', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.generateApiKey);
 router.delete('/:id/api-keys/:keyId', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.deleteApiKey);
+router.get('/api-key', authenticateJWT, organizationController.getCurrentApiKey);
+router.post('/api-key', authenticateJWT, isOrgAdmin, organizationController.generateApiKey);
 
 // Organization stats
 router.get('/:id/stats', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.getOrganizationStats);

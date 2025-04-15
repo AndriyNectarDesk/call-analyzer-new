@@ -149,11 +149,18 @@ exports.deactivateOrganization = async (req, res) => {
 // Generate API key for organization
 exports.generateApiKey = async (req, res) => {
   try {
-    const organizationId = req.params.id;
+    // Get organization ID either from params or user object
+    const organizationId = req.params.id || req.user.organizationId;
+    console.log('Generating API key for organization:', organizationId);
+    
+    if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+      console.error('Invalid organization ID format:', organizationId);
+      return res.status(400).json({ message: 'Invalid organization ID format' });
+    }
     
     // Check if organization exists
     const organization = await Organization.findOne({ 
-      _id: organizationId,
+      _id: mongoose.Types.ObjectId(organizationId),
       isActive: true
     });
     
@@ -273,5 +280,36 @@ exports.getOrganizationStats = async (req, res) => {
     // Log the full error stack trace
     console.error(error.stack);
     res.status(500).json({ message: 'Error getting organization stats', error: error.message });
+  }
+};
+
+// Get current API key for organization
+exports.getCurrentApiKey = async (req, res) => {
+  try {
+    const organizationId = req.user.organizationId;
+    console.log('Getting API key for organization:', organizationId);
+
+    // Find the most recently created active API key
+    const apiKey = await ApiKey.findOne({
+      organizationId: mongoose.Types.ObjectId(organizationId),
+      isActive: true
+    }).sort({ createdAt: -1 });
+    
+    if (!apiKey) {
+      return res.status(404).json({ message: 'No active API key found' });
+    }
+
+    // Return only the prefix and masked key
+    res.json({
+      id: apiKey._id,
+      name: apiKey.name,
+      prefix: apiKey.prefix,
+      key: `${apiKey.prefix}_${apiKey.key.substring(0, 4)}...`, // Mask the key
+      createdAt: apiKey.createdAt,
+      lastUsed: apiKey.lastUsed
+    });
+  } catch (error) {
+    console.error('Error getting API key:', error);
+    res.status(500).json({ message: 'Failed to retrieve API key' });
   }
 }; 

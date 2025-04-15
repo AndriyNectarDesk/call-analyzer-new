@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 function ApiPage() {
   const [apiKey, setApiKey] = useState('');
@@ -10,11 +11,13 @@ function ApiPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Base URL for the API, defaulting to localhost in development
   const baseApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   
-  // Generate a fake API key for display (last 8 chars are real)
+  // Generate a masked API key for display (last 8 chars are real)
   const maskApiKey = (key) => {
     if (!key) return 'Not available';
     return `••••••••••••••••${key.slice(-8)}`;
@@ -22,30 +25,102 @@ function ApiPage() {
 
   // Check API key status from server
   useEffect(() => {
-    const checkApiKey = async () => {
-      try {
-        setIsLoading(true);
-        
-        // In a real app, we'd fetch the actual key from the server
-        // For this demo, we'll just get it from .env file or use a dummy value
-        const dummyKey = "sk_test_api_key_12345abcdef";
-        
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        setApiKey(dummyKey);
-        setApiStatus('Valid');
-      } catch (err) {
-        console.error('Error fetching API key:', err);
-        setError('Error loading API key information.');
+    fetchApiKey();
+  }, []);
+
+  const fetchApiKey = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Get the token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
         setApiStatus('Error');
-      } finally {
         setIsLoading(false);
+        return;
       }
-    };
-    
-    checkApiKey();
-  }, [baseApiUrl]);
+      
+      // Fetch the API key from the server
+      const response = await axios.get(`${baseApiUrl}/api/organization/api-key`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data && response.data.key) {
+        setApiKey(response.data.key);
+        setApiStatus('Valid');
+      } else {
+        setApiKey('');
+        setApiStatus('Not Found');
+      }
+    } catch (err) {
+      console.error('Error fetching API key:', err);
+      setError('Error loading API key information.');
+      setApiStatus('Error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Generate a new API key
+  const generateNewApiKey = async () => {
+    try {
+      setIsGenerating(true);
+      setSuccessMessage('');
+      setError(null);
+      
+      // Get the token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        setIsGenerating(false);
+        return;
+      }
+      
+      // Call the API to generate a new API key
+      const response = await axios.post(`${baseApiUrl}/api/organization/api-key`, {
+        name: `API Key - ${new Date().toLocaleDateString()}`
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.data && response.data.key) {
+        setApiKey(response.data.key);
+        setApiStatus('Valid');
+        setSuccessMessage('New API key generated successfully');
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setSuccessMessage('');
+        }, 5000);
+      } else {
+        setError('Failed to generate API key. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error generating API key:', err);
+      
+      let errorMessage = 'Failed to generate API key. ';
+      if (err.response) {
+        errorMessage += err.response.data?.message || JSON.stringify(err.response.data);
+      } else if (err.request) {
+        errorMessage += 'No response received from server.';
+      } else {
+        errorMessage += err.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // Handle copy events
   const handleCopy = (field) => {
@@ -129,6 +204,12 @@ analyzeTranscript();`;
     <div className="api-page">
       <h2>API Access</h2>
       
+      {successMessage && (
+        <div className="success-message">
+          {successMessage}
+        </div>
+      )}
+      
       <div className="api-info-section">
         <h3>Your API Key</h3>
         <div className="api-key-container">
@@ -138,25 +219,46 @@ analyzeTranscript();`;
             <span className={`api-status ${apiStatus.toLowerCase()}`}>{apiStatus}</span>
           </div>
           
-          <button 
-            className="copy-button"
-            onClick={() => {
-              navigator.clipboard.writeText(apiKey);
-              handleCopy('apiKey');
-            }}
-          >
-            {copied.apiKey ? (
-              <>
-                <span className="copy-icon">✓</span>
-                Copied!
-              </>
-            ) : (
-              <>
-                <span className="copy-icon">📋</span>
-                Copy Key
-              </>
-            )}
-          </button>
+          <div className="api-key-actions">
+            <button 
+              className="copy-button"
+              onClick={() => {
+                navigator.clipboard.writeText(apiKey);
+                handleCopy('apiKey');
+              }}
+              disabled={!apiKey || apiStatus !== 'Valid'}
+            >
+              {copied.apiKey ? (
+                <>
+                  <span className="copy-icon">✓</span>
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <span className="copy-icon">📋</span>
+                  Copy Key
+                </>
+              )}
+            </button>
+            
+            <button 
+              className="generate-button"
+              onClick={generateNewApiKey}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <span className="generate-spinner"></span>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <span className="generate-icon">🔑</span>
+                  Generate New API Key
+                </>
+              )}
+            </button>
+          </div>
         </div>
         
         <div className="api-security-note">
@@ -262,4 +364,105 @@ analyzeTranscript();`;
   );
 }
 
-export default ApiPage; 
+export default ApiPage;
+
+// Add styles for API page components
+const styles = `
+  .api-page {
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .api-key-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 12px;
+    border: 1px solid #e9ecef;
+  }
+  
+  .api-key-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .api-key-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  
+  .copy-button,
+  .generate-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .copy-button {
+    background-color: #e9ecef;
+    color: #495057;
+  }
+  
+  .copy-button:hover:not(:disabled) {
+    background-color: #dde1e5;
+  }
+  
+  .generate-button {
+    background-color: #cfe2ff;
+    color: #0a58ca;
+  }
+  
+  .generate-button:hover:not(:disabled) {
+    background-color: #b6d4fe;
+  }
+  
+  .copy-button:disabled,
+  .generate-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .generate-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-left-color: #0a58ca;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  .success-message {
+    background-color: #d1e7dd;
+    color: #146c43;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    border: 1px solid #a3cfbb;
+  }
+`;
+
+// Inject styles into the document
+if (typeof document !== 'undefined') {
+  const styleEl = document.createElement('style');
+  styleEl.innerHTML = styles;
+  document.head.appendChild(styleEl);
+} 
