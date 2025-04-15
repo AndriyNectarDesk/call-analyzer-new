@@ -290,12 +290,24 @@ exports.getOrganizationStats = async (req, res) => {
 // Get current API key for organization
 exports.getCurrentApiKey = async (req, res) => {
   try {
+    console.log('getCurrentApiKey called with user:', JSON.stringify({
+      userId: req.user?.userId,
+      email: req.user?.email,
+      organizationId: req.user?.organizationId,
+      isMasterAdmin: req.user?.isMasterAdmin
+    }));
+    
+    if (!req.user) {
+      console.error('No user object in request');
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    
     const organizationId = req.user.organizationId;
     console.log('Getting API key for organization:', organizationId);
     
     if (!organizationId) {
       console.error('No organizationId found in user object:', req.user);
-      return res.status(400).json({ message: 'User organization not found' });
+      return res.status(400).json({ message: 'User not associated with any organization' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(organizationId)) {
@@ -303,16 +315,26 @@ exports.getCurrentApiKey = async (req, res) => {
       return res.status(400).json({ message: 'Invalid organization ID format' });
     }
 
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+    console.log('Converted to ObjectId:', orgObjectId.toString());
+
     // Find the most recently created active API key
+    console.log('Looking for API key with organizationId:', orgObjectId.toString());
     const apiKey = await ApiKey.findOne({
-      organizationId: new mongoose.Types.ObjectId(organizationId),
+      organizationId: orgObjectId,
       isActive: true
     }).sort({ createdAt: -1 }).lean(); // Use lean() to get a plain JavaScript object
     
     console.log('API key found:', apiKey ? 'Yes' : 'No');
     
     if (!apiKey) {
-      return res.status(404).json({ message: 'No active API key found' });
+      // No active API key found, but instead of error, let's return a clear message
+      console.log('No API key found for organization');
+      return res.status(404).json({ 
+        message: 'No active API key found', 
+        organizationId: organizationId,
+        needsGeneration: true 
+      });
     }
 
     // Return only the prefix and full key
@@ -330,6 +352,51 @@ exports.getCurrentApiKey = async (req, res) => {
   } catch (error) {
     console.error('Error getting API key:', error);
     console.error(error.stack);
-    res.status(500).json({ message: 'Failed to retrieve API key' });
+    res.status(500).json({ message: 'Failed to retrieve API key: ' + error.message });
+  }
+};
+
+// Helper function to generate an API key for the current user's organization
+const generateApiKeyForCurrentUser = async (req, res) => {
+  try {
+    const organizationId = req.user.organizationId;
+    
+    if (!organizationId || !mongoose.Types.ObjectId.isValid(organizationId)) {
+      return res.status(400).json({ message: 'Invalid organization ID' });
+    }
+    
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+    
+    // Generate API key
+    const keyValue = crypto.randomBytes(32).toString('hex');
+    const keyPrefix = 'ca_' + crypto.randomBytes(4).toString('hex');
+    const fullKeyFormat = `${keyPrefix}_${keyValue}`;
+    
+    // Create API key record
+    const keyName = `Default API Key - ${new Date().toLocaleDateString()}`;
+    
+    const newApiKey = new ApiKey({
+      prefix: keyPrefix,
+      key: keyValue,
+      name: keyName,
+      organizationId: orgObjectId,
+      createdBy: req.user.userId
+    });
+    
+    await newApiKey.save();
+    
+    console.log('Generated new API key with prefix:', keyPrefix);
+    
+    // Return the newly created key
+    return res.status(201).json({
+      id: newApiKey._id,
+      name: newApiKey.name,
+      prefix: newApiKey.prefix,
+      key: fullKeyFormat,
+      createdAt: newApiKey.createdAt
+    });
+  } catch (error) {
+    console.error('Error generating API key:', error);
+    return res.status(500).json({ message: 'Failed to generate API key: ' + error.message });
   }
 }; 

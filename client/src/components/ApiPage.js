@@ -37,11 +37,33 @@ function ApiPage() {
       const token = localStorage.getItem('auth_token');
       
       if (!token) {
+        console.error('Authentication token not found');
         setError('Authentication token not found. Please log in again.');
         setApiStatus('Error');
         setIsLoading(false);
         return;
       }
+      
+      // Get user info to check organization ID
+      try {
+        const userResponse = await axios.get(`${baseApiUrl}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        console.log('Current user info:', userResponse.data);
+        if (!userResponse.data.user?.organization?._id) {
+          console.error('User has no organization ID', userResponse.data);
+          setError('Your account is not associated with an organization. Please contact an administrator.');
+          setApiStatus('Error');
+          setIsLoading(false);
+          return;
+        }
+      } catch (userErr) {
+        console.error('Error fetching user info:', userErr);
+      }
+      
+      console.log('Fetching API key from:', `${baseApiUrl}/api/organizations/api-key`);
       
       // Fetch the API key from the server
       const response = await axios.get(`${baseApiUrl}/api/organizations/api-key`, {
@@ -50,16 +72,39 @@ function ApiPage() {
         }
       });
       
+      console.log('API key response:', { 
+        status: response.status, 
+        data: response.data ? '(data received)' : 'no data',
+        hasKey: response.data?.key ? 'yes' : 'no'
+      });
+      
       if (response.data && response.data.key) {
         setApiKey(response.data.key);
         setApiStatus('Valid');
       } else {
+        console.error('No key in response data:', response.data);
         setApiKey('');
         setApiStatus('Not Found');
       }
     } catch (err) {
       console.error('Error fetching API key:', err);
-      setError('Error loading API key information.');
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response ? {
+          status: err.response.status,
+          data: err.response.data
+        } : 'No response',
+        request: err.request ? 'Request was made but no response' : 'No request'
+      });
+      
+      let errorMessage = 'Error loading API key information. ';
+      if (err.response && err.response.data) {
+        errorMessage += err.response.data.message || JSON.stringify(err.response.data);
+      } else {
+        errorMessage += err.message;
+      }
+      
+      setError(errorMessage);
       setApiStatus('Error');
     } finally {
       setIsLoading(false);
@@ -82,6 +127,8 @@ function ApiPage() {
         return;
       }
       
+      console.log('Generating new API key...');
+      
       // Call the API to generate a new API key
       const response = await axios.post(`${baseApiUrl}/api/organizations/api-key`, {
         name: `API Key - ${new Date().toLocaleDateString()}`
@@ -90,6 +137,11 @@ function ApiPage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
+      });
+      
+      console.log('API key generation response:', {
+        status: response.status,
+        hasData: !!response.data
       });
       
       if (response.data && response.data.key) {
@@ -195,6 +247,28 @@ analyzeTranscript();`;
         <h2>API Access</h2>
         <div className="error-container">
           <p className="error-message">{error}</p>
+          {error.includes('No active API key found') && (
+            <div className="no-key-message">
+              <p>No API key has been created for your organization yet. Click the button below to generate one.</p>
+              <button 
+                className="generate-button"
+                onClick={generateNewApiKey}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <span className="generate-spinner"></span>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <span className="generate-icon">🔑</span>
+                    Generate New API Key
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
