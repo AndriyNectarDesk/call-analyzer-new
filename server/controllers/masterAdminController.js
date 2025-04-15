@@ -225,11 +225,23 @@ exports.getOrganizationStats = async (req, res) => {
 
     // Check if organization exists
     const organization = await Organization.findOne({ _id: mongoose.Types.ObjectId(organizationId) });
-    console.log('Found organization:', organization ? 'yes' : 'no');
+    console.log('Found organization:', organization ? organization.name : 'no');
     
     if (!organization) {
       return res.status(404).json({ message: 'Organization not found' });
     }
+
+    // Debug: List all users for this organization
+    const allUsers = await User.find({ 
+      organizationId: mongoose.Types.ObjectId(organizationId)
+    }).select('email isActive');
+    console.log('All users for organization:', allUsers);
+
+    // Debug: List all transcripts for this organization
+    const allTranscripts = await Transcript.find({
+      organizationId: mongoose.Types.ObjectId(organizationId)
+    }).select('_id createdAt');
+    console.log('All transcripts for organization:', allTranscripts);
 
     // Get active API key count
     const activeApiKeyCount = await ApiKey.countDocuments({
@@ -238,18 +250,25 @@ exports.getOrganizationStats = async (req, res) => {
     });
     console.log('Active API key count:', activeApiKeyCount);
 
-    // Get current transcript count
+    // Get current transcript count with detailed logging
     const currentTranscriptCount = await Transcript.countDocuments({
       organizationId: mongoose.Types.ObjectId(organizationId)
     });
     console.log('Current transcript count:', currentTranscriptCount);
+    console.log('Raw transcript query result:', await Transcript.find({
+      organizationId: mongoose.Types.ObjectId(organizationId)
+    }).select('_id'));
 
-    // Get current user count
+    // Get current user count with detailed logging
     const currentUserCount = await User.countDocuments({
       organizationId: mongoose.Types.ObjectId(organizationId),
       isActive: true
     });
     console.log('Current user count:', currentUserCount);
+    console.log('Raw user query result:', await User.find({
+      organizationId: mongoose.Types.ObjectId(organizationId),
+      isActive: true
+    }).select('_id email'));
 
     const response = {
       activeApiKeyCount,
