@@ -7,12 +7,15 @@ function ApiPage() {
   const [copied, setCopied] = useState({
     apiKey: false,
     curlCommand: false,
-    nodeCommand: false
+    nodeCommand: false,
+    curlAudioCommand: false,
+    nodeAudioCommand: false
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [exampleTab, setExampleTab] = useState('transcript');
 
   // Base URL for the API, defaulting to localhost in development
   const baseApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -237,6 +240,20 @@ function ApiPage() {
     }
   }'`;
 
+  // Alternative curl example with audioUrl
+  const curlAudioExample = `curl -X POST ${baseApiUrl}/api/external/analyze \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: YOUR_API_KEY" \\
+  -d '{
+    "audioUrl": "https://example.com/calls/recording123.mp3",
+    "callType": "hearing-aid-clinic",
+    "metadata": {
+      "agentId": "12345",
+      "callId": "call-98765",
+      "customer": "John Smith"
+    }
+  }'`;
+
   // Generate example Node.js code
   const nodeExample = `const axios = require('axios');
 
@@ -264,6 +281,34 @@ async function analyzeTranscript() {
 }
 
 analyzeTranscript();`;
+
+  // Alternative Node.js example with audioUrl
+  const nodeAudioExample = `const axios = require('axios');
+
+async function analyzeAudioUrl() {
+  try {
+    const response = await axios.post('${baseApiUrl}/api/external/analyze', {
+      audioUrl: "https://example.com/calls/recording123.mp3",
+      callType: "hearing-aid-clinic",
+      metadata: {
+        agentId: "12345",
+        callId: "call-98765",
+        customer: "John Smith"
+      }
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'YOUR_API_KEY'
+      }
+    });
+    
+    console.log('Analysis results:', response.data);
+  } catch (error) {
+    console.error('Analysis error:', error.response?.data || error.message);
+  }
+}
+
+analyzeAudioUrl();`;
 
   if (isLoading) {
     return (
@@ -388,7 +433,7 @@ analyzeTranscript();`;
             </div>
             
             <div className="endpoint-description">
-              <p>Analyze a call transcript to get performance insights and scores.</p>
+              <p>Analyze a call transcript to get performance insights and scores. You can provide either a transcript directly or an audio URL for automatic transcription and analysis.</p>
             </div>
             
             <div className="endpoint-params">
@@ -406,8 +451,14 @@ analyzeTranscript();`;
                   <tr>
                     <td>transcript</td>
                     <td>string</td>
-                    <td>Yes</td>
-                    <td>The call transcript text to analyze</td>
+                    <td>Conditional*</td>
+                    <td>The call transcript text to analyze. *Either transcript or audioUrl is required.</td>
+                  </tr>
+                  <tr>
+                    <td>audioUrl</td>
+                    <td>string</td>
+                    <td>Conditional*</td>
+                    <td>URL to an audio file to download, transcribe, and analyze. *Either transcript or audioUrl is required.</td>
                   </tr>
                   <tr>
                     <td>callType</td>
@@ -428,44 +479,131 @@ analyzeTranscript();`;
         </div>
       </div>
       
+      <div className="api-advanced-section">
+        <h3>Audio Transcription Details</h3>
+        <div className="details-card">
+          <h4>Supported Audio Formats</h4>
+          <p>When using the <code>audioUrl</code> parameter, the system supports various audio formats including:</p>
+          <ul>
+            <li>MP3</li>
+            <li>WAV</li>
+            <li>M4A</li>
+            <li>FLAC</li>
+            <li>OGG</li>
+            <li>WMA</li>
+          </ul>
+          <p>Files are automatically converted to an optimal format for transcription.</p>
+          
+          <h4>Audio Processing Limitations</h4>
+          <ul>
+            <li><strong>File Size:</strong> Maximum 25MB</li>
+            <li><strong>Duration:</strong> Up to 2 hours of audio recommended</li>
+            <li><strong>Audio Quality:</strong> Clear audio with minimal background noise yields the best results</li>
+            <li><strong>URL Access:</strong> The audio URL must be publicly accessible or include authentication in the URL</li>
+            <li><strong>Processing Time:</strong> Audio transcription adds 10-60 seconds to the processing time depending on file length</li>
+          </ul>
+          
+          <div className="info-note">
+            <strong>Note:</strong> For best results with audio files, ensure the recording has clear separation between speakers. The system will automatically detect and label speakers as "Agent" and "Customer" when possible.
+          </div>
+        </div>
+      </div>
+      
       <div className="api-examples-section">
         <h3>Code Examples</h3>
         
-        <div className="example-container">
-          <h4>cURL Example</h4>
-          <div className="code-block-container">
-            <pre className="code-block">
-              <code>{curlExample}</code>
-            </pre>
-            <button 
-              className="copy-code-button"
-              onClick={() => {
-                navigator.clipboard.writeText(curlExample);
-                handleCopy('curlCommand');
-              }}
-            >
-              {copied.curlCommand ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
+        <div className="examples-tabs">
+          <button 
+            className={`tab-button ${exampleTab === 'transcript' ? 'active' : ''}`}
+            onClick={() => setExampleTab('transcript')}
+          >
+            Transcript Examples
+          </button>
+          <button 
+            className={`tab-button ${exampleTab === 'audio' ? 'active' : ''}`}
+            onClick={() => setExampleTab('audio')}
+          >
+            Audio URL Examples
+          </button>
         </div>
         
-        <div className="example-container">
-          <h4>Node.js Example</h4>
-          <div className="code-block-container">
-            <pre className="code-block">
-              <code>{nodeExample}</code>
-            </pre>
-            <button 
-              className="copy-code-button"
-              onClick={() => {
-                navigator.clipboard.writeText(nodeExample);
-                handleCopy('nodeCommand');
-              }}
-            >
-              {copied.nodeCommand ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
-        </div>
+        {exampleTab === 'transcript' ? (
+          <>
+            <div className="example-container">
+              <h4>cURL Example with Transcript</h4>
+              <div className="code-block-container">
+                <pre className="code-block">
+                  <code>{curlExample}</code>
+                </pre>
+                <button 
+                  className="copy-code-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(curlExample);
+                    handleCopy('curlCommand');
+                  }}
+                >
+                  {copied.curlCommand ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+            
+            <div className="example-container">
+              <h4>Node.js Example with Transcript</h4>
+              <div className="code-block-container">
+                <pre className="code-block">
+                  <code>{nodeExample}</code>
+                </pre>
+                <button 
+                  className="copy-code-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(nodeExample);
+                    handleCopy('nodeCommand');
+                  }}
+                >
+                  {copied.nodeCommand ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="example-container">
+              <h4>cURL Example with Audio URL</h4>
+              <div className="code-block-container">
+                <pre className="code-block">
+                  <code>{curlAudioExample}</code>
+                </pre>
+                <button 
+                  className="copy-code-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(curlAudioExample);
+                    handleCopy('curlAudioCommand');
+                  }}
+                >
+                  {copied.curlAudioCommand ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+            
+            <div className="example-container">
+              <h4>Node.js Example with Audio URL</h4>
+              <div className="code-block-container">
+                <pre className="code-block">
+                  <code>{nodeAudioExample}</code>
+                </pre>
+                <button 
+                  className="copy-code-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(nodeAudioExample);
+                    handleCopy('nodeAudioCommand');
+                  }}
+                >
+                  {copied.nodeAudioCommand ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -564,6 +702,69 @@ const styles = `
     border-radius: 4px;
     margin-bottom: 16px;
     border: 1px solid #a3cfbb;
+  }
+  
+  .examples-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .examples-tabs .tab-button {
+    padding: 8px 16px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  
+  .examples-tabs .tab-button.active {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+  }
+  
+  .examples-tabs .tab-button:hover:not(.active) {
+    background-color: #e0e0e0;
+  }
+  
+  .details-card {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 15px;
+    margin-bottom: 30px;
+    border: 1px solid #e9ecef;
+  }
+  
+  .details-card h4 {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color: #495057;
+  }
+  
+  .details-card h4:first-child {
+    margin-top: 0;
+  }
+  
+  .details-card ul {
+    padding-left: 20px;
+    margin-bottom: 15px;
+  }
+  
+  .details-card li {
+    margin-bottom: 5px;
+  }
+  
+  .info-note {
+    background-color: #f1f8ff;
+    border-left: 4px solid #0366d6;
+    padding: 12px 15px;
+    margin: 15px 0;
+    border-radius: 0 4px 4px 0;
+    color: #24292e;
   }
 `;
 
