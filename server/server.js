@@ -755,6 +755,43 @@ app.get('/api/admin/check-api-keys', authenticateApiKey, async (req, res) => {
   }
 });
 
+// Debug endpoint to check API keys in the database (only for development/testing)
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/debug/api-keys', async (req, res) => {
+    try {
+      const ApiKey = require('./models/ApiKey');
+      const apiKeys = await ApiKey.find({ isActive: true })
+        .select('prefix key name organizationId createdAt lastUsed')
+        .populate('organizationId', 'name code')
+        .lean();
+      
+      // Format the data for security reasons (don't expose full keys)
+      const formattedKeys = apiKeys.map(key => ({
+        id: key._id,
+        prefix: key.prefix,
+        key: key.key ? `${key.key.substring(0, 4)}...${key.key.substring(key.key.length - 4)}` : 'N/A',
+        name: key.name,
+        organization: key.organizationId ? {
+          id: key.organizationId._id,
+          name: key.organizationId.name,
+          code: key.organizationId.code
+        } : 'N/A',
+        fullKeyFormat: `${key.prefix}_${key.key ? key.key.substring(0, 4) + '...' : 'N/A'}`,
+        createdAt: key.createdAt,
+        lastUsed: key.lastUsed
+      }));
+      
+      res.json({
+        apiKeys: formattedKeys,
+        count: formattedKeys.length
+      });
+    } catch (error) {
+      console.error('Error fetching API keys:', error);
+      res.status(500).json({ error: 'Failed to fetch API keys', details: error.message });
+    }
+  });
+}
+
 // Health check route
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });

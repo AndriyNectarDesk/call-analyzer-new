@@ -76,57 +76,101 @@ exports.authenticateApiKey = async (req, res, next) => {
   try {
     console.log('Validating API key:', apiKey.substring(0, 8) + '...');
     
-    // First, check if the key format is valid - should be in format prefix_key
-    const keyParts = apiKey.split('_');
-    if (keyParts.length < 2) {
-      console.error('Invalid API key format - missing prefix/key separator');
+    // The API key format appears to be prefix_part1_part2...
+    // For example: ca_d2e9f5a7_2edaea7fa0ee15d47b95835702a5951ea890b6c3ac64438c92fa4065d649204b
+    // Where ca_d2e9f5a7 is the prefix and the rest is the key
+    
+    // First check if the key starts with 'ca_' which is our expected prefix format
+    if (!apiKey.startsWith('ca_')) {
+      console.error('Invalid API key format - should start with ca_');
       return res.status(401).json({ error: 'Invalid API key format' });
     }
     
-    const prefix = keyParts[0];
-    const key = keyParts.slice(1).join('_'); // In case there are more underscores in the key part
+    // Extract the prefix (ca_XXXXXXXX) and the rest of the key
+    const parts = apiKey.split('_');
+    if (parts.length < 3) {
+      console.error('Invalid API key format - not enough parts');
+      return res.status(401).json({ error: 'Invalid API key format' });
+    }
     
-    console.log('API key prefix:', prefix);
+    // The prefix is ca_XXXXXXXX (first two parts)
+    const prefix = `${parts[0]}_${parts[1]}`;
+    // The key is everything after the prefix
+    const key = parts.slice(2).join('_');
+    
+    console.log('API key parsed - prefix:', prefix, 'key length:', key.length);
     
     let organization;
+    let apiKeyRecord;
     
-    // Try to find organization with matching inline apiKeys array first
-    organization = await Organization.findOne({
-      'apiKeys.key': key,
-      'apiKeys.isActive': true,
-      active: true
-    }).exec();
-    
-    // If not found in organization.apiKeys, check the ApiKey model
-    if (!organization) {
-      console.log('Key not found in organization.apiKeys, checking ApiKey model...');
-      
+    // Try to find the API key in the ApiKey model
+    try {
       const ApiKey = require('../models/ApiKey');
-      const apiKeyRecord = await ApiKey.findOne({
+      
+      // First try exact prefix match
+      apiKeyRecord = await ApiKey.findOne({
         prefix: prefix,
-        key: key,
         isActive: true
       }).exec();
       
       if (apiKeyRecord) {
-        console.log('Found valid API key in ApiKey model with prefix:', prefix);
+        console.log('Found API key with prefix:', prefix);
         
-        // Get the organization associated with this key
-        organization = await Organization.findOne({
-          _id: apiKeyRecord.organizationId,
-          active: true
-        }).exec();
-        
-        if (!organization) {
-          console.error('API key exists but organization not found or inactive');
+        // Verify the key matches
+        if (apiKeyRecord.key === key) {
+          console.log('API key validated successfully');
+          // Get the organization associated with this key
+          organization = await Organization.findOne({
+            _id: apiKeyRecord.organizationId,
+            active: true
+          }).exec();
         } else {
-          console.log('Found organization:', organization.name);
+          console.error('API key found but key part does not match');
         }
       } else {
-        console.error('API key not found in ApiKey model');
+        // Try flexible lookup approach in case the prefix_key format has changed
+        console.log('API key not found with exact prefix, trying flexible lookup...');
+        
+        // Get all active API keys and manually check
+        const allActiveKeys = await ApiKey.find({ isActive: true }).exec();
+        console.log(`Checking against ${allActiveKeys.length} active API keys`);
+        
+        for (const keyRecord of allActiveKeys) {
+          const fullKey = `${keyRecord.prefix}_${keyRecord.key}`;
+          if (apiKey === fullKey) {
+            console.log('Found matching API key with different format');
+            apiKeyRecord = keyRecord;
+            
+            // Get the organization
+            organization = await Organization.findOne({
+              _id: keyRecord.organizationId,
+              active: true
+            }).exec();
+            
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error looking up API key:', err);
+    }
+    
+    // If not found in ApiKey model, try the inline organization.apiKeys as fallback
+    if (!organization) {
+      console.log('API key not found in ApiKey model, checking organization.apiKeys...');
+      
+      // Try to find organization with this key in the inline apiKeys array
+      organization = await Organization.findOne({
+        'apiKeys.key': key,
+        'apiKeys.isActive': true,
+        active: true
+      }).exec();
+      
+      if (organization) {
+        console.log('Found valid API key in organization.apiKeys for organization:', organization.name);
       }
     } else {
-      console.log('Found valid API key in organization.apiKeys for organization:', organization.name);
+      console.log('Found organization:', organization.name);
     }
     
     if (!organization) {
@@ -143,16 +187,16 @@ exports.authenticateApiKey = async (req, res, next) => {
     
     console.log('API key validation successful for organization:', organization.name);
     
-    // Update last used timestamp
-    try {
-      const ApiKey = require('../models/ApiKey');
-      await ApiKey.findOneAndUpdate(
-        { prefix: prefix, key: key },
-        { $set: { lastUsed: new Date() } }
-      );
-    } catch (updateErr) {
-      console.error('Failed to update API key last used timestamp:', updateErr);
-      // Continue anyway - this is not critical
+    // Update last used timestamp if we have an apiKeyRecord
+    if (apiKeyRecord) {
+      try {
+        apiKeyRecord.lastUsed = new Date();
+        await apiKeyRecord.save();
+        console.log('Updated API key last used timestamp');
+      } catch (updateErr) {
+        console.error('Failed to update API key last used timestamp:', updateErr);
+        // Continue anyway - this is not critical
+      }
     }
     
     next();
