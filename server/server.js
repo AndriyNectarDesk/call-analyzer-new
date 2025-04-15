@@ -555,21 +555,165 @@ app.post('/api/analyze', async (req, res, next) => {
 // Update external API route to use async createPrompt
 app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => {
   try {
-    const { transcript, metadata, callType } = req.body;
+    const { transcript, metadata, callType, audioUrl } = req.body;
     
-    if (!transcript) {
-      return res.status(400).json({ error: 'Transcript is required' });
-    }
-    
-    // Get organization ID from the request (set by validateApiKey middleware)
+    // Get organization ID from the request (set by authenticateApiKey middleware)
     if (!req.organization || !req.organization.id) {
       return res.status(400).json({ error: 'Organization ID is required' });
     }
     
     const organizationId = req.organization.id;
+    let finalTranscript = transcript;
+    let tempDir = null;
+    let filePath = null;
+    let outputPath = null;
+
+    // If audioUrl is provided, download and transcribe it
+    if (audioUrl && !transcript) {
+      console.log(`Processing audio from URL: ${audioUrl}`);
+      
+      try {
+        // Create a temporary directory for downloaded files
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-'));
+        filePath = path.join(tempDir, 'downloaded-audio');
+        
+        // Download the file from the URL
+        console.log('Downloading audio file...');
+        const response = await axios({
+          method: 'GET',
+          url: audioUrl,
+          responseType: 'arraybuffer',
+          timeout: 30000, // 30 second timeout
+          headers: {
+            'User-Agent': 'Call-Analyzer/1.0'
+          }
+        });
+        
+        // Check content type to ensure it's an audio file
+        const contentType = response.headers['content-type'];
+        if (!contentType || !contentType.includes('audio/')) {
+          throw new Error(`URL does not point to an audio file (content-type: ${contentType})`);
+        }
+        
+        // Write the downloaded file to disk
+        fs.writeFileSync(filePath, Buffer.from(response.data));
+        console.log(`Downloaded audio file to ${filePath}`);
+        
+        // Convert to MP3 for consistent handling
+        outputPath = filePath + '.mp3';
+        console.log('Starting FFmpeg conversion...');
+        
+        await new Promise((resolve, reject) => {
+          ffmpeg(filePath)
+            .output(outputPath)
+            .on('start', (cmd) => {
+              console.log('FFmpeg conversion started:', cmd);
+            })
+            .on('end', () => {
+              console.log('FFmpeg conversion completed');
+              resolve();
+            })
+            .on('error', (err) => {
+              console.error('Error converting audio with FFmpeg:', err);
+              reject(err);
+            })
+            .run();
+        });
+
+        // Check if the output file exists
+        if (!fs.existsSync(outputPath)) {
+          throw new Error('FFmpeg conversion failed - output file not created');
+        }
+        
+        console.log('Reading converted file...');
+        // Read the converted file
+        const audioBuffer = fs.readFileSync(outputPath);
+        
+        if (!audioBuffer || audioBuffer.length === 0) {
+          throw new Error('Converted audio file is empty');
+        }
+        
+        console.log('Sending to Deepgram...');
+        
+        // Check if Deepgram API key is valid
+        if (!DEEPGRAM_API_KEY || DEEPGRAM_API_KEY === 'your-valid-deepgram-api-key') {
+          return res.status(500).json({ 
+            error: 'Deepgram API key not configured', 
+            details: 'Please add a valid Deepgram API key to your .env file or Render environment variables.'
+          });
+        }
+
+        // Use direct API call with axios instead of SDK
+        const deepgramResponse = await axios.post(
+          'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&language=en',
+          audioBuffer,
+          {
+            headers: {
+              'Authorization': `Token ${DEEPGRAM_API_KEY}`,
+              'Content-Type': 'audio/mp3'
+            }
+          }
+        );
+        
+        // Extract transcript from Deepgram response
+        finalTranscript = deepgramResponse.data.results?.channels[0]?.alternatives[0]?.transcript;
+        
+        if (!finalTranscript) {
+          return res.status(400).json({ error: 'Failed to transcribe audio or audio contained no speech' });
+        }
+
+        console.log(`Transcription successful: ${finalTranscript.substring(0, 100)}...`);
+
+        // Clean up files after transcription
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+          if (fs.existsSync(outputPath)) {
+            fs.unlinkSync(outputPath);
+          }
+          // Clean up temp directory if it was created
+          if (tempDir && fs.existsSync(tempDir)) {
+            fs.rmdirSync(tempDir, { recursive: true });
+          }
+          tempDir = null;
+          filePath = null;
+          outputPath = null;
+        } catch (err) {
+          console.error('Error cleaning up files:', err);
+          // Continue processing even if cleanup fails
+        }
+      } catch (err) {
+        // Clean up files if there was an error
+        try {
+          if (filePath && fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+          if (outputPath && fs.existsSync(outputPath)) {
+            fs.unlinkSync(outputPath);
+          }
+          if (tempDir && fs.existsSync(tempDir)) {
+            fs.rmdirSync(tempDir, { recursive: true });
+          }
+        } catch (cleanupErr) {
+          console.error('Error cleaning up files after transcription error:', cleanupErr);
+        }
+        
+        console.error('Error processing audio from URL:', err);
+        return res.status(400).json({ 
+          error: 'Failed to process audio from URL',
+          details: err.message
+        });
+      }
+    }
+    
+    // Validate we have a transcript at this point
+    if (!finalTranscript) {
+      return res.status(400).json({ error: 'Either transcript or audioUrl is required' });
+    }
     
     // Call Claude API with the async createPrompt
-    const prompt = await createPrompt(transcript, callType);
+    const prompt = await createPrompt(finalTranscript, callType);
     
     const response = await axios.post(
       CLAUDE_API_URL,
@@ -677,9 +821,9 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
       }
       
       const newTranscript = new Transcript({
-        rawTranscript: transcript,
+        rawTranscript: finalTranscript,
         analysis: jsonData,
-        source: 'api',
+        source: audioUrl ? 'audio' : 'api',
         metadata: metadata || {},
         callType: callTypeValue,
         organizationId: organizationId
@@ -688,10 +832,16 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
       await newTranscript.save();
       console.log('Transcript saved successfully to database with ID:', newTranscript._id);
       
+      // Update organization transcript count
+      await Organization.findByIdAndUpdate(
+        organizationId,
+        { $inc: { 'usageStats.totalTranscripts': 1 } }
+      );
+      
       // Return success response
       return res.json({
         success: true,
-        transcript: transcript,
+        transcript: finalTranscript,
         analysis: jsonData,
         id: newTranscript._id
       });
@@ -700,7 +850,7 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
       // If there's a database error, still return the analysis to the client
       return res.json({
         success: true,
-        transcript: transcript,
+        transcript: finalTranscript,
         analysis: jsonData,
         error: 'Warning: Analysis not saved to database',
         details: dbError.message
