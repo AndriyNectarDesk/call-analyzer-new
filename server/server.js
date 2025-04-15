@@ -13,6 +13,7 @@ const mongoose = require('mongoose');
 const Transcript = require(require('path').resolve(__dirname, 'models', 'transcript'));
 const CallType = require(require('path').resolve(__dirname, 'models', 'callType'));
 const Organization = require(require('path').resolve(__dirname, 'models', 'organization'));
+const { authenticateApiKey } = require('./middleware/authMiddleware');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -200,7 +201,7 @@ app.get('/api/call-types/:id', async (req, res) => {
   }
 });
 
-app.post('/api/call-types', validateApiKey, async (req, res) => {
+app.post('/api/call-types', authenticateApiKey, async (req, res) => {
   try {
     const { code, name, description, promptTemplate, jsonStructure } = req.body;
     
@@ -226,7 +227,7 @@ app.post('/api/call-types', validateApiKey, async (req, res) => {
   }
 });
 
-app.put('/api/call-types/:id', validateApiKey, async (req, res) => {
+app.put('/api/call-types/:id', authenticateApiKey, async (req, res) => {
   try {
     const { name, description, promptTemplate, jsonStructure, active } = req.body;
     
@@ -250,7 +251,7 @@ app.put('/api/call-types/:id', validateApiKey, async (req, res) => {
   }
 });
 
-app.delete('/api/call-types/:id', validateApiKey, async (req, res) => {
+app.delete('/api/call-types/:id', authenticateApiKey, async (req, res) => {
   try {
     const callType = await CallType.findById(req.params.id);
     if (!callType) {
@@ -552,7 +553,7 @@ app.post('/api/analyze', async (req, res, next) => {
 });
 
 // Update external API route to use async createPrompt
-app.post('/api/external/analyze', validateApiKey, async (req, res, next) => {
+app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => {
   try {
     const { transcript, metadata, callType } = req.body;
     
@@ -742,7 +743,7 @@ app.get('/api/transcripts/:id', async (req, res) => {
 });
 
 // Admin route to check API key status (protected with your external API key)
-app.get('/api/admin/check-api-keys', validateApiKey, async (req, res) => {
+app.get('/api/admin/check-api-keys', authenticateApiKey, async (req, res) => {
   try {
     const isClaudeKeyValid = await checkApiKeyStatus();
     res.json({
