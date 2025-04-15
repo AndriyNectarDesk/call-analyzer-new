@@ -160,7 +160,7 @@ exports.generateApiKey = async (req, res) => {
     
     // Check if organization exists
     const organization = await Organization.findOne({ 
-      _id: mongoose.Types.ObjectId(organizationId),
+      _id: new mongoose.Types.ObjectId(organizationId),
       isActive: true
     });
     
@@ -240,7 +240,7 @@ exports.getOrganizationStats = async (req, res) => {
     }
 
     // Check if organization exists
-    const organization = await Organization.findOne({ _id: mongoose.Types.ObjectId(organizationId) });
+    const organization = await Organization.findOne({ _id: new mongoose.Types.ObjectId(organizationId) });
     console.log('Found organization:', organization ? 'yes' : 'no');
     
     if (!organization) {
@@ -249,36 +249,34 @@ exports.getOrganizationStats = async (req, res) => {
 
     // Get active API key count
     const activeApiKeyCount = await ApiKey.countDocuments({
-      organizationId: mongoose.Types.ObjectId(organizationId),
+      organizationId: new mongoose.Types.ObjectId(organizationId),
       isActive: true
     });
     console.log('Active API key count:', activeApiKeyCount);
 
     // Get current transcript count
-    const currentTranscriptCount = await Transcript.countDocuments({
-      organizationId: mongoose.Types.ObjectId(organizationId)
+    const transcriptCount = await Transcript.countDocuments({
+      organizationId: new mongoose.Types.ObjectId(organizationId)
     });
-    console.log('Current transcript count:', currentTranscriptCount);
+    console.log('Transcript count:', transcriptCount);
 
     // Get current user count
-    const currentUserCount = await User.countDocuments({
-      organizationId: mongoose.Types.ObjectId(organizationId),
+    const userCount = await User.countDocuments({
+      organizationId: new mongoose.Types.ObjectId(organizationId),
       isActive: true
     });
-    console.log('Current user count:', currentUserCount);
+    console.log('User count:', userCount);
 
     const response = {
       activeApiKeyCount,
-      currentTranscriptCount,
-      currentUserCount,
+      currentTranscriptCount: transcriptCount,
+      currentUserCount: userCount,
       timestamp: new Date()
     };
-    console.log('Sending response:', response);
+    console.log('Organization stats response:', response);
     res.json(response);
   } catch (error) {
     console.error('Error getting organization stats:', error);
-    // Log the full error stack trace
-    console.error(error.stack);
     res.status(500).json({ message: 'Error getting organization stats', error: error.message });
   }
 };
@@ -301,7 +299,7 @@ exports.getCurrentApiKey = async (req, res) => {
 
     // Find the most recently created active API key
     const apiKey = await ApiKey.findOne({
-      organizationId: mongoose.Types.ObjectId(organizationId),
+      organizationId: new mongoose.Types.ObjectId(organizationId),
       isActive: true
     }).sort({ createdAt: -1 });
     
