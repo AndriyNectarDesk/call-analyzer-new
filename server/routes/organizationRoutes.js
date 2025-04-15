@@ -7,16 +7,18 @@ const { authenticateJWT, isMasterAdmin, isOrgAdmin, belongsToOrganization } = re
 router.get('/all', authenticateJWT, isMasterAdmin, organizationController.getAllOrganizations);
 router.post('/', authenticateJWT, isMasterAdmin, organizationController.createOrganization);
 
+// API key management routes (these need to come BEFORE the /:id routes)
+router.get('/api-key', authenticateJWT, organizationController.getCurrentApiKey);
+router.post('/api-key', authenticateJWT, isOrgAdmin, organizationController.generateApiKey);
+
 // Organization specific routes (require authentication)
 router.get('/:id', authenticateJWT, belongsToOrganization, organizationController.getOrganization);
 router.put('/:id', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.updateOrganization);
 router.delete('/:id', authenticateJWT, isMasterAdmin, organizationController.deactivateOrganization);
 
-// API key management
+// API key management for specific organizations
 router.post('/:id/api-keys', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.generateApiKey);
 router.delete('/:id/api-keys/:keyId', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.deleteApiKey);
-router.get('/api-key', authenticateJWT, organizationController.getCurrentApiKey);
-router.post('/api-key', authenticateJWT, isOrgAdmin, organizationController.generateApiKey);
 
 // Organization stats
 router.get('/:id/stats', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.getOrganizationStats);
