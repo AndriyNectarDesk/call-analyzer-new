@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const User = require('../models/user');
 const Organization = require('../models/organization');
+const ApiKey = require('../models/ApiKey');
+const Transcript = require('../models/transcript');
 const { emailService } = require('../services');
 
 // Get all organizations with detailed information
@@ -215,7 +217,33 @@ exports.getOrganizationStats = async (req, res) => {
   try {
     const organizationId = req.params.id;
     console.log('Getting stats for organization:', organizationId);
+
+    if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+      console.error('Invalid organization ID format:', organizationId);
+      return res.status(400).json({ message: 'Invalid organization ID format' });
+    }
+
+    // Check if organization exists
+    const organization = await Organization.findOne({ _id: mongoose.Types.ObjectId(organizationId) });
+    console.log('Found organization:', organization ? 'yes' : 'no');
     
+    if (!organization) {
+      return res.status(404).json({ message: 'Organization not found' });
+    }
+
+    // Get active API key count
+    const activeApiKeyCount = await ApiKey.countDocuments({
+      organizationId: mongoose.Types.ObjectId(organizationId),
+      isActive: true
+    });
+    console.log('Active API key count:', activeApiKeyCount);
+
+    // Get current transcript count
+    const currentTranscriptCount = await Transcript.countDocuments({
+      organizationId: mongoose.Types.ObjectId(organizationId)
+    });
+    console.log('Current transcript count:', currentTranscriptCount);
+
     // Get current user count
     const currentUserCount = await User.countDocuments({
       organizationId: mongoose.Types.ObjectId(organizationId),
@@ -223,20 +251,19 @@ exports.getOrganizationStats = async (req, res) => {
     });
     console.log('Current user count:', currentUserCount);
 
-    // Get current transcript count
-    const currentTranscriptCount = await mongoose.model('Transcript').countDocuments({
-      organizationId: mongoose.Types.ObjectId(organizationId)
-    });
-    console.log('Current transcript count:', currentTranscriptCount);
-    
-    res.json({
-      currentUserCount,
+    const response = {
+      activeApiKeyCount,
       currentTranscriptCount,
+      currentUserCount,
       timestamp: new Date()
-    });
+    };
+    console.log('Sending response:', response);
+    res.json(response);
   } catch (error) {
     console.error('Error getting organization stats:', error);
-    res.status(500).json({ message: 'Error getting organization stats' });
+    // Log the full error stack trace
+    console.error(error.stack);
+    res.status(500).json({ message: 'Error getting organization stats', error: error.message });
   }
 };
 
