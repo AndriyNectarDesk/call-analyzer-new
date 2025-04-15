@@ -3,6 +3,7 @@ const ApiKey = require('../models/ApiKey');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const User = require('../models/user');
+const Transcript = require('../models/transcript');
 
 // Helper to generate API key
 const generateApiKey = () => {
@@ -239,7 +240,7 @@ exports.getOrganizationStats = async (req, res) => {
     });
 
     // Get current transcript count
-    const currentTranscriptCount = await mongoose.model('Transcript').countDocuments({
+    const currentTranscriptCount = await Transcript.countDocuments({
       organizationId: mongoose.Types.ObjectId(organizationId)
     });
 
