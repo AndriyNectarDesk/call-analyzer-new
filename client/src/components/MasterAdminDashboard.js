@@ -60,21 +60,32 @@ const MasterAdminDashboard = () => {
       
       console.log('API Response:', response.data);
       
-      // Get user counts for each organization
-      const orgUserCounts = await Promise.all(response.data.map(org => 
-        axios.get(`${apiUrl}/api/master-admin/organizations/${org._id}/stats`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-      ));
-
-      // Add user counts to organizations
-      const orgsWithCounts = response.data.map((org, index) => ({
-        ...org,
-        actualUserCount: orgUserCounts[index].data.currentUserCount || 0,
-        actualTranscriptCount: orgUserCounts[index].data.currentTranscriptCount || 0
-      }));
+      // Get user counts for each organization sequentially
+      const orgsWithCounts = [];
+      for (const org of response.data) {
+        try {
+          console.log(`Fetching stats for organization ${org._id}`);
+          const statsResponse = await axios.get(`${apiUrl}/api/master-admin/organizations/${org._id}/stats`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          console.log(`Stats for organization ${org._id}:`, statsResponse.data);
+          orgsWithCounts.push({
+            ...org,
+            actualUserCount: statsResponse.data.currentUserCount || 0,
+            actualTranscriptCount: statsResponse.data.currentTranscriptCount || 0
+          });
+        } catch (statsError) {
+          console.error(`Error fetching stats for organization ${org._id}:`, statsError);
+          // If stats fetch fails, add organization with default counts
+          orgsWithCounts.push({
+            ...org,
+            actualUserCount: 0,
+            actualTranscriptCount: 0
+          });
+        }
+      }
       
       setOrganizations(orgsWithCounts);
       
