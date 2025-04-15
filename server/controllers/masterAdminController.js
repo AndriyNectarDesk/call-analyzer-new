@@ -226,7 +226,7 @@ exports.getOrganizationStats = async (req, res) => {
     // Check if organization exists
     let organization;
     try {
-      organization = await Organization.findOne({ _id: mongoose.Types.ObjectId(organizationId) });
+      organization = await Organization.findOne({ _id: new mongoose.Types.ObjectId(organizationId) });
       console.log('Found organization:', organization ? organization.name : 'no');
     } catch (orgError) {
       console.error('Error finding organization:', orgError);
@@ -245,14 +245,14 @@ exports.getOrganizationStats = async (req, res) => {
     // Get current user count with error handling
     try {
       currentUserCount = await User.countDocuments({
-        organizationId: mongoose.Types.ObjectId(organizationId),
+        organizationId: new mongoose.Types.ObjectId(organizationId),
         isActive: true
       });
       console.log('Current user count:', currentUserCount);
       
       // Debug: List all users
       const users = await User.find({
-        organizationId: mongoose.Types.ObjectId(organizationId)
+        organizationId: new mongoose.Types.ObjectId(organizationId)
       }).select('email isActive');
       console.log('All users:', users);
     } catch (userError) {
@@ -263,7 +263,7 @@ exports.getOrganizationStats = async (req, res) => {
     // Get current transcript count with error handling
     try {
       currentTranscriptCount = await Transcript.countDocuments({
-        organizationId: mongoose.Types.ObjectId(organizationId)
+        organizationId: new mongoose.Types.ObjectId(organizationId)
       });
       console.log('Current transcript count:', currentTranscriptCount);
     } catch (transcriptError) {
@@ -274,7 +274,7 @@ exports.getOrganizationStats = async (req, res) => {
     // Get active API key count with error handling
     try {
       activeApiKeyCount = await ApiKey.countDocuments({
-        organizationId: mongoose.Types.ObjectId(organizationId),
+        organizationId: new mongoose.Types.ObjectId(organizationId),
         isActive: true
       });
       console.log('Active API key count:', activeApiKeyCount);
