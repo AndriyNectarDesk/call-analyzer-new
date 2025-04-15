@@ -32,7 +32,7 @@ const TranscriptSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['web', 'api', 'audio'],
+    enum: ['web', 'api', 'audio', 'nectar-desk-webhook'],
     default: 'web'
   },
   metadata: {
