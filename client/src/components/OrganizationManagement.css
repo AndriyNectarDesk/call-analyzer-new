@@ -264,7 +264,25 @@ tbody tr:hover {
 }
 
 .action-button.deactivate {
-  color: #b02a37;
+  background-color: #f1c0c0;
+  color: #e74c3c;
+}
+
+.action-button.generate-api-key {
+  background-color: #d0e8fc;
+  color: #3498db;
+  font-size: 12px;
+  padding: 4px 8px;
+  margin-left: 5px;
+}
+
+.action-button.generate-api-key:hover {
+  background-color: #add8e6;
+}
+
+.action-button.generate-api-key:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .loading-indicator {

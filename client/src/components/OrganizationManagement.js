@@ -30,6 +30,11 @@ const OrganizationManagement = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formErrors, setFormErrors] = useState({});
+  
+  // API Key states
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState('');
+  const [apiKeySuccess, setApiKeySuccess] = useState('');
 
   useEffect(() => {
     fetchOrganizations();
@@ -314,6 +319,54 @@ const OrganizationManagement = () => {
     setShowModal(false);
   };
 
+  // Generate API Key function
+  const generateApiKey = async (orgId) => {
+    try {
+      setApiKeyLoading(true);
+      setApiKeyError('');
+      setApiKeySuccess('');
+      
+      // Get API URL and token
+      const apiUrl = process.env.REACT_APP_API_URL || '';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setApiKeyError('Authentication token not found. Please log in again.');
+        setApiKeyLoading(false);
+        return;
+      }
+      
+      const response = await axios.post(`${apiUrl}/api/master-admin/organizations/${orgId}/api-key`, {
+        name: `API Key for ${new Date().toISOString().split('T')[0]}`
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      setApiKeySuccess(`API Key generated successfully: ${response.data.key}`);
+      
+      // Refresh organizations list
+      fetchOrganizations();
+    } catch (err) {
+      console.error('Full error object:', err);
+      let errorMessage = 'Failed to generate API key. ';
+      
+      if (err.response) {
+        errorMessage += err.response.data?.message || JSON.stringify(err.response.data);
+      } else if (err.request) {
+        errorMessage += 'No response received from server.';
+      } else {
+        errorMessage += err.message;
+      }
+      
+      setApiKeyError(errorMessage);
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
+
   const filteredOrganizations = organizations.filter(org => {
     // Search filter
     const matchesSearch = org.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -366,6 +419,14 @@ const OrganizationManagement = () => {
       
       {error && (
         <div className="error-message">{error}</div>
+      )}
+      
+      {apiKeySuccess && (
+        <div className="success-message">{apiKeySuccess}</div>
+      )}
+      
+      {apiKeyError && (
+        <div className="error-message">{apiKeyError}</div>
       )}
       
       <div className="filter-controls">
@@ -476,6 +537,16 @@ const OrganizationManagement = () => {
                       >
                         {org.active ? <FaToggleOff /> : <FaToggleOn />}
                       </button>
+                      {org.features?.apiAccess && (
+                        <button 
+                          className="action-button generate-api-key" 
+                          onClick={() => generateApiKey(org._id)}
+                          title="Generate API Key"
+                          disabled={apiKeyLoading}
+                        >
+                          {apiKeyLoading ? 'Loading...' : 'Generate API Key'}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
