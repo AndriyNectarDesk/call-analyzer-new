@@ -66,8 +66,8 @@ const OrganizationSelector = ({
         <div className="org-dropdown">
           {organizations.map((org) => (
             <div 
-              key={org.id} 
-              className={`org-option ${currentOrganization?.id === org.id ? 'active' : ''}`}
+              key={org._id} 
+              className={`org-option ${currentOrganization?._id === org._id ? 'active' : ''}`}
               onClick={() => handleSelect(org)}
             >
               <span className="org-option-name">{org.name}</span>
