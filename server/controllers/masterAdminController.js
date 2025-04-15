@@ -224,51 +224,64 @@ exports.getOrganizationStats = async (req, res) => {
     }
 
     // Check if organization exists
-    const organization = await Organization.findOne({ _id: mongoose.Types.ObjectId(organizationId) });
-    console.log('Found organization:', organization ? organization.name : 'no');
+    let organization;
+    try {
+      organization = await Organization.findOne({ _id: mongoose.Types.ObjectId(organizationId) });
+      console.log('Found organization:', organization ? organization.name : 'no');
+    } catch (orgError) {
+      console.error('Error finding organization:', orgError);
+      return res.status(500).json({ message: 'Error finding organization', error: orgError.message });
+    }
     
     if (!organization) {
       return res.status(404).json({ message: 'Organization not found' });
     }
 
-    // Debug: List all users for this organization
-    const allUsers = await User.find({ 
-      organizationId: mongoose.Types.ObjectId(organizationId)
-    }).select('email isActive');
-    console.log('All users for organization:', allUsers);
+    // Initialize counts
+    let currentUserCount = 0;
+    let currentTranscriptCount = 0;
+    let activeApiKeyCount = 0;
 
-    // Debug: List all transcripts for this organization
-    const allTranscripts = await Transcript.find({
-      organizationId: mongoose.Types.ObjectId(organizationId)
-    }).select('_id createdAt');
-    console.log('All transcripts for organization:', allTranscripts);
+    // Get current user count with error handling
+    try {
+      currentUserCount = await User.countDocuments({
+        organizationId: mongoose.Types.ObjectId(organizationId),
+        isActive: true
+      });
+      console.log('Current user count:', currentUserCount);
+      
+      // Debug: List all users
+      const users = await User.find({
+        organizationId: mongoose.Types.ObjectId(organizationId)
+      }).select('email isActive');
+      console.log('All users:', users);
+    } catch (userError) {
+      console.error('Error counting users:', userError);
+      // Continue execution but log the error
+    }
 
-    // Get active API key count
-    const activeApiKeyCount = await ApiKey.countDocuments({
-      organizationId: mongoose.Types.ObjectId(organizationId),
-      isActive: true
-    });
-    console.log('Active API key count:', activeApiKeyCount);
+    // Get current transcript count with error handling
+    try {
+      currentTranscriptCount = await Transcript.countDocuments({
+        organizationId: mongoose.Types.ObjectId(organizationId)
+      });
+      console.log('Current transcript count:', currentTranscriptCount);
+    } catch (transcriptError) {
+      console.error('Error counting transcripts:', transcriptError);
+      // Continue execution but log the error
+    }
 
-    // Get current transcript count with detailed logging
-    const currentTranscriptCount = await Transcript.countDocuments({
-      organizationId: mongoose.Types.ObjectId(organizationId)
-    });
-    console.log('Current transcript count:', currentTranscriptCount);
-    console.log('Raw transcript query result:', await Transcript.find({
-      organizationId: mongoose.Types.ObjectId(organizationId)
-    }).select('_id'));
-
-    // Get current user count with detailed logging
-    const currentUserCount = await User.countDocuments({
-      organizationId: mongoose.Types.ObjectId(organizationId),
-      isActive: true
-    });
-    console.log('Current user count:', currentUserCount);
-    console.log('Raw user query result:', await User.find({
-      organizationId: mongoose.Types.ObjectId(organizationId),
-      isActive: true
-    }).select('_id email'));
+    // Get active API key count with error handling
+    try {
+      activeApiKeyCount = await ApiKey.countDocuments({
+        organizationId: mongoose.Types.ObjectId(organizationId),
+        isActive: true
+      });
+      console.log('Active API key count:', activeApiKeyCount);
+    } catch (apiKeyError) {
+      console.error('Error counting API keys:', apiKeyError);
+      // Continue execution but log the error
+    }
 
     const response = {
       currentUserCount,
@@ -280,7 +293,6 @@ exports.getOrganizationStats = async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error getting organization stats:', error);
-    // Log the full error stack trace
     console.error(error.stack);
     res.status(500).json({ message: 'Error getting organization stats', error: error.message });
   }
