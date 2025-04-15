@@ -497,56 +497,52 @@ app.post('/api/analyze', async (req, res, next) => {
     // Extract and parse the JSON response from Claude
     const assistantMessage = response.data.content[0].text;
     
-    // Find JSON in the response
+    // Extract JSON from response
+    let jsonData = null;
     const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
-    if (!jsonMatch) {
-      return res.status(500).json({ error: 'Failed to parse Claude response' });
+    
+    if (jsonMatch) {
+      try {
+        jsonData = sanitizeJson(jsonMatch[0]);
+      } catch (error) {
+        console.error('JSON parsing failed:', error.message);
+        throw new Error('Claude response did not contain valid JSON format');
+      }
+    } else {
+      throw new Error('Claude response did not contain valid JSON format');
     }
     
-    // Parse the JSON using our sanitizer
-    try {
-      const analysisData = sanitizeJson(jsonMatch[0]);
-
-      // Ensure callType is a string, not an array
-      let callTypeValue = callType || 'auto';
-      if (Array.isArray(callTypeValue)) {
-        console.log('callType is an array, using first value:', callTypeValue);
-        callTypeValue = callTypeValue[0] || 'auto';
-      }
-
-      // Save transcript and analysis to database
-      const newTranscript = new Transcript({
-        rawTranscript: transcript,
-        analysis: analysisData,
-        source: 'web',
-        callType: callTypeValue,
-        organizationId: organizationId,
-        createdBy: userId
-      });
-
-      await newTranscript.save();
-
-      // Update organization transcript count
-      await Organization.findByIdAndUpdate(
-        organizationId,
-        { $inc: { 'usageStats.totalTranscripts': 1 } }
-      );
-
-      return res.json({
-        success: true,
-        transcript: transcript,
-        analysis: analysisData,
-        id: newTranscript._id
-      });
-    } catch (jsonError) {
-      console.error('Error parsing JSON from Claude response:', jsonError);
-      console.error('Raw match content:', jsonMatch[0]);
-      return res.status(500).json({
-        error: 'Failed to parse Claude JSON response',
-        details: jsonError.message,
-        transcript: transcript
-      });
+    // Ensure callType is a string, not an array
+    let callTypeValue = callType || 'auto';
+    if (Array.isArray(callTypeValue)) {
+      console.log('callType is an array, using first value:', callTypeValue);
+      callTypeValue = callTypeValue[0] || 'auto';
     }
+
+    // Save transcript and analysis to database
+    const newTranscript = new Transcript({
+      rawTranscript: transcript,
+      analysis: jsonData,
+      source: 'web',
+      callType: callTypeValue,
+      organizationId: organizationId,
+      createdBy: userId
+    });
+
+    await newTranscript.save();
+
+    // Update organization transcript count
+    await Organization.findByIdAndUpdate(
+      organizationId,
+      { $inc: { 'usageStats.totalTranscripts': 1 } }
+    );
+
+    return res.json({
+      success: true,
+      transcript: transcript,
+      analysis: jsonData,
+      id: newTranscript._id
+    });
   } catch (error) {
     next(error); // Pass to the error handling middleware
   }
@@ -767,51 +763,19 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
     // Get the raw response for debugging
     console.log('Claude raw response for audio analysis:', assistantMessage);
     
-    // Extract just the JSON part
-    console.log('Extracting JSON from response...');
-    // Instead of using regex, let's try a more reliable approach
+    // Extract JSON from response
     let jsonData = null;
-    let jsonStart = assistantMessage.indexOf('{');
-    let jsonEnd = assistantMessage.lastIndexOf('}');
+    const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
     
-    console.log(`JSON markers found: start=${jsonStart}, end=${jsonEnd}`);
-    
-    if (jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart) {
-      const jsonStr = assistantMessage.substring(jsonStart, jsonEnd + 1);
-      console.log('Extracted JSON string:', jsonStr);
-      
+    if (jsonMatch) {
       try {
-        jsonData = JSON.parse(jsonStr);
-        console.log('Successfully parsed JSON directly');
-      } catch (parseError) {
-        console.error('Initial JSON parse failed:', parseError.message);
-        
-        try {
-          // Fallback to sanitized parsing
-          jsonData = sanitizeJson(jsonStr);
-          console.log('Successfully parsed JSON after sanitization');
-        } catch (sanitizeError) {
-          console.error('Sanitized JSON parsing failed:', sanitizeError.message);
-          console.error('Attempted to parse this string:', jsonStr);
-          throw new Error('Failed to parse Claude response as JSON: ' + sanitizeError.message);
-        }
-      }
-    } else {
-      console.error('Could not find JSON markers in Claude response');
-      // Try the regex approach as a fallback
-      const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
-      if (jsonMatch) {
-        console.log('Found JSON via regex fallback');
-        try {
-          jsonData = sanitizeJson(jsonMatch[0]);
-          console.log('Successfully parsed JSON via regex fallback');
-        } catch (fallbackError) {
-          console.error('Fallback JSON parsing failed:', fallbackError.message);
-          throw new Error('Claude response did not contain valid JSON format');
-        }
-      } else {
+        jsonData = sanitizeJson(jsonMatch[0]);
+      } catch (error) {
+        console.error('JSON parsing failed:', error.message);
         throw new Error('Claude response did not contain valid JSON format');
       }
+    } else {
+      throw new Error('Claude response did not contain valid JSON format');
     }
     
     // Check if we have valid data
@@ -1205,51 +1169,19 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       // Get the raw response for debugging
       console.log('Claude raw response for audio analysis:', assistantMessage);
       
-      // Extract just the JSON part
-      console.log('Extracting JSON from response...');
-      // Instead of using regex, let's try a more reliable approach
+      // Extract JSON from response
       let jsonData = null;
-      let jsonStart = assistantMessage.indexOf('{');
-      let jsonEnd = assistantMessage.lastIndexOf('}');
+      const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
       
-      console.log(`JSON markers found: start=${jsonStart}, end=${jsonEnd}`);
-      
-      if (jsonStart >= 0 && jsonEnd >= 0 && jsonEnd > jsonStart) {
-        const jsonStr = assistantMessage.substring(jsonStart, jsonEnd + 1);
-        console.log('Extracted JSON string:', jsonStr);
-        
+      if (jsonMatch) {
         try {
-          jsonData = JSON.parse(jsonStr);
-          console.log('Successfully parsed JSON directly');
-        } catch (parseError) {
-          console.error('Initial JSON parse failed:', parseError.message);
-          
-          try {
-            // Fallback to sanitized parsing
-            jsonData = sanitizeJson(jsonStr);
-            console.log('Successfully parsed JSON after sanitization');
-          } catch (sanitizeError) {
-            console.error('Sanitized JSON parsing failed:', sanitizeError.message);
-            console.error('Attempted to parse this string:', jsonStr);
-            throw new Error('Failed to parse Claude response as JSON: ' + sanitizeError.message);
-          }
-        }
-      } else {
-        console.error('Could not find JSON markers in Claude response');
-        // Try the regex approach as a fallback
-        const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
-        if (jsonMatch) {
-          console.log('Found JSON via regex fallback');
-          try {
-            jsonData = sanitizeJson(jsonMatch[0]);
-            console.log('Successfully parsed JSON via regex fallback');
-          } catch (fallbackError) {
-            console.error('Fallback JSON parsing failed:', fallbackError.message);
-            throw new Error('Claude response did not contain valid JSON format');
-          }
-        } else {
+          jsonData = sanitizeJson(jsonMatch[0]);
+        } catch (error) {
+          console.error('JSON parsing failed:', error.message);
           throw new Error('Claude response did not contain valid JSON format');
         }
+      } else {
+        throw new Error('Claude response did not contain valid JSON format');
       }
       
       // Check if we have valid data
@@ -1552,3 +1484,256 @@ app.get('/api/test-email', async (req, res) => {
     });
   }
 });
+
+// Add a new webhook endpoint for NectarDesk call information
+app.post('/api/webhooks/nectar-desk', async (req, res, next) => {
+  try {
+    console.log('Received webhook from NectarDesk:', JSON.stringify(req.body, null, 2));
+    
+    const callData = req.body;
+    
+    // Validate the incoming data
+    if (!callData || !callData.id || !callData.call_recordings || callData.call_recordings.length === 0) {
+      return res.status(400).json({ 
+        error: 'Invalid webhook data', 
+        details: 'Missing required fields: id or call_recordings' 
+      });
+    }
+    
+    // Extract call details
+    const {
+      id: callId,
+      type: callDirection,
+      duration,
+      talkTime,
+      contact,
+      agents,
+      call_recordings
+    } = callData;
+    
+    // Prepare metadata for analysis
+    const metadata = {
+      callId,
+      callDirection,
+      duration,
+      talkTime,
+      contactId: contact?.id,
+      contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
+      agentId: agents && agents.length > 0 ? agents[0].id : null,
+      agentName: agents && agents.length > 0 ? agents[0].name : 'Unknown',
+      source: 'nectar-desk-webhook'
+    };
+    
+    // Get the audio URL - remove any http:// or https:// prefix and add https://
+    let audioUrl = call_recordings[0];
+    if (!audioUrl.startsWith('http')) {
+      audioUrl = `https://${audioUrl}`;
+    }
+    
+    console.log(`Processing NectarDesk call recording: ${audioUrl}`);
+    
+    // Determine organization for this webhook
+    // For now, use the Master Organization
+    const Organization = require('./models/organization');
+    const masterOrg = await Organization.findOne({ isMaster: true });
+    
+    if (!masterOrg) {
+      console.error('No master organization found for webhook processing');
+      return res.status(500).json({ error: 'Configuration error - organization not found' });
+    }
+    
+    // Queue the analysis job - we'll respond to webhook quickly and process in background
+    // Send 200 OK response immediately to acknowledge receipt
+    res.status(200).json({ 
+      success: true, 
+      message: 'Webhook received and processing started',
+      callId
+    });
+    
+    // Process in background - don't wait for completion
+    processWebhookRecording(audioUrl, metadata, masterOrg._id)
+      .then(result => {
+        console.log(`Successfully processed NectarDesk webhook call ${callId}`);
+      })
+      .catch(error => {
+        console.error(`Error processing NectarDesk webhook call ${callId}:`, error);
+      });
+      
+  } catch (error) {
+    console.error('Error handling NectarDesk webhook:', error);
+    // Even on error, return 200 so NectarDesk doesn't retry unnecessarily
+    res.status(200).json({ 
+      success: false, 
+      error: 'Error processing webhook',
+      message: error.message
+    });
+  }
+});
+
+// Helper function to process NectarDesk recordings in the background
+async function processWebhookRecording(audioUrl, metadata, organizationId) {
+  try {
+    console.log(`Starting background processing of recording: ${audioUrl}`);
+    
+    // Create temporary directory for downloaded files
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'webhook-audio-'));
+    const filePath = path.join(tempDir, 'downloaded-audio');
+    
+    console.log('Downloading audio file...');
+    const response = await axios({
+      method: 'GET',
+      url: audioUrl,
+      responseType: 'arraybuffer',
+      timeout: 60000, // 60 second timeout for longer files
+      headers: {
+        'User-Agent': 'Call-Analyzer/1.0',
+        'Accept': '*/*',
+        'Origin': 'https://call-analyzer-api.onrender.com'
+      }
+    });
+    
+    // Get the response data
+    const responseData = response.data;
+    if (!responseData || responseData.length === 0) {
+      throw new Error('Downloaded file is empty');
+    }
+    
+    console.log(`Downloaded file size: ${responseData.length} bytes`);
+    
+    // Write the downloaded file to disk
+    fs.writeFileSync(filePath, Buffer.from(responseData));
+    console.log(`Downloaded audio file to ${filePath}`);
+    
+    // Convert to MP3 for consistent handling
+    const outputPath = filePath + '.mp3';
+    console.log('Starting FFmpeg conversion...');
+    
+    await new Promise((resolve, reject) => {
+      ffmpeg(filePath)
+        .output(outputPath)
+        .on('start', (cmd) => {
+          console.log('FFmpeg conversion started:', cmd);
+        })
+        .on('end', () => {
+          console.log('FFmpeg conversion completed');
+          resolve();
+        })
+        .on('error', (err) => {
+          console.error('Error converting audio with FFmpeg:', err);
+          reject(err);
+        })
+        .run();
+    });
+    
+    // Read the converted file
+    const audioBuffer = fs.readFileSync(outputPath);
+    
+    // Transcribe with Deepgram
+    console.log('Sending to Deepgram...');
+    const deepgramResponse = await axios.post(
+      'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&language=en',
+      audioBuffer,
+      {
+        headers: {
+          'Authorization': `Token ${DEEPGRAM_API_KEY}`,
+          'Content-Type': 'audio/mp3'
+        }
+      }
+    );
+    
+    // Extract transcript from Deepgram response
+    const transcript = deepgramResponse.data.results?.channels[0]?.alternatives[0]?.transcript;
+    
+    if (!transcript) {
+      throw new Error('Failed to transcribe audio or audio contained no speech');
+    }
+    
+    console.log(`Transcription successful: ${transcript.substring(0, 100)}...`);
+    
+    // Analyze with Claude
+    const prompt = await createPrompt(transcript, 'flower-shop');
+    
+    const claudeResponse = await axios.post(
+      CLAUDE_API_URL,
+      {
+        model: 'claude-3-opus-20240229',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 4000,
+        temperature: 0.0
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01'
+        }
+      }
+    );
+    
+    // Extract the response content
+    const assistantMessage = claudeResponse.data.content[0].text;
+    
+    // Extract JSON from response
+    let jsonData = null;
+    const jsonMatch = assistantMessage.match(/\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\}))*\}/);
+    
+    if (jsonMatch) {
+      try {
+        jsonData = sanitizeJson(jsonMatch[0]);
+      } catch (error) {
+        console.error('JSON parsing failed:', error.message);
+        throw new Error('Claude response did not contain valid JSON format');
+      }
+    } else {
+      throw new Error('Claude response did not contain valid JSON format');
+    }
+    
+    // Save transcript and analysis to database
+    const newTranscript = new Transcript({
+      rawTranscript: transcript,
+      analysis: jsonData,
+      source: 'nectar-desk-webhook',
+      metadata: metadata,
+      callType: 'flower-shop',
+      organizationId: organizationId
+    });
+    
+    await newTranscript.save();
+    console.log('Transcript saved successfully to database with ID:', newTranscript._id);
+    
+    // Update organization transcript count
+    await Organization.findByIdAndUpdate(
+      organizationId,
+      { $inc: { 'usageStats.totalTranscripts': 1 } }
+    );
+    
+    // Clean up files
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      if (fs.existsSync(outputPath)) {
+        fs.unlinkSync(outputPath);
+      }
+      if (fs.existsSync(tempDir)) {
+        fs.rmdirSync(tempDir, { recursive: true });
+      }
+    } catch (cleanupErr) {
+      console.error('Error cleaning up files:', cleanupErr);
+    }
+    
+    return {
+      success: true,
+      transcriptId: newTranscript._id
+    };
+    
+  } catch (error) {
+    console.error('Error processing webhook recording:', error);
+    throw error;
+  }
+}

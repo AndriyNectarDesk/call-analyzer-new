@@ -492,6 +492,114 @@ analyzeAudioUrl();`;
             </div>
           </div>
         </div>
+
+        <div className="endpoint-card">
+          <h4>NectarDesk Webhook</h4>
+          <div className="endpoint-details">
+            <div className="endpoint-url">
+              <span className="method">POST</span>
+              <span className="url">{baseApiUrl}/api/webhooks/nectar-desk</span>
+            </div>
+            
+            <div className="endpoint-description">
+              <p>Webhook endpoint that receives call data from NectarDesk and automatically processes the associated call recording.</p>
+            </div>
+            
+            <div className="endpoint-params">
+              <h5>Request Parameters</h5>
+              <p>The webhook expects NectarDesk's standard call data format, including:</p>
+              <table className="params-table">
+                <thead>
+                  <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>id</td>
+                    <td>number</td>
+                    <td>Yes</td>
+                    <td>The unique identifier for the call in NectarDesk</td>
+                  </tr>
+                  <tr>
+                    <td>call_recordings</td>
+                    <td>array</td>
+                    <td>Yes</td>
+                    <td>Array of recording URLs for the call</td>
+                  </tr>
+                  <tr>
+                    <td>type</td>
+                    <td>string</td>
+                    <td>No</td>
+                    <td>Call direction (inbound, outbound)</td>
+                  </tr>
+                  <tr>
+                    <td>duration</td>
+                    <td>number</td>
+                    <td>No</td>
+                    <td>Total call duration in seconds</td>
+                  </tr>
+                  <tr>
+                    <td>contact</td>
+                    <td>object</td>
+                    <td>No</td>
+                    <td>Contact information for the customer</td>
+                  </tr>
+                  <tr>
+                    <td>agents</td>
+                    <td>array</td>
+                    <td>No</td>
+                    <td>Information about agents who handled the call</td>
+                  </tr>
+                </tbody>
+              </table>
+              
+              <h5>Example Request Payload</h5>
+              <div className="code-block-container">
+                <pre className="code-block">
+                  <code>{`{
+  "id": 65123,
+  "type": "outbound",
+  "startedDate": "2025-04-15T18:41:22-04:00",
+  "endedDate": "2025-04-15T18:41:40-04:00",
+  "duration": 13,
+  "talkTime": 13,
+  "waitingTime": 5,
+  "tags": [],
+  "call_type": "answered",
+  "call_recordings": [
+    "nectarflowers.nectardesk.io/api/call/recording/52751"
+  ],
+  "number": {
+    "id": 3,
+    "number": "16138007406",
+    "numberWithAlias": "16138007406 (RIDEAU FLORIST)",
+    "alias": "RIDEAU FLORIST"
+  },
+  "contact": {
+    "id": 113,
+    "firstName": "John",
+    "lastName": "Smith",
+    "email": "john@example.com",
+    "phone": "16135551234"
+  },
+  "agents": [
+    {
+      "id": 3,
+      "name": "Customer Service",
+      "action": "Normal clearing",
+      "type": "Normal call"
+    }
+  ]
+}`}</code>
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       
       <div className="api-advanced-section">
