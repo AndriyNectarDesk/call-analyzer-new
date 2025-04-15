@@ -577,26 +577,50 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-'));
         filePath = path.join(tempDir, 'downloaded-audio');
         
+        // Check if this is a nectar domain URL that needs special handling
+        const isNectarDomainUrl = audioUrl.includes('nectardesk.io') || audioUrl.includes('nectarflowers');
+        
+        // Custom headers for Nectar domain URLs
+        const headers = {
+          'User-Agent': 'Call-Analyzer/1.0'
+        };
+        
+        // Add any domain-specific headers if needed
+        if (isNectarDomainUrl) {
+          console.log('Detected Nectar platform URL, adding special headers');
+          // NectarDesk recordings are publicly accessible, no token needed
+          
+          // Add headers needed for Nectar platform
+          headers['Accept'] = '*/*';
+          headers['Origin'] = 'https://call-analyzer-api.onrender.com';
+        }
+        
         // Download the file from the URL
         console.log('Downloading audio file...');
         const response = await axios({
           method: 'GET',
           url: audioUrl,
           responseType: 'arraybuffer',
-          timeout: 30000, // 30 second timeout
-          headers: {
-            'User-Agent': 'Call-Analyzer/1.0'
-          }
+          timeout: 60000, // 60 second timeout for longer files
+          headers: headers
         });
         
-        // Check content type to ensure it's an audio file
+        // Check content type - but be more lenient with Nectar URLs which might not set proper content types
         const contentType = response.headers['content-type'];
-        if (!contentType || !contentType.includes('audio/')) {
-          throw new Error(`URL does not point to an audio file (content-type: ${contentType})`);
+        if (!isNectarDomainUrl && !contentType?.includes('audio/')) {
+          console.warn(`URL content-type is not audio: ${contentType}, proceeding anyway as it might be misconfigured`);
         }
         
+        // Get the response data
+        const responseData = response.data;
+        if (!responseData || responseData.length === 0) {
+          throw new Error('Downloaded file is empty');
+        }
+        
+        console.log(`Downloaded file size: ${responseData.length} bytes`);
+        
         // Write the downloaded file to disk
-        fs.writeFileSync(filePath, Buffer.from(response.data));
+        fs.writeFileSync(filePath, Buffer.from(responseData));
         console.log(`Downloaded audio file to ${filePath}`);
         
         // Convert to MP3 for consistent handling

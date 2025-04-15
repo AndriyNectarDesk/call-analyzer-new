@@ -9,7 +9,8 @@ function ApiPage() {
     curlCommand: false,
     nodeCommand: false,
     curlAudioCommand: false,
-    nodeAudioCommand: false
+    nodeAudioCommand: false,
+    curlNectarCommand: false
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -254,6 +255,20 @@ function ApiPage() {
     }
   }'`;
 
+  // NectarDesk specific curl example
+  const curlNectarExample = `curl -X POST ${baseApiUrl}/api/external/analyze \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: YOUR_API_KEY" \\
+  -d '{
+    "audioUrl": "https://nectarflowers.nectardesk.io/api/call/recording/52751",
+    "callType": "flower-shop",
+    "metadata": {
+      "agentId": "agent123",
+      "callId": "52751",
+      "department": "sales"
+    }
+  }'`;
+
   // Generate example Node.js code
   const nodeExample = `const axios = require('axios');
 
@@ -494,6 +509,16 @@ analyzeAudioUrl();`;
           </ul>
           <p>Files are automatically converted to an optimal format for transcription.</p>
           
+          <h4>NectarDesk Integration</h4>
+          <p>The API has special support for NectarDesk platform audio URLs in the format:</p>
+          <pre className="integration-url">https://nectarflowers.nectardesk.io/api/call/recording/{'{recording_id}'}</pre>
+          <p>When using NectarDesk URLs:</p>
+          <ul>
+            <li>The recordings are publicly accessible - no authentication is required</li>
+            <li>The system adds appropriate headers to ensure cross-domain access</li>
+            <li>Content-Type validation is relaxed to handle NectarDesk API responses</li>
+          </ul>
+          
           <h4>Audio Processing Limitations</h4>
           <ul>
             <li><strong>File Size:</strong> Maximum 25MB</li>
@@ -581,6 +606,24 @@ analyzeAudioUrl();`;
                   }}
                 >
                   {copied.curlAudioCommand ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+            
+            <div className="example-container">
+              <h4>NectarDesk Audio URL Example</h4>
+              <div className="code-block-container">
+                <pre className="code-block">
+                  <code>{curlNectarExample}</code>
+                </pre>
+                <button 
+                  className="copy-code-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(curlNectarExample);
+                    handleCopy('curlNectarCommand');
+                  }}
+                >
+                  {copied.curlNectarCommand ? 'Copied!' : 'Copy'}
                 </button>
               </div>
             </div>
@@ -764,6 +807,18 @@ const styles = `
     padding: 12px 15px;
     margin: 15px 0;
     border-radius: 0 4px 4px 0;
+    color: #24292e;
+  }
+  
+  .integration-url {
+    background-color: #f6f8fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 10px 0;
+    font-family: monospace;
+    overflow-x: auto;
+    font-size: 13px;
     color: #24292e;
   }
 `;
