@@ -149,24 +149,41 @@ exports.deactivateOrganization = async (req, res) => {
 // Generate API key for organization
 exports.generateApiKey = async (req, res) => {
   try {
+    // Check if crypto module is available
+    const crypto = require('crypto');
+    if (!crypto) {
+      console.error('Crypto module not available');
+      return res.status(500).json({ message: 'Crypto module not available for key generation' });
+    }
+    
     // Get organization ID either from params or user object
     const organizationId = req.params.id || req.user.organizationId;
     console.log('Generating API key for organization:', organizationId);
+    
+    if (!organizationId) {
+      console.error('No organization ID provided in params or user object');
+      return res.status(400).json({ message: 'Organization ID is required' });
+    }
     
     if (!mongoose.Types.ObjectId.isValid(organizationId)) {
       console.error('Invalid organization ID format:', organizationId);
       return res.status(400).json({ message: 'Invalid organization ID format' });
     }
     
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+    console.log('Looking for organization with ID:', orgObjectId.toString());
+    
     // Check if organization exists
     const organization = await Organization.findOne({ 
-      _id: new mongoose.Types.ObjectId(organizationId),
-      isActive: true
+      _id: orgObjectId
     });
     
     if (!organization) {
+      console.error('Organization not found for ID:', organizationId);
       return res.status(404).json({ message: 'Organization not found' });
     }
+    
+    console.log('Found organization:', organization.name);
     
     // Generate API key
     const keyValue = crypto.randomBytes(32).toString('hex');
@@ -176,18 +193,19 @@ exports.generateApiKey = async (req, res) => {
     console.log('Generated new API key with prefix:', keyPrefix);
     
     // Create API key record
-    const keyName = req.body.name || `API Key - ${new Date().toISOString().split('T')[0]}`;
+    const keyName = req.body.name || `API Key - ${new Date().toLocaleDateString()}`;
     console.log('Creating API key with name:', keyName);
     
     const newApiKey = new ApiKey({
       prefix: keyPrefix,
       key: keyValue,
       name: keyName,
-      organizationId,
-      createdBy: req.user.id
+      organizationId: orgObjectId,
+      createdBy: req.user.userId
     });
     
     await newApiKey.save();
+    console.log('API key saved successfully');
     
     // Return key (full value) only once
     res.status(201).json({
@@ -199,7 +217,7 @@ exports.generateApiKey = async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating API key:', error);
-    res.status(500).json({ message: 'Failed to generate API key' });
+    res.status(500).json({ message: 'Failed to generate API key: ' + error.message });
   }
 };
 

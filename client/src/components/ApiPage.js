@@ -127,42 +127,75 @@ function ApiPage() {
         return;
       }
       
-      console.log('Generating new API key...');
-      
-      // Call the API to generate a new API key
-      const response = await axios.post(`${baseApiUrl}/api/organizations/api-key`, {
-        name: `API Key - ${new Date().toLocaleDateString()}`
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('API key generation response:', {
-        status: response.status,
-        hasData: !!response.data
-      });
-      
-      if (response.data && response.data.key) {
-        setApiKey(response.data.key);
-        setApiStatus('Valid');
-        setSuccessMessage('New API key generated successfully');
+      // First check user information to ensure we have a valid organization
+      let userOrganizationId;
+      try {
+        const userResponse = await axios.get(`${baseApiUrl}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
-        // Clear success message after 5 seconds
-        setTimeout(() => {
-          setSuccessMessage('');
-        }, 5000);
-      } else {
-        setError('Failed to generate API key. Please try again.');
+        console.log('Current user info for key generation:', userResponse.data);
+        userOrganizationId = userResponse.data.user?.organization?._id;
+        
+        if (!userOrganizationId) {
+          console.error('User has no organization ID for key generation', userResponse.data);
+          setError('Your account is not associated with an organization. Please contact an administrator.');
+          setIsGenerating(false);
+          return;
+        }
+      } catch (userErr) {
+        console.error('Error fetching user info for key generation:', userErr);
+        setError('Error fetching user information: ' + userErr.message);
+        setIsGenerating(false);
+        return;
+      }
+      
+      try {
+        console.log('Generating new API key for organization:', userOrganizationId);
+        
+        // Call the API to generate a new API key with explicit organizationId
+        const response = await axios.post(`${baseApiUrl}/api/organizations/${userOrganizationId}/api-keys`, {
+          name: `API Key - ${new Date().toLocaleDateString()}`
+        }, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('API key generation response:', {
+          status: response.status,
+          hasData: !!response.data,
+          keyInfo: response.data ? 'API key data received' : 'No key data'
+        });
+        
+        if (response.data && response.data.key) {
+          setApiKey(response.data.key);
+          setApiStatus('Valid');
+          setSuccessMessage('New API key generated successfully');
+          
+          // Clear success message after 5 seconds
+          setTimeout(() => {
+            setSuccessMessage('');
+          }, 5000);
+        } else {
+          console.error('No key in generation response:', response.data);
+          setError('Failed to generate API key. Please try again.');
+        }
+      } catch (userErr) {
+        console.error('Error fetching user info for key generation:', userErr);
       }
     } catch (err) {
       console.error('Error generating API key:', err);
       
       let errorMessage = 'Failed to generate API key. ';
       if (err.response) {
+        console.error('Error response:', err.response.status, err.response.data);
         errorMessage += err.response.data?.message || JSON.stringify(err.response.data);
       } else if (err.request) {
+        console.error('Error request:', err.request);
         errorMessage += 'No response received from server.';
       } else {
         errorMessage += err.message;
