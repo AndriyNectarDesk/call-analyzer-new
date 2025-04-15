@@ -329,54 +329,65 @@ analyzeAudioUrl();`;
 
   // Get the current organization info from state/local storage
   useEffect(() => {
-    // Fetch API key
-    const fetchApiKey = async () => {
-      try {
-        const apiUrl = process.env.REACT_APP_API_URL || '';
-        const token = localStorage.getItem('auth_token');
-        
-        if (!token) {
-          console.error('Authentication token not found.');
-          return;
+    // Get the token
+    const token = localStorage.getItem('auth_token');
+    
+    if (token) {
+      // Fetch API key
+      axios.get(`${baseApiUrl}/api/organizations/api-key`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-        
-        const response = await axios.get(`${apiUrl}/api/user/api-key`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
+      })
+      .then(response => {
+        if (response.data && response.data.key) {
+          setApiKey(response.data.key);
+          setApiStatus('Valid');
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching API key:', err);
+      });
+      
+      // Directly fetch the user information to ensure we get the latest data
+      axios.get(`${baseApiUrl}/api/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => {
+        console.log('User info for organization:', response.data);
+        if (response.data && response.data.user) {
+          // Check if user has organization data
+          if (response.data.user.organization && response.data.user.organization._id) {
+            setCurrentOrganization(response.data.user.organization);
+            // Also save to localStorage for future reference
+            localStorage.setItem('currentOrganization', JSON.stringify(response.data.user.organization));
+            console.log('Successfully set organization ID:', response.data.user.organization._id);
+          } else if (response.data.user.isMasterAdmin) {
+            // For master admins, find the master organization
+            axios.get(`${baseApiUrl}/api/master-admin/organizations`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            .then(orgsResponse => {
+              if (orgsResponse.data && orgsResponse.data.length > 0) {
+                // Find master org or use first org
+                const masterOrg = orgsResponse.data.find(org => org.isMaster) || orgsResponse.data[0];
+                setCurrentOrganization(masterOrg);
+                localStorage.setItem('currentOrganization', JSON.stringify(masterOrg));
+                console.log('Master admin using organization:', masterOrg.name, masterOrg._id);
+              }
+            })
+            .catch(err => console.error('Error fetching organizations for master admin:', err));
           }
-        });
-        
-        if (response.data && response.data.apiKey) {
-          setApiKey(response.data.apiKey);
         }
-      } catch (error) {
-        console.error('Error fetching API key:', error);
-      }
-    };
-    
-    // Get current organization
-    const getCurrentOrganization = () => {
-      try {
-        // Try to get from global state first via parent components
-        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const org = JSON.parse(localStorage.getItem('currentOrganization') || '{}');
-        
-        if (org && org._id) {
-          setCurrentOrganization(org);
-          return;
-        }
-        
-        // Fallback to user's organization if available
-        if (user && user.organization && user.organization._id) {
-          setCurrentOrganization(user.organization);
-        }
-      } catch (error) {
-        console.error('Error getting current organization:', error);
-      }
-    };
-    
-    fetchApiKey();
-    getCurrentOrganization();
+      })
+      .catch(err => {
+        console.error('Error fetching user info for organization ID:', err);
+      });
+    }
   }, []);
 
   if (isLoading) {
@@ -579,6 +590,33 @@ analyzeAudioUrl();`;
                       </svg>
                     </button>
                   </div>
+                  
+                  <div className="org-id-section">
+                    <span>Your Organization ID: </span>
+                    <code>{currentOrganization._id}</code>
+                    <button 
+                      className="copy-inline-button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(currentOrganization._id);
+                        toast.success('Organization ID copied to clipboard!');
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {(!currentOrganization || !currentOrganization._id) && (
+                <div className="your-endpoint-section error">
+                  <h5>Your Organization ID</h5>
+                  <p>To use the NectarDesk webhook, you'll need your organization ID.</p>
+                  <p>Please contact support or check your account settings to obtain your organization ID.</p>
+                  <p className="manual-instruction">Your webhook URL will be: <br />
+                  <code>{baseApiUrl}/api/webhooks/nectar-desk/YOUR_ORGANIZATION_ID</code></p>
                 </div>
               )}
             </div>
@@ -1086,6 +1124,52 @@ const styles = `
     margin-top: 0;
     margin-bottom: 8px;
     color: #2b88ff;
+  }
+  
+  .your-endpoint-section.error {
+    background-color: #fff8f8;
+    border-left: 4px solid #e74c3c;
+  }
+  
+  .your-endpoint-section.error h5 {
+    color: #e74c3c;
+  }
+  
+  .manual-instruction {
+    margin-top: 12px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+  }
+  
+  .manual-instruction code {
+    display: block;
+    margin-top: 8px;
+    padding: 8px;
+    background: #f1f1f1;
+    border-radius: 4px;
+    font-family: monospace;
+    word-break: break-all;
+  }
+  
+  .org-id-section {
+    display: flex;
+    align-items: center;
+    margin-top: 12px;
+    background: #f6f8fa;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px dashed #ccd1d5;
+  }
+  
+  .org-id-section code {
+    margin: 0 8px;
+    padding: 3px 6px;
+    background: #fff;
+    border-radius: 4px;
+    font-family: monospace;
+    color: #0366d6;
+    flex: 1;
   }
 `;
 
