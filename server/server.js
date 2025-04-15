@@ -1486,17 +1486,27 @@ app.get('/api/test-email', async (req, res) => {
 });
 
 // Add a new webhook endpoint for NectarDesk call information
-app.post('/api/webhooks/nectar-desk', async (req, res, next) => {
+app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => {
   try {
     console.log('Received webhook from NectarDesk:', JSON.stringify(req.body, null, 2));
     
     const callData = req.body;
+    const { organizationId } = req.params;
     
     // Validate the incoming data
     if (!callData || !callData.id || !callData.call_recordings || callData.call_recordings.length === 0) {
       return res.status(400).json({ 
         error: 'Invalid webhook data', 
         details: 'Missing required fields: id or call_recordings' 
+      });
+    }
+
+    // Validate organizationId
+    if (!organizationId || !mongoose.Types.ObjectId.isValid(organizationId)) {
+      console.error(`Invalid organization ID in webhook URL: ${organizationId}`);
+      return res.status(400).json({ 
+        error: 'Invalid organization ID', 
+        details: 'The URL must include a valid organization ID'
       });
     }
     
@@ -1530,16 +1540,27 @@ app.post('/api/webhooks/nectar-desk', async (req, res, next) => {
       audioUrl = `https://${audioUrl}`;
     }
     
-    console.log(`Processing NectarDesk call recording: ${audioUrl}`);
+    console.log(`Processing NectarDesk call recording: ${audioUrl} for organization: ${organizationId}`);
     
-    // Determine organization for this webhook
-    // For now, use the Master Organization
+    // Find the organization by ID
     const Organization = require('./models/organization');
-    const masterOrg = await Organization.findOne({ isMaster: true });
+    const organization = await Organization.findById(organizationId);
     
-    if (!masterOrg) {
-      console.error('No master organization found for webhook processing');
-      return res.status(500).json({ error: 'Configuration error - organization not found' });
+    if (!organization) {
+      console.error(`Organization not found: ${organizationId}`);
+      return res.status(404).json({ 
+        error: 'Organization not found', 
+        details: 'The provided organization ID does not exist in the system' 
+      });
+    }
+
+    // Check if the organization has API access enabled
+    if (!organization.features || !organization.features.apiAccess) {
+      console.error(`Organization ${organizationId} does not have API access enabled`);
+      return res.status(403).json({ 
+        error: 'API access not enabled', 
+        details: 'This organization does not have API access enabled'
+      });
     }
     
     // Queue the analysis job - we'll respond to webhook quickly and process in background
@@ -1547,16 +1568,17 @@ app.post('/api/webhooks/nectar-desk', async (req, res, next) => {
     res.status(200).json({ 
       success: true, 
       message: 'Webhook received and processing started',
-      callId
+      callId,
+      organization: organization.name
     });
     
     // Process in background - don't wait for completion
-    processWebhookRecording(audioUrl, metadata, masterOrg._id)
+    processWebhookRecording(audioUrl, metadata, organizationId)
       .then(result => {
-        console.log(`Successfully processed NectarDesk webhook call ${callId}`);
+        console.log(`Successfully processed NectarDesk webhook call ${callId} for organization ${organization.name}`);
       })
       .catch(error => {
-        console.error(`Error processing NectarDesk webhook call ${callId}:`, error);
+        console.error(`Error processing NectarDesk webhook call ${callId} for organization ${organization.name}:`, error);
       });
       
   } catch (error) {
@@ -1566,6 +1588,59 @@ app.post('/api/webhooks/nectar-desk', async (req, res, next) => {
       success: false, 
       error: 'Error processing webhook',
       message: error.message
+    });
+  }
+});
+
+// Also keep the generic endpoint for backward compatibility
+app.post('/api/webhooks/nectar-desk', async (req, res, next) => {
+  try {
+    console.log('Received webhook from NectarDesk on legacy endpoint');
+    
+    const callData = req.body;
+    
+    // Validate the incoming data
+    if (!callData || !callData.id || !callData.call_recordings || callData.call_recordings.length === 0) {
+      return res.status(400).json({ 
+        error: 'Invalid webhook data', 
+        details: 'Missing required fields: id or call_recordings' 
+      });
+    }
+    
+    // Get call details for logging
+    const callId = callData.id;
+    
+    // For legacy endpoint, use the Master Organization
+    const Organization = require('./models/organization');
+    const masterOrg = await Organization.findOne({ isMaster: true });
+    
+    if (!masterOrg) {
+      console.error('No master organization found for webhook processing');
+      return res.status(500).json({ error: 'Configuration error - organization not found' });
+    }
+    
+    // Inform about the deprecated endpoint
+    console.log(`WARNING: Using deprecated generic webhook endpoint. Please update to org-specific URL: /api/webhooks/nectar-desk/${masterOrg._id}`);
+    
+    // Forward to the organization-specific endpoint
+    console.log(`Forwarding to organization-specific endpoint for master org: ${masterOrg._id}`);
+    req.params = { organizationId: masterOrg._id.toString() };
+    
+    // Call the organization-specific handler
+    const orgSpecificEndpoint = app._router.stack
+      .filter(layer => layer.route && layer.route.path === '/api/webhooks/nectar-desk/:organizationId')
+      .pop()
+      .handle;
+      
+    return orgSpecificEndpoint(req, res, next);
+    
+  } catch (error) {
+    console.error('Error handling NectarDesk webhook on legacy endpoint:', error);
+    res.status(200).json({ 
+      success: false, 
+      error: 'Error processing webhook',
+      message: error.message,
+      note: 'This endpoint is deprecated. Please use organization-specific endpoint instead.'
     });
   }
 });

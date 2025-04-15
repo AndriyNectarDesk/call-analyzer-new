@@ -498,14 +498,37 @@ analyzeAudioUrl();`;
           <div className="endpoint-details">
             <div className="endpoint-url">
               <span className="method">POST</span>
-              <span className="url">{baseApiUrl}/api/webhooks/nectar-desk</span>
+              <span className="url">{baseApiUrl}/api/webhooks/nectar-desk/:organizationId</span>
             </div>
             
             <div className="endpoint-description">
-              <p>Webhook endpoint that receives call data from NectarDesk and automatically processes the associated call recording.</p>
+              <p>Webhook endpoint that receives call data from NectarDesk and automatically processes the associated call recording. The URL path must include your organization ID to ensure calls are assigned to the correct organization.</p>
+              <div className="info-note">
+                <strong>Important:</strong> Each organization should use their own unique webhook URL with their organization ID in the path.
+              </div>
             </div>
             
             <div className="endpoint-params">
+              <h5>URL Parameters</h5>
+              <table className="params-table">
+                <thead>
+                  <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>organizationId</td>
+                    <td>string</td>
+                    <td>Yes</td>
+                    <td>The ID of your organization in the Call Analyzer system</td>
+                  </tr>
+                </tbody>
+              </table>
+              
               <h5>Request Parameters</h5>
               <p>The webhook expects NectarDesk's standard call data format, including:</p>
               <table className="params-table">
@@ -556,6 +579,15 @@ analyzeAudioUrl();`;
                   </tr>
                 </tbody>
               </table>
+              
+              <h5>Webhook Setup in NectarDesk</h5>
+              <ol className="setup-steps">
+                <li>Navigate to the NectarDesk webhooks configuration page.</li>
+                <li>Create a new webhook targeting: <div className="integration-url">{baseApiUrl}/api/webhooks/nectar-desk/{'{your-organization-id}'}</div></li>
+                <li>Replace <code>{'{your-organization-id}'}</code> with your actual organization ID from Call Analyzer.</li>
+                <li>Configure the webhook to trigger on call completion events.</li>
+                <li>Ensure the call recordings are included in the payload.</li>
+              </ol>
               
               <h5>Example Request Payload</h5>
               <div className="code-block-container">
@@ -928,6 +960,23 @@ const styles = `
     overflow-x: auto;
     font-size: 13px;
     color: #24292e;
+  }
+  
+  .setup-steps {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    padding: 15px 15px 15px 35px;
+    margin: 15px 0;
+    border-left: 4px solid #4a69bd;
+  }
+  
+  .setup-steps li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  
+  .setup-steps li:last-child {
+    margin-bottom: 0;
   }
 `;
 
