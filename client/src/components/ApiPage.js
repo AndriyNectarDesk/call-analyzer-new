@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
 
 function ApiPage() {
   const [apiKey, setApiKey] = useState('');
@@ -17,6 +18,7 @@ function ApiPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [exampleTab, setExampleTab] = useState('transcript');
+  const [currentOrganization, setCurrentOrganization] = useState(null);
 
   // Base URL for the API, defaulting to localhost in development
   const baseApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -325,6 +327,58 @@ async function analyzeAudioUrl() {
 
 analyzeAudioUrl();`;
 
+  // Get the current organization info from state/local storage
+  useEffect(() => {
+    // Fetch API key
+    const fetchApiKey = async () => {
+      try {
+        const apiUrl = process.env.REACT_APP_API_URL || '';
+        const token = localStorage.getItem('auth_token');
+        
+        if (!token) {
+          console.error('Authentication token not found.');
+          return;
+        }
+        
+        const response = await axios.get(`${apiUrl}/api/user/api-key`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.data && response.data.apiKey) {
+          setApiKey(response.data.apiKey);
+        }
+      } catch (error) {
+        console.error('Error fetching API key:', error);
+      }
+    };
+    
+    // Get current organization
+    const getCurrentOrganization = () => {
+      try {
+        // Try to get from global state first via parent components
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const org = JSON.parse(localStorage.getItem('currentOrganization') || '{}');
+        
+        if (org && org._id) {
+          setCurrentOrganization(org);
+          return;
+        }
+        
+        // Fallback to user's organization if available
+        if (user && user.organization && user.organization._id) {
+          setCurrentOrganization(user.organization);
+        }
+      } catch (error) {
+        console.error('Error getting current organization:', error);
+      }
+    };
+    
+    fetchApiKey();
+    getCurrentOrganization();
+  }, []);
+
   if (isLoading) {
     return (
       <div className="api-page loading">
@@ -506,6 +560,27 @@ analyzeAudioUrl();`;
               <div className="info-note">
                 <strong>Important:</strong> Each organization should use their own unique webhook URL with their organization ID in the path.
               </div>
+              
+              {currentOrganization && currentOrganization._id && (
+                <div className="your-endpoint-section">
+                  <h5>Your Webhook URL</h5>
+                  <div className="integration-url with-copy">
+                    {baseApiUrl}/api/webhooks/nectar-desk/{currentOrganization._id}
+                    <button 
+                      className="copy-inline-button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${baseApiUrl}/api/webhooks/nectar-desk/${currentOrganization._id}`);
+                        toast.success('Webhook URL copied to clipboard!');
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             
             <div className="endpoint-params">
@@ -977,6 +1052,40 @@ const styles = `
   
   .setup-steps li:last-child {
     margin-bottom: 0;
+  }
+  
+  .integration-url.with-copy {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .copy-inline-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #0366d6;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+  
+  .copy-inline-button:hover {
+    opacity: 1;
+  }
+  
+  .your-endpoint-section {
+    margin-top: 16px;
+    padding: 12px;
+    background-color: #f0f7ff;
+    border-radius: 4px;
+    border-left: 4px solid #2b88ff;
+  }
+  
+  .your-endpoint-section h5 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    color: #2b88ff;
   }
 `;
 
