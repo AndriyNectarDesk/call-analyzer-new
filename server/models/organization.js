@@ -10,7 +10,8 @@ const OrganizationSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    trim: true
+    trim: true,
+    index: true
   },
   description: String,
   contactEmail: {
@@ -140,7 +141,6 @@ OrganizationSchema.pre('save', function(next) {
 });
 
 // Indexes for faster queries
-OrganizationSchema.index({ code: 1 });
 OrganizationSchema.index({ active: 1 });
 OrganizationSchema.index({ subscriptionTier: 1 });
 OrganizationSchema.index({ subscriptionStatus: 1 });
