@@ -171,12 +171,18 @@ exports.generateApiKey = async (req, res) => {
     // Generate API key
     const keyValue = crypto.randomBytes(32).toString('hex');
     const keyPrefix = 'ca_' + crypto.randomBytes(4).toString('hex');
+    const fullKeyFormat = `${keyPrefix}_${keyValue}`; // Store the full format for logging
+    
+    console.log('Generated new API key with prefix:', keyPrefix);
     
     // Create API key record
+    const keyName = req.body.name || `API Key - ${new Date().toISOString().split('T')[0]}`;
+    console.log('Creating API key with name:', keyName);
+    
     const newApiKey = new ApiKey({
       prefix: keyPrefix,
       key: keyValue,
-      name: req.body.name || 'API Key',
+      name: keyName,
       organizationId,
       createdBy: req.user.id
     });
@@ -188,7 +194,7 @@ exports.generateApiKey = async (req, res) => {
       id: newApiKey._id,
       name: newApiKey.name,
       prefix: newApiKey.prefix,
-      key: `${keyPrefix}_${keyValue}`, // Return full key only on creation
+      key: fullKeyFormat, // Return full key only on creation
       createdAt: newApiKey.createdAt
     });
   } catch (error) {
@@ -301,7 +307,7 @@ exports.getCurrentApiKey = async (req, res) => {
     const apiKey = await ApiKey.findOne({
       organizationId: new mongoose.Types.ObjectId(organizationId),
       isActive: true
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 }).lean(); // Use lean() to get a plain JavaScript object
     
     console.log('API key found:', apiKey ? 'Yes' : 'No');
     
@@ -309,17 +315,17 @@ exports.getCurrentApiKey = async (req, res) => {
       return res.status(404).json({ message: 'No active API key found' });
     }
 
-    // Return only the prefix and masked key
+    // Return only the prefix and full key
     const response = {
       id: apiKey._id,
       name: apiKey.name,
       prefix: apiKey.prefix,
-      key: `${apiKey.prefix}_${apiKey.key.substring(0, 4)}...`, // Mask the key
+      key: `${apiKey.prefix}_${apiKey.key}`, // Return full key format
       createdAt: apiKey.createdAt,
       lastUsed: apiKey.lastUsed
     };
     
-    console.log('Returning API key info:', { ...response, key: '[MASKED]' });
+    console.log('Returning API key info:', { ...response, key: `${apiKey.prefix}_******` });
     res.json(response);
   } catch (error) {
     console.error('Error getting API key:', error);
