@@ -65,7 +65,12 @@ function TranscriptDetail() {
             <strong>Date:</strong> {new Date(createdAt).toLocaleString()}
           </p>
           <p>
-            <strong>Source:</strong> {source === 'api' ? 'API' : source === 'audio' ? 'Audio Upload' : 'Web UI'}
+            <strong>Source:</strong> {
+              transcript.source === 'api' ? 'API' : 
+              transcript.source === 'audio' ? 'Audio Upload' : 
+              transcript.source === 'nectar-desk-webhook' ? 'NectarDesk' : 
+              'Web UI'
+            }
           </p>
           <p>
             <strong>Call Type:</strong> {
