@@ -67,19 +67,70 @@ exports.authenticateJWT = (req, res, next) => {
 // Verify API key
 exports.authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
+  console.log('Authenticating API key request, key provided:', apiKey ? 'Yes' : 'No');
   
   if (!apiKey) {
     return res.status(401).json({ error: 'Access denied. No API key provided' });
   }
-  
+
   try {
-    // Find organization with matching API key
-    const organization = await Organization.findOne({
-      'apiKeys.key': apiKey,
+    console.log('Validating API key:', apiKey.substring(0, 8) + '...');
+    
+    // First, check if the key format is valid - should be in format prefix_key
+    const keyParts = apiKey.split('_');
+    if (keyParts.length < 2) {
+      console.error('Invalid API key format - missing prefix/key separator');
+      return res.status(401).json({ error: 'Invalid API key format' });
+    }
+    
+    const prefix = keyParts[0];
+    const key = keyParts.slice(1).join('_'); // In case there are more underscores in the key part
+    
+    console.log('API key prefix:', prefix);
+    
+    let organization;
+    
+    // Try to find organization with matching inline apiKeys array first
+    organization = await Organization.findOne({
+      'apiKeys.key': key,
+      'apiKeys.isActive': true,
       active: true
     }).exec();
     
+    // If not found in organization.apiKeys, check the ApiKey model
     if (!organization) {
+      console.log('Key not found in organization.apiKeys, checking ApiKey model...');
+      
+      const ApiKey = require('../models/ApiKey');
+      const apiKeyRecord = await ApiKey.findOne({
+        prefix: prefix,
+        key: key,
+        isActive: true
+      }).exec();
+      
+      if (apiKeyRecord) {
+        console.log('Found valid API key in ApiKey model with prefix:', prefix);
+        
+        // Get the organization associated with this key
+        organization = await Organization.findOne({
+          _id: apiKeyRecord.organizationId,
+          active: true
+        }).exec();
+        
+        if (!organization) {
+          console.error('API key exists but organization not found or inactive');
+        } else {
+          console.log('Found organization:', organization.name);
+        }
+      } else {
+        console.error('API key not found in ApiKey model');
+      }
+    } else {
+      console.log('Found valid API key in organization.apiKeys for organization:', organization.name);
+    }
+    
+    if (!organization) {
+      console.error('Invalid API key - organization not found');
       return res.status(401).json({ error: 'Invalid API key' });
     }
     
@@ -90,9 +141,24 @@ exports.authenticateApiKey = async (req, res, next) => {
       code: organization.code
     };
     
+    console.log('API key validation successful for organization:', organization.name);
+    
+    // Update last used timestamp
+    try {
+      const ApiKey = require('../models/ApiKey');
+      await ApiKey.findOneAndUpdate(
+        { prefix: prefix, key: key },
+        { $set: { lastUsed: new Date() } }
+      );
+    } catch (updateErr) {
+      console.error('Failed to update API key last used timestamp:', updateErr);
+      // Continue anyway - this is not critical
+    }
+    
     next();
   } catch (error) {
     console.error('API key authentication error:', error);
+    console.error(error.stack);
     res.status(500).json({ error: 'Authentication failed' });
   }
 };
