@@ -20,6 +20,7 @@ const OrganizationManagement = () => {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
+    contactEmail: '',
     subscriptionTier: 'free',
     subscriptionStatus: 'active',
     maxUsers: 5,
@@ -109,6 +110,12 @@ const OrganizationManagement = () => {
       errors.code = 'Code can only contain lowercase letters, numbers, and hyphens';
     }
     
+    if (!formData.contactEmail.trim()) {
+      errors.contactEmail = 'Contact email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.contactEmail)) {
+      errors.contactEmail = 'Please enter a valid email address';
+    }
+    
     if (formData.maxUsers < 1) {
       errors.maxUsers = 'Maximum users must be at least 1';
     }
@@ -167,6 +174,7 @@ const OrganizationManagement = () => {
         response = await axios.put(`${apiUrl}/api/master-admin/organizations/${editingId}`, {
           name: dataToSubmit.name,
           code: dataToSubmit.code,
+          contactEmail: dataToSubmit.contactEmail,
           active: dataToSubmit.active
         }, {
           headers: {
@@ -189,6 +197,7 @@ const OrganizationManagement = () => {
         const newOrgData = {
           name: dataToSubmit.name,
           code: dataToSubmit.code,
+          contactEmail: dataToSubmit.contactEmail,
           active: dataToSubmit.active,
           subscriptionTier: dataToSubmit.subscriptionTier,
           features: {
@@ -234,6 +243,7 @@ const OrganizationManagement = () => {
     setFormData({
       name: org.name,
       code: org.code,
+      contactEmail: org.contactEmail || '',
       subscriptionTier: org.subscriptionTier || 'free',
       subscriptionStatus: org.subscriptionStatus || 'active',
       maxUsers: org.features?.maxUsers || 5,
@@ -297,6 +307,7 @@ const OrganizationManagement = () => {
     setFormData({
       name: '',
       code: '',
+      contactEmail: '',
       subscriptionTier: 'free',
       subscriptionStatus: 'active',
       maxUsers: 5,
@@ -591,6 +602,19 @@ const OrganizationManagement = () => {
                   disabled={isEditing}
                 />
                 {formErrors.code && <div className="error-message">{formErrors.code}</div>}
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="contactEmail">Contact Email</label>
+                <input
+                  type="email"
+                  id="contactEmail"
+                  name="contactEmail"
+                  value={formData.contactEmail}
+                  onChange={handleInputChange}
+                  placeholder="Enter contact email"
+                />
+                {formErrors.contactEmail && <div className="error-message">{formErrors.contactEmail}</div>}
               </div>
               
               <div className="form-check">
