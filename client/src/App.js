@@ -317,8 +317,8 @@ function AppContent() {
       console.error('Error saving organization to localStorage:', e);
     }
     
-    // Navigate to the organization's page
-    window.location.href = `/organizations/${org._id}/users`;
+    // Navigate to the main dashboard instead of the users page
+    window.location.href = '/';
   };
 
   const toggleDarkMode = () => {
