@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
-const { authenticateJWT, isOrgAdmin, isMasterAdmin, belongsToOrganization } = require('../middleware/authMiddleware');
+const { authenticateJWT, isOrgAdmin, isMasterAdmin, belongsToOrganization, tenantIsolation } = require('../middleware/authMiddleware');
 
 // All routes require authentication
 router.use(authenticateJWT);
+// Add tenant isolation middleware
+router.use(tenantIsolation);
 
 // Get all users (admin only)
 router.get('/', isOrgAdmin, userController.getAllUsers);

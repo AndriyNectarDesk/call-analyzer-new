@@ -1,26 +1,30 @@
 const express = require('express');
 const router = express.Router();
 const organizationController = require('../controllers/organizationController');
-const { authenticateJWT, isMasterAdmin, isOrgAdmin, belongsToOrganization } = require('../middleware/authMiddleware');
+const { authenticateJWT, isMasterAdmin, isOrgAdmin, belongsToOrganization, tenantIsolation } = require('../middleware/authMiddleware');
+
+// Add tenant isolation middleware to all non-master admin routes
+const orgRoutes = express.Router();
+orgRoutes.use(tenantIsolation);
 
 // Master admin only routes
 router.get('/all', authenticateJWT, isMasterAdmin, organizationController.getAllOrganizations);
 router.post('/', authenticateJWT, isMasterAdmin, organizationController.createOrganization);
 
 // API key management routes (these need to come BEFORE the /:id routes)
-router.get('/api-key', authenticateJWT, organizationController.getCurrentApiKey);
-router.post('/api-key', authenticateJWT, isOrgAdmin, organizationController.generateApiKey);
+router.get('/api-key', authenticateJWT, tenantIsolation, organizationController.getCurrentApiKey);
+router.post('/api-key', authenticateJWT, isOrgAdmin, tenantIsolation, organizationController.generateApiKey);
 
 // Organization specific routes (require authentication)
-router.get('/:id', authenticateJWT, belongsToOrganization, organizationController.getOrganization);
-router.put('/:id', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.updateOrganization);
+router.get('/:id', authenticateJWT, belongsToOrganization, tenantIsolation, organizationController.getOrganization);
+router.put('/:id', authenticateJWT, isOrgAdmin, belongsToOrganization, tenantIsolation, organizationController.updateOrganization);
 router.delete('/:id', authenticateJWT, isMasterAdmin, organizationController.deactivateOrganization);
 
 // API key management for specific organizations
-router.post('/:id/api-keys', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.generateApiKey);
-router.delete('/:id/api-keys/:keyId', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.deleteApiKey);
+router.post('/:id/api-keys', authenticateJWT, isOrgAdmin, belongsToOrganization, tenantIsolation, organizationController.generateApiKey);
+router.delete('/:id/api-keys/:keyId', authenticateJWT, isOrgAdmin, belongsToOrganization, tenantIsolation, organizationController.deleteApiKey);
 
 // Organization stats
-router.get('/:id/stats', authenticateJWT, isOrgAdmin, belongsToOrganization, organizationController.getOrganizationStats);
+router.get('/:id/stats', authenticateJWT, isOrgAdmin, belongsToOrganization, tenantIsolation, organizationController.getOrganizationStats);
 
 module.exports = router; 

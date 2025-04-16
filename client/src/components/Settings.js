@@ -12,18 +12,58 @@ const Settings = () => {
     apiAccess: false
   });
   const [user, setUser] = useState(null);
+  const [currentOrganization, setCurrentOrganization] = useState(null);
 
   useEffect(() => {
+    // Get current organization from localStorage
+    try {
+      const savedOrg = localStorage.getItem('selectedOrganization');
+      if (savedOrg) {
+        setCurrentOrganization(JSON.parse(savedOrg));
+      }
+    } catch (e) {
+      console.error('Error loading organization from localStorage:', e);
+    }
+    
     fetchUserSettings();
+  }, []);
+  
+  // Listen for changes to the "Only Blooms" setting
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'onlyBlooms' || e.key === 'selectedOrganization') {
+        // Refresh data when the setting changes
+        fetchUserSettings();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const fetchUserSettings = async () => {
     try {
       setIsLoading(true);
       const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication required');
+        setIsLoading(false);
+        return;
+      }
+      
       const apiUrl = process.env.REACT_APP_API_URL || '';
       
-      const response = await axios.get(`${apiUrl}/api/settings`, {
+      // Check if "Only Blooms" is active
+      const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
+      let url = `${apiUrl}/api/settings`;
+      
+      // If Only Blooms is active and we have a current organization, add the organizationId parameter
+      if (onlyBloomsActive && currentOrganization?.id) {
+        url += `?organizationId=${currentOrganization.id}`;
+      }
+      
+      const response = await axios.get(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -57,9 +97,32 @@ const Settings = () => {
       setSuccess('');
       
       const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication required');
+        setIsLoading(false);
+        return;
+      }
+      
       const apiUrl = process.env.REACT_APP_API_URL || '';
       
-      await axios.post(`${apiUrl}/api/settings`, { settings }, {
+      // Check if "Only Blooms" is active
+      const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
+      let url = `${apiUrl}/api/settings`;
+      
+      // If Only Blooms is active and we have a current organization, add the organizationId parameter
+      if (onlyBloomsActive && currentOrganization?.id) {
+        url += `?organizationId=${currentOrganization.id}`;
+      }
+      
+      const requestData = { settings };
+      
+      // Add organizationId to the request body if Only Blooms is active
+      if (onlyBloomsActive && currentOrganization?.id) {
+        requestData.organizationId = currentOrganization.id;
+      }
+      
+      await axios.post(url, requestData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

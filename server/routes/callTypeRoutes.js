@@ -2,10 +2,12 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const CallType = mongoose.model('CallType');
-const { authenticateJWT, isOrgAdmin } = require('../middleware/authMiddleware');
+const { authenticateJWT, isOrgAdmin, tenantIsolation } = require('../middleware/authMiddleware');
 
 // All routes require authentication
 router.use(authenticateJWT);
+// Add tenant isolation middleware
+router.use(tenantIsolation);
 
 // Get all call types
 router.get('/', async (req, res) => {
@@ -16,7 +18,15 @@ router.get('/', async (req, res) => {
     if (!req.user.isMasterAdmin) {
       query.$or = [
         { isGlobal: true },
-        { organizationId: req.user.organizationId }
+        { organizationId: req.tenantId || req.user.organizationId }
+      ];
+    }
+    
+    // If "Only Blooms" filter is active, add organizationId from query params
+    if (req.query.organizationId) {
+      query.$or = [
+        { isGlobal: true },
+        { organizationId: mongoose.Types.ObjectId(req.query.organizationId) }
       ];
     }
     
