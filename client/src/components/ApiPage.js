@@ -87,22 +87,29 @@ function ApiPage() {
       const isOnlyBlooms = localStorage.getItem('onlyBlooms') === 'true';
       console.log('Current context - Only Blooms mode:', isOnlyBlooms);
       
-      // Fetch organizations to find the correct one based on context
+      // Setup request headers with organization context
+      const headers = {
+        'Authorization': `Bearer ${token}`
+      };
+      
+      // Add Only Blooms context header if active
+      if (isOnlyBlooms) {
+        headers['X-Only-Blooms'] = 'true';
+        console.log('Adding X-Only-Blooms: true header for server-side context');
+      }
+      
       try {
-        // Use master admin endpoint to get all organizations
+        // Fetch organizations to determine the appropriate one based on context
         const orgsResponse = await axios.get(`${baseApiUrl}/api/master-admin/organizations`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers
         });
         
         if (!orgsResponse.data || orgsResponse.data.length === 0) {
           throw new Error('No organizations found in the system');
         }
         
+        // Find the target organization based on context
         let targetOrg;
-        
-        // Determine which organization to use based on context
         if (isOnlyBlooms) {
           // Find Only Blooms organization
           targetOrg = orgsResponse.data.find(org => 
@@ -129,22 +136,23 @@ function ApiPage() {
         
         setCurrentOrganization(targetOrg);
         
-        // Fetch API key for the selected organization
-        const apiKeyResponse = await axios.get(`${baseApiUrl}/api/organizations/${targetOrg._id}/api-key`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        // Fetch API key passing the organization context
+        const apiKeyResponse = await axios.get(
+          `${baseApiUrl}/api/organizations/${targetOrg._id}/api-key`, 
+          { headers }
+        );
         
         if (apiKeyResponse.data && apiKeyResponse.data.key) {
-          console.log(`Successfully retrieved API key for ${targetOrg.name} (ID: ${targetOrg._id})`);
+          const orgName = apiKeyResponse.data.organization?.name || targetOrg.name;
+          console.log(`Successfully retrieved API key for ${orgName}`);
           setApiKey(apiKeyResponse.data.key);
           setApiStatus('Valid');
         } else {
-          console.log(`No API key found for ${targetOrg.name} (ID: ${targetOrg._id})`);
+          const orgName = apiKeyResponse.data.organization?.name || targetOrg.name;
+          console.log(`No API key found for ${orgName}`);
           setApiKey('');
           setApiStatus('Not Found');
-          setError(`No active API key found for ${targetOrg.name}`);
+          setError(`No active API key found for ${orgName}`);
         }
       } catch (err) {
         console.error('Error fetching organization or API key:', err);

@@ -394,12 +394,18 @@ exports.getCurrentApiKey = async (req, res) => {
 // Get API key for a specific organization by ID
 exports.getOrganizationApiKey = async (req, res) => {
   try {
-    console.log('getOrganizationApiKey called for organization ID:', req.params.id);
-    
-    const organizationId = req.params.id;
+    // Check if we have an organization context override (e.g., Only Blooms mode)
+    let organizationId;
+    if (req.overrideOrganizationId) {
+      console.log(`Organization context override active: Using ${req.overrideOrganizationName} (${req.overrideOrganizationId}) instead of requested ID ${req.params.id}`);
+      organizationId = req.overrideOrganizationId;
+    } else {
+      console.log('getOrganizationApiKey called for organization ID:', req.params.id);
+      organizationId = req.params.id;
+    }
     
     if (!organizationId) {
-      console.error('No organization ID provided in request params');
+      console.error('No organization ID provided in request params or context');
       return res.status(400).json({ message: 'Organization ID is required' });
     }
 
@@ -442,7 +448,11 @@ exports.getOrganizationApiKey = async (req, res) => {
       prefix: apiKey.prefix,
       key: `${apiKey.prefix}_${apiKey.key}`, // Return full key format
       createdAt: apiKey.createdAt,
-      lastUsed: apiKey.lastUsed
+      lastUsed: apiKey.lastUsed,
+      organization: {
+        id: organization._id,
+        name: organization.name
+      }
     };
     
     console.log('Returning organization API key info:', { ...response, key: `${apiKey.prefix}_******` });

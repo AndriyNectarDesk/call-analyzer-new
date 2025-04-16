@@ -241,6 +241,53 @@ exports.belongsToOrganization = (req, res, next) => {
   next();
 };
 
+// Handle organization context switching (Only Blooms mode)
+exports.handleOrganizationContext = async (req, res, next) => {
+  try {
+    // Check for onlyBlooms context in various places (headers, query params, cookies)
+    const onlyBlooms = 
+      req.headers['x-only-blooms'] === 'true' || 
+      req.query.onlyBlooms === 'true' || 
+      req.cookies?.onlyBlooms === 'true';
+    
+    console.log('Organization context middleware - Only Blooms mode:', onlyBlooms);
+    
+    // Only proceed with context switching if onlyBlooms is true
+    if (onlyBlooms) {
+      console.log('Only Blooms mode detected, finding Blooms organization');
+      
+      // Find the Blooms organization
+      const bloomsOrg = await Organization.findOne({
+        $or: [
+          { name: { $regex: 'Blooms', $options: 'i' } },
+          { code: { $regex: 'blooms', $options: 'i' } }
+        ],
+        active: true
+      });
+      
+      if (bloomsOrg) {
+        console.log(`Found Blooms organization: ${bloomsOrg.name} (${bloomsOrg._id})`);
+        
+        // Override the user's organization context for this request
+        req.overrideOrganizationId = bloomsOrg._id;
+        req.overrideOrganizationName = bloomsOrg.name;
+        
+        // Also set tenantId for use in other middleware
+        req.tenantId = bloomsOrg._id;
+      } else {
+        console.warn('Only Blooms mode requested but no Blooms organization found');
+      }
+    }
+    
+    // Continue to the next middleware
+    next();
+  } catch (error) {
+    console.error('Error in organization context middleware:', error);
+    // Continue anyway, falling back to user's default organization
+    next();
+  }
+};
+
 // Tenant isolation middleware - adds organizationId filter to all queries
 exports.tenantIsolation = (req, res, next) => {
   // Skip isolation for master admins in master admin routes
@@ -248,16 +295,21 @@ exports.tenantIsolation = (req, res, next) => {
     return next();
   }
   
-  // Get organization ID from user token or API key authentication
-  const organizationId = req.user ? req.user.organizationId : 
-                       (req.organization ? req.organization.id : null);
-  
-  if (!organizationId) {
-    return res.status(403).json({ error: 'Organization context not found' });
+  // Get the appropriate organization ID
+  // First check for overridden organization (from handleOrganizationContext middleware)
+  if (req.overrideOrganizationId) {
+    req.tenantId = req.overrideOrganizationId;
+    console.log(`Tenant isolation using overridden organization: ${req.overrideOrganizationName} (${req.tenantId})`);
+    return next();
   }
   
-  // Add organization context to request for use in controllers
-  req.tenantId = organizationId;
+  // Fall back to user's organization from JWT
+  if (req.user && req.user.organizationId) {
+    req.tenantId = req.user.organizationId;
+    console.log(`Tenant isolation using user organization: ${req.tenantId}`);
+    return next();
+  }
   
-  next();
+  // If no organization found, deny access
+  return res.status(403).json({ error: 'Access denied. No organization context found' });
 }; 
