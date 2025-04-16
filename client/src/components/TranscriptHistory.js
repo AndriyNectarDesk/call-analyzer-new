@@ -18,6 +18,15 @@ function TranscriptHistory() {
   console.log('Is user a master admin?', isMasterAdmin);
   console.log('Current user:', currentUser);
   
+  // Debug render function
+  const renderDebug = () => {
+    console.log('====== RENDER DEBUG ======');
+    console.log('Master admin (render time):', isMasterAdmin);
+    console.log('Organizations length (render time):', organizations.length);
+    console.log('Organizations data (render time):', organizations);
+    return null;
+  };
+  
   // Get the current user from local storage on mount
   useEffect(() => {
     fetchUserContext();
@@ -465,41 +474,6 @@ function TranscriptHistory() {
     }
   };
 
-  // Also add a debug message to the filter section
-  {(isMasterAdmin || isMasterOrganizationSelected()) && organizations.length > 0 ? (
-    <div className="filter-controls">
-      <div className="filter-group">
-        <label htmlFor="organizationFilter"><strong>Filter by Organization:</strong></label>
-        <select 
-          id="organizationFilter" 
-          value={filterOrganization} 
-          onChange={(e) => setFilterOrganization(e.target.value)}
-          className="organization-filter"
-        >
-          <option value="">All Organizations ({organizations.length} orgs available)</option>
-          {organizations.map(org => (
-            <option key={org} value={org}>{org}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  ) : (
-    <div className="debug-message" style={{margin: '10px 0', fontSize: '0.9rem', color: '#555'}}>
-      {isMasterAdmin || isMasterOrganizationSelected() ? 
-        `Filter not shown: No organizations found (${organizations.length})` : 
-        "Filter not shown: Not in Master Organization context"}
-    </div>
-  )}
-
-  // Also add a debug message to the return/render function
-  const renderDebug = () => {
-    console.log('====== RENDER DEBUG ======');
-    console.log('Master admin (render time):', isMasterAdmin);
-    console.log('Organizations length (render time):', organizations.length);
-    console.log('Organizations data (render time):', organizations);
-    return null;
-  };
-
   if (loading) {
     return (
       <div className="loading-container">
@@ -514,6 +488,7 @@ function TranscriptHistory() {
       <h2>Transcript History</h2>
       {renderDebug()}
       
+      {/* Organization filter for master org context */}
       {(isMasterAdmin || isMasterOrganizationSelected()) && organizations.length > 0 ? (
         <div className="filter-controls">
           <div className="filter-group">
@@ -532,11 +507,12 @@ function TranscriptHistory() {
           </div>
         </div>
       ) : (
-        <div className="debug-message" style={{margin: '10px 0', fontSize: '0.9rem', color: '#555'}}>
-          {isMasterAdmin || isMasterOrganizationSelected() ? 
-            `Filter not shown: No organizations found (${organizations.length})` : 
-            "Filter not shown: Not in Master Organization context"}
-        </div>
+        // Only show debug message if we're in master context but have no organizations
+        (isMasterAdmin || isMasterOrganizationSelected()) && organizations.length === 0 ? (
+          <div className="debug-message" style={{margin: '10px 0', fontSize: '0.9rem', color: '#555'}}>
+            Filter not shown: No organizations found
+          </div>
+        ) : null
       )}
       
       {error && (
@@ -567,7 +543,9 @@ function TranscriptHistory() {
                 <span className="transcript-id">
                   ID: {transcript._id}
                 </span>
-                <span className="source">
+                <span className={`source ${
+                  transcript.source === 'nectar-desk-webhook' ? 'badge-nectar-desk' : ''
+                }`}>
                   Source: {
                     transcript.source === 'api' ? 'API' : 
                     transcript.source === 'audio' ? 'Audio Upload' : 
@@ -626,4 +604,4 @@ function TranscriptHistory() {
   );
 }
 
-export default TranscriptHistory;
+export default TranscriptHistory; 

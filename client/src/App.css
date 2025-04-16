@@ -769,9 +769,13 @@ textarea {
 }
 
 .badge-nectar {
-  background-color: #fff0f5;
-  color: #c71585;
-  border: 1px solid #ffb6c1;
+  background-color: #6c5ce7;
+  color: white;
+}
+
+.badge-nectar-desk {
+  background-color: #00cec9;
+  color: white;
 }
 
 /* Call type in details page */
