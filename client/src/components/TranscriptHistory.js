@@ -128,13 +128,20 @@ function TranscriptHistory() {
     // Get the organization name and code in lowercase for comparison
     const orgName = currentOrganization.name ? currentOrganization.name.toLowerCase() : '';
     const orgCode = currentOrganization.code ? currentOrganization.code.toLowerCase() : '';
+    const orgId = currentOrganization._id || currentOrganization.id || '';
     
-    // Look for any indicators of master organization
+    console.log('Organization details - Name:', orgName, 'Code:', orgCode, 'ID:', orgId);
+    
+    // Check for Master Organization by multiple properties
     const isMasterByCode = orgCode === 'master-org' || orgCode === 'master' || orgCode.includes('master');
-    const isMasterByName = orgName.includes('master') || orgName === 'master organization';
+    const isMasterByName = orgName.includes('master') || orgName === 'master organization' || orgName.includes('nectar desk');
+    // Hard-coded known Master Org IDs - can be updated based on your environment
+    const knownMasterOrgIds = ['64d5ece33f7443afa6b684d2', '67f6a38454aeb791d5665e59'];
+    const isMasterById = knownMasterOrgIds.includes(orgId);
     
-    const result = isMasterByCode || isMasterByName;
-    console.log('Is master organization?', result, '(code match:', isMasterByCode, ', name match:', isMasterByName, ')');
+    const result = isMasterByCode || isMasterByName || isMasterById;
+    console.log('Is master organization?', result);
+    console.log('Checks: By code:', isMasterByCode, '| By name:', isMasterByName, '| By ID:', isMasterById);
     
     return result;
   };
@@ -166,14 +173,34 @@ function TranscriptHistory() {
       let orgId;
       const token = localStorage.getItem('auth_token');
       
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          console.log('JWT token payload:', payload);
-          orgId = payload.organizationId;
-          console.log('Organization ID from JWT:', orgId);
-        } catch (err) {
-          console.error('Error decoding JWT:', err);
+      // Check token validity
+      if (!token) {
+        console.error('No authentication token found');
+        throw new Error('Authentication token is missing. Please log in again.');
+      }
+      
+      // Check if token is expired
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const tokenExp = payload.exp * 1000; // Convert to milliseconds
+        const currentTime = Date.now();
+        
+        console.log('Token expiration:', new Date(tokenExp).toLocaleString());
+        console.log('Current time:', new Date(currentTime).toLocaleString());
+        console.log('Token valid for:', Math.round((tokenExp - currentTime) / 60000), 'minutes');
+        
+        if (tokenExp < currentTime) {
+          console.error('Authentication token expired');
+          throw new Error('Your session has expired. Please log in again.');
+        }
+        
+        console.log('JWT token payload:', payload);
+        orgId = payload.organizationId;
+        console.log('Organization ID from JWT:', orgId);
+      } catch (err) {
+        console.error('Error validating JWT:', err);
+        if (err.message.includes('expired') || err.message.includes('session')) {
+          throw err; // Rethrow authentication errors
         }
       }
       
@@ -195,6 +222,12 @@ function TranscriptHistory() {
       // Add organization ID to URL if we have one and we're not in master context
       if (orgId && !(isMasterAdmin || isMasterOrganizationSelected())) {
         url += `&organizationId=${orgId}`;
+        console.log('Adding organization filter to URL:', orgId);
+      } else if (isMasterOrganizationSelected()) {
+        console.log('Master organization detected - showing all transcripts');
+        // Don't add organization filter for Master Org
+        // But we add a flag to inform server that this is a master org request
+        url += '&isMasterOrg=true';
       }
       
       console.log('Fetching transcripts URL:', url);
