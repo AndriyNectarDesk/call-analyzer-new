@@ -52,8 +52,38 @@ function TranscriptHistory() {
           } catch (e) {
             console.error('Error parsing user data:', e);
           }
+        } else {
+          // No user data found, check if we have a token to get user info from API
+          const token = localStorage.getItem('auth_token');
+          if (token) {
+            try {
+              // Try to fetch current user from API
+              const response = await axios.get('/api/auth/me', {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              
+              if (response.data && response.data.user) {
+                console.log('Fetched user data from API:', response.data.user);
+                setCurrentUser(response.data.user);
+                // Save to localStorage for future use
+                localStorage.setItem('user_data', JSON.stringify(response.data.user));
+              } else {
+                console.error('API returned empty user data');
+                handleUnauthenticated();
+              }
+            } catch (error) {
+              console.error('Failed to fetch user from API:', error);
+              handleUnauthenticated();
+            }
+          } else {
+            console.error('No user token found');
+            handleUnauthenticated();
+          }
         }
         
+        // Extract organization data
         const orgData = localStorage.getItem('selectedOrganization');
         console.log('Organization data exists in localStorage:', !!orgData);
         
@@ -114,6 +144,19 @@ function TranscriptHistory() {
       }
     }
   }, []);
+  
+  // Handle unauthenticated state
+  const handleUnauthenticated = () => {
+    console.log('User is not authenticated, redirecting to login...');
+    // Clear any stale data
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    
+    // Set a timeout to avoid immediate redirect during component mount
+    setTimeout(() => {
+      window.location.href = '/login';
+    }, 500);
+  };
   
   // Check if the current organization is the master organization
   const isMasterOrganizationSelected = () => {
@@ -232,7 +275,19 @@ function TranscriptHistory() {
       
       console.log('Fetching transcripts URL:', url);
       
-      const response = await axios.get(url);
+      // Setup headers with authentication token
+      const headers = {};
+      const authToken = localStorage.getItem('auth_token');
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+      
+      // Add explicit Accept header to ensure JSON response
+      headers['Accept'] = 'application/json';
+      
+      console.log('Request headers:', headers);
+      
+      const response = await axios.get(url, { headers });
       
       // Check if response is not JSON (likely HTML error page)
       const contentType = response.headers['content-type'];
