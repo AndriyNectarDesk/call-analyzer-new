@@ -31,7 +31,6 @@ function TranscriptHistory() {
         if (userData) {
           try {
             const parsedUser = JSON.parse(userData);
-            console.log('Loaded user data:', parsedUser);
             setCurrentUser(parsedUser);
           } catch (e) {
             console.error('Error parsing user data:', e);
@@ -42,11 +41,25 @@ function TranscriptHistory() {
         if (orgData) {
           try {
             const parsedOrg = JSON.parse(orgData);
-            console.log('Loaded organization data:', parsedOrg);
-            setCurrentOrganization(parsedOrg);
+            console.log('Loaded organization data from localStorage:', parsedOrg);
+            
+            // Ensure the organization object has the expected format
+            // The organization ID should be available directly as _id or id
+            const formattedOrg = {
+              ...parsedOrg,
+              // Make sure we have the _id property (some code might use this instead of id)
+              _id: parsedOrg._id || parsedOrg.id,
+              // Make sure we have the id property (some code might use this instead of _id)
+              id: parsedOrg.id || parsedOrg._id
+            };
+            
+            console.log('Formatted organization data:', formattedOrg);
+            setCurrentOrganization(formattedOrg);
           } catch (e) {
             console.error('Error parsing organization data:', e);
           }
+        } else {
+          console.warn('No selected organization found in localStorage');
         }
       } catch (err) {
         console.error('Error fetching user context:', err);
@@ -76,6 +89,26 @@ function TranscriptHistory() {
         
         // Log current organization context for debugging
         console.log('Current organization context:', currentOrganization);
+        
+        // Get user info from JWT token for debugging
+        try {
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          
+          const tokenData = JSON.parse(jsonPayload);
+          console.log('JWT token payload:', tokenData);
+          
+          // Check if the organization in token matches what we have
+          if (tokenData.organizationId && currentOrganization) {
+            console.log(`JWT organization ID: ${tokenData.organizationId}`);
+            console.log(`Current organization ID: ${currentOrganization.id || currentOrganization._id}`);
+          }
+        } catch (e) {
+          console.error('Error decoding JWT token:', e);
+        }
         
         // Determine the URL based on user's role and organization context
         let url = `${apiUrl}/api/transcripts`;
@@ -110,11 +143,57 @@ function TranscriptHistory() {
         }
         
         const data = await response.json();
-        console.log(`Retrieved ${data.transcripts ? data.transcripts.length : 0} transcripts`);
+        console.log('API Response data:', data); // Log entire response data
         
         // Check if the API returns data in the new format (with pagination)
         // The new controller returns { transcripts: [...], pagination: {...} }
         const transcriptData = data.transcripts || data;
+        console.log(`Extracted transcript data:`, transcriptData);
+        console.log(`Transcript data is array: ${Array.isArray(transcriptData)}`);
+        console.log(`Number of transcripts: ${Array.isArray(transcriptData) ? transcriptData.length : 'N/A'}`);
+        
+        // If we have no transcripts and we were using a filter, try without filter
+        if (Array.isArray(transcriptData) && transcriptData.length === 0 && url.includes('organizationId')) {
+          console.log('No transcripts found with organizationId filter, trying without filter...');
+          
+          // Try again with base URL without filter
+          const fallbackUrl = `${apiUrl}/api/transcripts`;
+          console.log('Trying fallback URL:', fallbackUrl);
+          
+          const fallbackResponse = await fetch(fallbackUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            console.log('Fallback API Response data:', fallbackData);
+            
+            const fallbackTranscriptData = fallbackData.transcripts || fallbackData;
+            console.log(`Fallback transcripts found: ${Array.isArray(fallbackTranscriptData) ? fallbackTranscriptData.length : 'N/A'}`);
+            
+            if (Array.isArray(fallbackTranscriptData) && fallbackTranscriptData.length > 0) {
+              console.log('Using fallback transcript data instead');
+              setTranscripts(fallbackTranscriptData);
+              setFilteredTranscripts(fallbackTranscriptData);
+              
+              // Extract unique organization names if master admin
+              if (isMasterAdmin && isMasterOrganizationSelected()) {
+                const uniqueOrganizations = [...new Set(fallbackTranscriptData
+                  .filter(t => t.organizationId && t.organizationId.name)
+                  .map(t => t.organizationId.name)
+                )];
+                console.log('Extracted organization filters from fallback:', uniqueOrganizations);
+                setOrganizations(uniqueOrganizations);
+              }
+              
+              return; // Exit early since we have data now
+            }
+          } else {
+            console.error('Fallback request also failed');
+          }
+        }
         
         setTranscripts(transcriptData);
         setFilteredTranscripts(transcriptData);
@@ -147,7 +226,7 @@ function TranscriptHistory() {
       console.log('Waiting for user and organization context...');
       setLoading(false);
     }
-  }, [currentUser, currentOrganization]);
+  }, [currentUser, currentOrganization, isMasterAdmin]);
   
   // Filter transcripts when filterOrganization changes
   useEffect(() => {
