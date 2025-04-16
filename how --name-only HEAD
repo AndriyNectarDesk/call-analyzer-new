@@ -1,0 +1,9 @@
+[33mcommit 366080897cf7fa538a07e3a2f43160f68a3db811[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: andriy <pocmarketing@gmail.com>
+Date:   Wed Apr 16 16:14:12 2025 -0400
+
+    Allow all Master Organization users to view transcript history across all organizations
+
+M	client/src/components/TranscriptHistory.css
+M	client/src/components/TranscriptHistory.js
+M	server/controllers/transcriptController.js

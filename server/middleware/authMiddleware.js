@@ -285,9 +285,12 @@ exports.organizationContextMiddleware = async (req, res, next) => {
 };
 
 // Tenant isolation middleware - adds organizationId filter to all queries
-exports.tenantIsolation = (req, res, next) => {
+exports.tenantIsolation = async (req, res, next) => {
+  console.log('Running tenant isolation middleware');
+  
   // Skip isolation for master admins in master admin routes
-  if (req.path.startsWith('/api/admin') && req.user.isMasterAdmin) {
+  if (req.path.startsWith('/api/admin') && req.user && req.user.isMasterAdmin) {
+    console.log('Skipping tenant isolation for master admin in admin route');
     return next();
   }
   
@@ -296,6 +299,20 @@ exports.tenantIsolation = (req, res, next) => {
   if (req.overrideOrganizationId) {
     req.tenantId = req.overrideOrganizationId;
     console.log(`Tenant isolation using overridden organization: ${req.overrideOrganizationName} (${req.tenantId})`);
+    
+    // Check if this is a master organization
+    try {
+      const Organization = require('../models/organization');
+      const organization = await Organization.findById(req.overrideOrganizationId);
+      
+      if (organization && organization.isMaster) {
+        console.log(`This is a master organization (${organization.name}), skipping tenant isolation filter`);
+        req.isMasterOrg = true;
+      }
+    } catch (err) {
+      console.error('Error checking if organization is master in tenant isolation:', err);
+    }
+    
     return next();
   }
   
@@ -303,10 +320,25 @@ exports.tenantIsolation = (req, res, next) => {
   if (req.user && req.user.organizationId) {
     req.tenantId = req.user.organizationId;
     console.log(`Tenant isolation using user organization: ${req.tenantId}`);
+    
+    // Check if this is a master organization
+    try {
+      const Organization = require('../models/organization');
+      const organization = await Organization.findById(req.user.organizationId);
+      
+      if (organization && organization.isMaster) {
+        console.log(`This is a master organization (${organization.name}), skipping tenant isolation filter`);
+        req.isMasterOrg = true;
+      }
+    } catch (err) {
+      console.error('Error checking if organization is master in tenant isolation:', err);
+    }
+    
     return next();
   }
   
   // If no organization found, deny access
+  console.log('No organization context found in tenant isolation, denying access');
   return res.status(403).json({ error: 'Access denied. No organization context found' });
 };
 

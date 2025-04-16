@@ -894,54 +894,6 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
   }
 });
 
-// Route to get transcript history
-app.get('/api/transcripts', async (req, res) => {
-  try {
-    // Build query - start with an empty filter
-    let query = {};
-    
-    // If organizationId is specified in the query, filter by it
-    if (req.query.organizationId) {
-      // Convert the string ID to MongoDB ObjectId
-      const mongoose = require('mongoose');
-      try {
-        query.organizationId = new mongoose.Types.ObjectId(req.query.organizationId);
-        console.log(`Filtering transcripts by organization ID: ${req.query.organizationId}`);
-      } catch (err) {
-        console.error(`Invalid organization ID format: ${req.query.organizationId}`, err);
-        return res.status(400).json({ error: 'Invalid organization ID format' });
-      }
-    }
-    
-    // Find transcripts and populate the organization name
-    const transcripts = await Transcript.find(query)
-      .populate('organizationId', 'name code isMaster')
-      .sort({ createdAt: -1 });
-    
-    console.log(`Found ${transcripts.length} transcripts matching query:`, query);
-    res.json(transcripts);
-  } catch (error) {
-    console.error('Error fetching transcripts:', error);
-    res.status(500).json({ error: 'Failed to fetch transcripts' });
-  }
-});
-
-// Route to get a single transcript by ID
-app.get('/api/transcripts/:id', async (req, res) => {
-  try {
-    const transcript = await Transcript.findById(req.params.id)
-      .populate('organizationId', 'name code subscriptionTier');
-      
-    if (!transcript) {
-      return res.status(404).json({ error: 'Transcript not found' });
-    }
-    res.json(transcript);
-  } catch (error) {
-    console.error('Error fetching transcript:', error);
-    res.status(500).json({ error: 'Failed to fetch transcript' });
-  }
-});
-
 // Admin route to check API key status (protected with your external API key)
 app.get('/api/admin/check-api-keys', authenticateApiKey, async (req, res) => {
   try {

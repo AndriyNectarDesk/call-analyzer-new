@@ -8,6 +8,11 @@ exports.getAllTranscripts = async (req, res) => {
     // Filter by organization ID from authenticated user or request
     const organizationId = req.tenantId || req.user.organizationId;
     console.log('Getting transcripts for organization:', organizationId);
+    console.log('Request user:', req.user ? {
+      userId: req.user.userId,
+      organizationId: req.user.organizationId,
+      isMasterAdmin: req.user.isMasterAdmin
+    } : 'No user in request');
     
     // Additional debug logging to track the organization context
     if (req.overrideOrganizationId) {
@@ -26,10 +31,11 @@ exports.getAllTranscripts = async (req, res) => {
     // allow viewing all transcripts, otherwise enforce organization isolation
     const isMasterAdmin = req.user && req.user.isMasterAdmin;
     
-    // Check if this is the master organization
-    let isMasterOrg = false;
+    // Check if this is the master organization - first try to get it from middleware
+    let isMasterOrg = req.isMasterOrg || false;
     
-    if (organizationId) {
+    // If not set in middleware, check again
+    if (!isMasterOrg && organizationId) {
       // Look up the organization to see if it's marked as the master organization
       try {
         const organization = await Organization.findById(organizationId);
@@ -106,6 +112,14 @@ exports.getAllTranscripts = async (req, res) => {
       .limit(limit);
     
     console.log('Retrieved transcripts:', transcripts.length);
+    
+    // For debugging - check if transcripts have valid organizationId
+    if (transcripts.length > 0) {
+      const hasMissingOrg = transcripts.some(t => !t.organizationId);
+      if (hasMissingOrg) {
+        console.warn('WARNING: Some transcripts have missing organizationId');
+      }
+    }
     
     res.json({
       transcripts,

@@ -172,6 +172,26 @@ function TranscriptHistory() {
     }
   }, [page, currentUser, currentOrganization]);
   
+  // Decode JWT token function
+  const decodeToken = (token) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          })
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      return null;
+    }
+  };
+  
   // The main transcript fetching function
   const fetchTranscripts = async () => {
     setLoading(true);
@@ -184,6 +204,10 @@ function TranscriptHistory() {
         setLoading(false);
         return;
       }
+      
+      // Debug the JWT token
+      const decodedToken = decodeToken(token);
+      console.log('Decoded token:', decodedToken);
       
       let url = `/api/transcripts?page=${page}&limit=10`;
       
@@ -217,37 +241,51 @@ function TranscriptHistory() {
         }
       }
       
+      console.log('Fetching transcripts URL:', url);
       console.log('Fetching transcripts with headers:', headers);
       console.log('Current organization:', currentOrganization);
       
       const response = await axios.get(url, { headers });
       
+      console.log('API Response:', response);
+      
       // Handle different API response formats
       if (response.data.transcripts && Array.isArray(response.data.transcripts)) {
+        console.log('Response format: transcripts array with data.transcripts');
         setTranscripts(response.data.transcripts);
         setTotalPages(response.data.pagination?.pages || 1);
       } else if (response.data.data && Array.isArray(response.data.data)) {
+        console.log('Response format: data array with data.data');
         setTranscripts(response.data.data);
         setTotalPages(response.data.totalPages || response.data.meta?.totalPages || 1);
       } else if (Array.isArray(response.data)) {
+        console.log('Response format: direct array');
         setTranscripts(response.data);
         setTotalPages(1);
       } else {
         console.error('Unexpected API response format:', response.data);
         setTranscripts([]);
         setTotalPages(1);
+        setError('Unexpected API response format. Please check the console for details.');
       }
       
       // Update filtered transcripts based on current filter
       if (!filterOrganization) {
-        setFilteredTranscripts(transcripts);
+        setFilteredTranscripts(response.data.transcripts || 
+                               response.data.data || 
+                               (Array.isArray(response.data) ? response.data : []));
       } else {
-        setFilteredTranscripts(transcripts.filter(
+        const dataArray = response.data.transcripts || 
+                          response.data.data || 
+                          (Array.isArray(response.data) ? response.data : []);
+        
+        setFilteredTranscripts(dataArray.filter(
           t => t.organizationId && t.organizationId.name === filterOrganization
         ));
       }
     } catch (error) {
       console.error('Error fetching transcripts:', error);
+      console.error('Error response:', error.response);
       const errorMessage = error.response?.data?.message || error.message || 'An error occurred while fetching transcripts';
       setError(errorMessage);
       
