@@ -212,7 +212,15 @@ function App() {
   };
 
   const handleSwitchOrganization = (org) => {
+    console.log('handleSwitchOrganization called with org:', org);
+    
+    if (!org || !org._id) {
+      console.error('Invalid organization object received:', org);
+      return;
+    }
+    
     setCurrentOrganization(org);
+    console.log('Current organization set to:', org.name);
     
     // Store the selected organization in localStorage for persistence
     try {
@@ -221,12 +229,15 @@ function App() {
         name: org.name,
         code: org.code
       }));
+      console.log('Organization saved to localStorage successfully');
     } catch (e) {
       console.error('Error saving organization to localStorage:', e);
     }
     
     // Navigate to the organization's page
-    window.location.href = `/organizations/${org._id}/users`;
+    const url = `/organizations/${org._id}/users`;
+    console.log('Navigating to:', url);
+    window.location.href = url;
   };
 
   const toggleDarkMode = () => {
@@ -715,7 +726,8 @@ function App() {
                   <OrganizationSelector
                     organizations={userOrganizations}
                     currentOrganization={currentOrganization}
-                    onSwitchOrganization={handleSwitchOrganization}
+                    onSelectOrganization={handleSwitchOrganization}
+                    isMasterAdmin={currentUser?.isMasterAdmin}
                   />
                 )}
                 
