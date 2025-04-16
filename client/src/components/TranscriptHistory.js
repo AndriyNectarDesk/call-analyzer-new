@@ -14,21 +14,10 @@ function TranscriptHistory() {
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Check if user is master admin
   const isMasterAdmin = currentUser?.isMasterAdmin || false;
-  console.log('====== MASTER ADMIN CHECK ======');
-  console.log('Is user a master admin?', isMasterAdmin);
-  console.log('Current user:', currentUser);
-  
-  // Debug render function
-  const renderDebug = () => {
-    console.log('====== RENDER DEBUG ======');
-    console.log('Master admin (render time):', isMasterAdmin);
-    console.log('Organizations length (render time):', organizations.length);
-    console.log('Organizations data (render time):', organizations);
-    return null;
-  };
   
   // Get the current user from local storage on mount
   useEffect(() => {
@@ -36,17 +25,11 @@ function TranscriptHistory() {
     
     async function fetchUserContext() {
       try {
-        console.log('====== DEBUGGING USER CONTEXT ======');
-        const userId = localStorage.getItem('user_id');
-        console.log('User ID from localStorage:', userId);
-        
         const userData = localStorage.getItem('user_data');
-        console.log('User data exists in localStorage:', !!userData);
         
         if (userData) {
           try {
             const parsedUser = JSON.parse(userData);
-            console.log('Parsed user data:', parsedUser);
             setCurrentUser(parsedUser);
           } catch (e) {
             console.error('Error parsing user data:', e);
@@ -54,12 +37,10 @@ function TranscriptHistory() {
         }
         
         const orgData = localStorage.getItem('selectedOrganization');
-        console.log('Organization data exists in localStorage:', !!orgData);
         
         if (orgData) {
           try {
             const parsedOrg = JSON.parse(orgData);
-            console.log('Loaded organization data from localStorage:', parsedOrg);
             
             // Ensure the organization object has the expected format
             const formattedOrg = {
@@ -68,14 +49,11 @@ function TranscriptHistory() {
               id: parsedOrg.id || parsedOrg._id
             };
             
-            console.log('Formatted organization data:', formattedOrg);
             setCurrentOrganization(formattedOrg);
           } catch (e) {
             console.error('Error parsing organization data:', e);
           }
         } else {
-          console.warn('No selected organization found in localStorage');
-          
           // Try to get org ID from the auth token as fallback
           try {
             const token = localStorage.getItem('auth_token');
@@ -87,15 +65,13 @@ function TranscriptHistory() {
               }).join(''));
               
               const tokenData = JSON.parse(jsonPayload);
-              console.log('JWT token payload for org fallback:', tokenData);
               
               if (tokenData.organizationId) {
-                console.log('Using organization ID from JWT token as fallback:', tokenData.organizationId);
                 // Create minimal org object with the ID from the token
                 setCurrentOrganization({
                   _id: tokenData.organizationId,
                   id: tokenData.organizationId,
-                  name: 'Organization from JWT'
+                  name: 'Your Organization'
                 });
               }
             }
@@ -104,8 +80,7 @@ function TranscriptHistory() {
           }
         }
         
-        // Important: Trigger transcript fetch even if we couldn't fully resolve the context
-        console.log('User context fetch complete - will proceed even if incomplete');
+        // Proceed even if we couldn't fully resolve the context
         setLoading(false);
       } catch (err) {
         console.error('Error fetching user context:', err);
@@ -114,96 +89,54 @@ function TranscriptHistory() {
     }
   }, []);
   
-  // Check if the current organization is the master organization
-  const checkIfMasterOrganization = () => {
-    console.log('====== MASTER ORG CHECK ======');
-    
-    if (!currentOrganization) {
-      console.log('No current organization selected');
-      return false;
-    }
-    
-    console.log('Checking if master org selected:', currentOrganization);
-    
-    // Get the organization name and code in lowercase for comparison
-    const orgName = currentOrganization.name ? currentOrganization.name.toLowerCase() : '';
-    const orgCode = currentOrganization.code ? currentOrganization.code.toLowerCase() : '';
-    const orgId = currentOrganization._id || currentOrganization.id || '';
-    
-    console.log('Organization details - Name:', orgName, 'Code:', orgCode, 'ID:', orgId);
-    
-    // Check for Master Organization by multiple properties
-    const isMasterByCode = orgCode === 'master-org' || orgCode === 'master' || orgCode.includes('master');
-    const isMasterByName = orgName.includes('master') || orgName === 'master organization' || orgName.includes('nectar desk');
-    
-    // Hard-coded known Master Org IDs - can be updated based on your environment
-    const knownMasterOrgIds = ['64d5ece33f7443afa6b684d2', '67f6a38454aeb791d5665e59', '67f6a38454aeb791d5665e58'];
-    const isMasterById = knownMasterOrgIds.includes(orgId);
-    
-    const result = isMasterByCode || isMasterByName || isMasterById;
-    console.log('Is master organization?', result);
-    console.log('Checks: By code:', isMasterByCode, '| By name:', isMasterByName, '| By ID:', isMasterById);
-    
-    return result;
-  };
-  
-  // Fetch transcripts when component mounts (don't wait for user/org context to be perfect)
+  // Fetch transcripts when page changes or when user/organization context changes
   useEffect(() => {
-    // Use a timeout to ensure this runs after the context effect
-    const timer = setTimeout(() => {
-      console.log('Initiating transcript fetch after delay');
-      fetchTranscripts();
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, []);
-  
-  // Also fetch when user or organization context changes
-  useEffect(() => {
-    if (currentUser || currentOrganization) {
-      console.log('Context changed, fetching transcripts again');
+    if (page && (currentUser || currentOrganization)) {
       fetchTranscripts();
     }
-  }, [currentUser, currentOrganization]);
+  }, [page, currentUser, currentOrganization]);
   
   // The main transcript fetching function
   const fetchTranscripts = async () => {
     setLoading(true);
+    setError(null);
+    
     try {
-      // Get organization ID from JWT or localStorage
-      let orgId;
       const token = localStorage.getItem('auth_token');
-      
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          console.log('JWT token payload:', payload);
-          orgId = payload.organizationId;
-          console.log('Organization ID from JWT:', orgId);
-        } catch (err) {
-          console.error('Error decoding JWT:', err);
-        }
-      }
-      
-      // Fallback to localStorage if JWT parsing fails
-      if (!orgId) {
-        orgId = localStorage.getItem('organizationId');
-        console.log('Organization ID from localStorage:', orgId);
+      if (!token) {
+        setError('Authentication required. Please log in again.');
+        setLoading(false);
+        return;
       }
       
       let url = `/api/transcripts?page=${page}&limit=10`;
-      console.log('Fetching transcripts URL:', url);
       
-      const response = await axios.get(url);
-      console.log('API response data:', response.data);
+      // Add search query if present
+      if (searchQuery) {
+        url += `&search=${encodeURIComponent(searchQuery)}`;
+      }
       
-      // Handle both older and newer pagination formats
+      // Add organization filter if present
+      if (filterOrganization) {
+        url += `&organization=${encodeURIComponent(filterOrganization)}`;
+      }
+      
+      const response = await axios.get(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Handle different API response formats
       if (response.data.transcripts && Array.isArray(response.data.transcripts)) {
         setTranscripts(response.data.transcripts);
         setTotalPages(response.data.totalPages || 1);
       } else if (response.data.data && Array.isArray(response.data.data)) {
         setTranscripts(response.data.data);
         setTotalPages(response.data.totalPages || response.data.meta?.totalPages || 1);
+      } else if (Array.isArray(response.data)) {
+        setTranscripts(response.data);
+        setTotalPages(1);
       } else {
         console.error('Unexpected API response format:', response.data);
         setTranscripts([]);
@@ -213,6 +146,14 @@ function TranscriptHistory() {
       console.error('Error fetching transcripts:', error);
       const errorMessage = error.response?.data?.message || error.message || 'An error occurred while fetching transcripts';
       setError(errorMessage);
+      
+      // Check for authentication errors
+      if (error.response?.status === 401) {
+        setError('Your session has expired. Please log in again.');
+        // Clear auth token to force login
+        localStorage.removeItem('auth_token');
+      }
+      
       setTranscripts([]);
       setTotalPages(1);
     } finally {
@@ -230,6 +171,24 @@ function TranscriptHistory() {
       ));
     }
   }, [filterOrganization, transcripts]);
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   // Get a human-readable call type
   const getCallTypeLabel = (type) => {
@@ -249,200 +208,161 @@ function TranscriptHistory() {
       default: return 'badge-auto';
     }
   };
-
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p>Loading transcripts...</p>
-      </div>
-    );
-  }
+  
+  // Handle search submission
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPage(1); // Reset to first page when searching
+    fetchTranscripts();
+  };
+  
+  // Handle pagination
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
+    }
+  };
+  
+  // Truncate text for display
+  const truncateText = (text, maxLength = 150) => {
+    if (!text) return 'No transcript available';
+    return text.length > maxLength
+      ? `${text.substring(0, maxLength)}...`
+      : text;
+  };
 
   return (
-    <div className="history-container">
-      <div style={{
-        background: '#e3f2fd', 
-        padding: '10px 15px', 
-        borderRadius: '4px', 
-        marginBottom: '20px',
-        border: '1px solid #bbdefb',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div>
-          <strong>👋 Try our new enhanced Transcript History!</strong>
-          <p style={{ margin: '5px 0 0 0' }}>More robust error handling and improved data loading.</p>
-        </div>
-        <Link 
-          to="/new-history" 
-          style={{
-            background: '#2196f3',
-            color: 'white',
-            padding: '8px 15px',
-            borderRadius: '4px',
-            textDecoration: 'none',
-            fontWeight: '500'
-          }}
-        >
-          Try New Version
-        </Link>
-      </div>
+    <div className="transcript-history-container">
+      <h1>Call History</h1>
       
-      <h2>Transcript History</h2>
-      {renderDebug()}
-      
-      {/* Organization filter for master org context */}
-      {checkIfMasterOrganization() && organizations.length > 0 ? (
-        <div className="filter-controls">
-          <div className="filter-group">
-            <label htmlFor="organizationFilter"><strong>Filter by Organization:</strong></label>
-            <select 
-              id="organizationFilter" 
-              value={filterOrganization} 
+      {/* Search and filter */}
+      <div className="history-controls">
+        <form onSubmit={handleSearch} className="search-form">
+          <input
+            type="text"
+            placeholder="Search transcripts..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          <button type="submit" className="search-button">Search</button>
+        </form>
+        
+        {organizations.length > 0 && (
+          <div className="filter-control">
+            <label htmlFor="org-filter">Filter by Organization:</label>
+            <select
+              id="org-filter"
+              value={filterOrganization}
               onChange={(e) => setFilterOrganization(e.target.value)}
-              className="organization-filter"
+              className="org-filter-select"
             >
-              <option value="">All Organizations ({organizations.length} orgs available)</option>
+              <option value="">All Organizations</option>
               {organizations.map(org => (
-                <option key={org} value={org}>{org}</option>
+                <option key={org._id} value={org.name}>{org.name}</option>
               ))}
             </select>
           </div>
-        </div>
-      ) : (
-        // Only show debug message if we're in master context but have no organizations
-        checkIfMasterOrganization() && organizations.length === 0 ? (
-          <div className="debug-message" style={{margin: '10px 0', fontSize: '0.9rem', color: '#555'}}>
-            Filter not shown: No organizations found
-          </div>
-        ) : null
-      )}
-      
-      {error && (
-        <div className="error-message">{error}</div>
-      )}
-      
-      {!error && filteredTranscripts.length === 0 ? (
-        <div>
-          <p>No transcript analysis history found.</p>
-          <button 
-            className="refresh-button"
-            onClick={fetchTranscripts}
-          >
-            Refresh Transcripts
-          </button>
-        </div>
-      ) : (
-        <div className="transcript-list">
-          {filteredTranscripts.map(transcript => (
-            <div key={transcript._id} className="transcript-card">
-              <div className="card-header">
-                <span className="date">
-                  {new Date(transcript.createdAt).toLocaleString()}
-                </span>
-                <span className="score">
-                  Overall Score: {transcript.analysis.scorecard.overallScore}/10
-                </span>
-                <span className="transcript-id">
-                  ID: {transcript._id}
-                </span>
-                <span className={`source-badge ${
-                  transcript.source === 'api' ? 'badge-auto' : 
-                  transcript.source === 'audio' ? 'badge-nectar' : 
-                  transcript.source === 'nectar-desk-webhook' ? 'badge-nectar-desk' : 
-                  'badge-auto'
-                }`}>
-                  {
-                    transcript.source === 'api' ? 'API' : 
-                    transcript.source === 'audio' ? 'Audio Upload' : 
-                    transcript.source === 'nectar-desk-webhook' ? 'NectarDesk' : 
-                    'Web UI'
-                  }
-                </span>
-                <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
-                  {getCallTypeLabel(transcript.callType)}
-                </span>
-                {/* Always show organization badge when transcript has organization info */}
-                {transcript.organizationId && transcript.organizationId.name && (
-                  <span className="organization-badge">
-                    Org: {transcript.organizationId.name}
-                  </span>
-                )}
-              </div>
-              
-              <div className="card-summary">
-                <p>
-                  <strong>
-                    {transcript.callType === 'hearing' ? 'Patient:' : 'Customer:'}
-                  </strong> {
-                    transcript.callType === 'hearing' 
-                      ? transcript.analysis.callSummary.patientName
-                      : transcript.analysis.callSummary.customerName
-                  }
-                </p>
-                <p>
-                  <strong>Agent:</strong> {transcript.analysis.callSummary.agentName || 'Unknown'}
-                </p>
-                <p className="truncate">
-                  {transcript.rawTranscript.substring(0, 150)}...
-                </p>
-              </div>
-              
-              <Link 
-                to={`/transcript/${transcript._id}`} 
-                className="view-button"
-              >
-                View Details
-              </Link>
-            </div>
-          ))}
-        </div>
-      )}
-      
-      <div className="history-footer">
-        {filterOrganization && (
-          <button className="clear-filter-button" onClick={() => setFilterOrganization('')}>
-            Clear Filter
-          </button>
-        )}
-        
-        {/* Pagination controls */}
-        {transcripts.length > 0 && (
-          <div className="pagination-controls">
-            <button 
-              className="pagination-button" 
-              onClick={() => {
-                if (page > 1) {
-                  setPage(page - 1);
-                  window.scrollTo(0, 0);
-                }
-              }}
-              disabled={page === 1}
-            >
-              Previous
-            </button>
-            
-            <span className="pagination-info">
-              Page {page} of {totalPages}
-            </span>
-            
-            <button 
-              className="pagination-button" 
-              onClick={() => {
-                if (page < totalPages) {
-                  setPage(page + 1);
-                  window.scrollTo(0, 0);
-                }
-              }}
-              disabled={page === totalPages}
-            >
-              Next
-            </button>
-          </div>
         )}
       </div>
+      
+      {/* Error message */}
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
+      
+      {/* Loading indicator */}
+      {loading ? (
+        <div className="loading-indicator">
+          <div className="spinner"></div>
+          <p>Loading transcripts...</p>
+        </div>
+      ) : (
+        <>
+          {/* Transcript list */}
+          {filteredTranscripts.length > 0 ? (
+            <div className="transcripts-list">
+              {filteredTranscripts.map(transcript => (
+                <div key={transcript._id} className="transcript-card">
+                  <div className="transcript-header">
+                    <h3 className="transcript-title">
+                      <Link to={`/transcript/${transcript._id}`}>
+                        {transcript.title || `Call from ${formatDate(transcript.createdAt)}`}
+                      </Link>
+                    </h3>
+                    <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
+                      {getCallTypeLabel(transcript.callType)}
+                    </span>
+                  </div>
+                  
+                  <div className="transcript-summary">
+                    {truncateText(transcript.text)}
+                  </div>
+                  
+                  <div className="transcript-footer">
+                    <span className="timestamp">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                      </svg>
+                      {formatDate(transcript.createdAt)}
+                    </span>
+                    
+                    {transcript.organizationId && (
+                      <span className="organization">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                        </svg>
+                        {transcript.organizationId.name}
+                      </span>
+                    )}
+                    
+                    <Link to={`/transcript/${transcript._id}`} className="view-details">
+                      View Details
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14"></path>
+                        <path d="M12 5l7 7-7 7"></path>
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="no-transcripts">
+              <p>No transcripts found. Try adjusting your search or filters.</p>
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button 
+                onClick={() => handlePageChange(page - 1)} 
+                disabled={page === 1}
+                className="pagination-button"
+              >
+                Previous
+              </button>
+              
+              <span className="page-indicator">
+                Page {page} of {totalPages}
+              </span>
+              
+              <button 
+                onClick={() => handlePageChange(page + 1)} 
+                disabled={page === totalPages}
+                className="pagination-button"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

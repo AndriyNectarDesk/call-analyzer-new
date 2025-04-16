@@ -12,7 +12,6 @@ import ResetPassword from './components/ResetPassword';
 import OrganizationsPage from './pages/OrganizationsPage';
 import NewOrganizationPage from './pages/NewOrganizationPage';
 import TranscriptHistory from './components/TranscriptHistory';
-import NewTranscriptHistory from './components/NewTranscriptHistory';
 import TranscriptDetail from './components/TranscriptDetail';
 import CallTypeManager from './components/CallTypeManager';
 import AgentAnalytics from './components/AgentAnalytics';
@@ -877,9 +876,6 @@ function AppContent() {
                       <Link to="/history">History</Link>
                     </li>
                     <li>
-                      <Link to="/new-history">New History</Link>
-                    </li>
-                    <li>
                       <Link to="/call-types">Call Types</Link>
                     </li>
                     <li>
@@ -976,12 +972,6 @@ function AppContent() {
             <Route path="/history" element={
               <ProtectedRoute>
                 <TranscriptHistory />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/new-history" element={
-              <ProtectedRoute>
-                <NewTranscriptHistory />
               </ProtectedRoute>
             } />
             
