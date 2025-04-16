@@ -31,6 +31,7 @@ function TranscriptHistory() {
         if (userData) {
           try {
             const parsedUser = JSON.parse(userData);
+            console.log('Loaded user data:', parsedUser);
             setCurrentUser(parsedUser);
           } catch (e) {
             console.error('Error parsing user data:', e);
@@ -41,6 +42,7 @@ function TranscriptHistory() {
         if (orgData) {
           try {
             const parsedOrg = JSON.parse(orgData);
+            console.log('Loaded organization data:', parsedOrg);
             setCurrentOrganization(parsedOrg);
           } catch (e) {
             console.error('Error parsing organization data:', e);
@@ -72,13 +74,26 @@ function TranscriptHistory() {
           return;
         }
         
+        // Log current organization context for debugging
+        console.log('Current organization context:', currentOrganization);
+        
         // Determine the URL based on user's role and organization context
         let url = `${apiUrl}/api/transcripts`;
         
         // If not a master admin or not in master org context, filter by current organization
-        if (!(isMasterAdmin && isMasterOrganizationSelected()) && currentOrganization?.id) {
-          url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization.id}`;
+        // Make sure we're using the correct organization ID format
+        if (!(isMasterAdmin && isMasterOrganizationSelected()) && currentOrganization) {
+          // The organizationId may be in either the 'id' or '_id' property
+          const orgId = currentOrganization.id || currentOrganization._id;
+          if (orgId) {
+            console.log(`Adding organization filter: ${orgId}`);
+            url = `${apiUrl}/api/transcripts?organizationId=${orgId}`;
+          } else {
+            console.warn('No organization ID found for filtering');
+          }
         }
+        
+        console.log('Fetching transcripts from:', url);
         
         const response = await fetch(url, {
           headers: {
@@ -86,28 +101,39 @@ function TranscriptHistory() {
           }
         });
         
+        console.log('Response status:', response.status);
+        
         if (!response.ok) {
-          throw new Error('Failed to fetch transcripts');
+          const errorData = await response.json().catch(() => ({}));
+          console.error('API error response:', errorData);
+          throw new Error(`Failed to fetch transcripts: ${response.status} ${errorData.message || response.statusText}`);
         }
         
         const data = await response.json();
-        setTranscripts(data);
-        setFilteredTranscripts(data);
+        console.log(`Retrieved ${data.transcripts ? data.transcripts.length : 0} transcripts`);
+        
+        // Check if the API returns data in the new format (with pagination)
+        // The new controller returns { transcripts: [...], pagination: {...} }
+        const transcriptData = data.transcripts || data;
+        
+        setTranscripts(transcriptData);
+        setFilteredTranscripts(transcriptData);
         
         // Extract unique organization names - only if master admin in master org
-        if (isMasterAdmin && isMasterOrganizationSelected()) {
-          const uniqueOrganizations = [...new Set(data
+        if (isMasterAdmin && isMasterOrganizationSelected() && transcriptData.length > 0) {
+          const uniqueOrganizations = [...new Set(transcriptData
             .filter(t => t.organizationId && t.organizationId.name)
             .map(t => t.organizationId.name)
           )];
+          console.log('Extracted organization filters:', uniqueOrganizations);
           setOrganizations(uniqueOrganizations);
         } else {
           setOrganizations([]);
           setFilterOrganization(''); // Clear any organization filter
         }
       } catch (err) {
-        setError('Error loading transcript history');
-        console.error(err);
+        console.error('Error in fetchTranscripts:', err);
+        setError(`Error loading transcript history: ${err.message}`);
       } finally {
         setLoading(false);
       }
@@ -115,7 +141,11 @@ function TranscriptHistory() {
 
     // Only fetch if we have loaded the user and organization context
     if (currentUser && currentOrganization) {
+      console.log('User and organization context ready, fetching transcripts...');
       fetchTranscripts();
+    } else {
+      console.log('Waiting for user and organization context...');
+      setLoading(false);
     }
   }, [currentUser, currentOrganization]);
   
