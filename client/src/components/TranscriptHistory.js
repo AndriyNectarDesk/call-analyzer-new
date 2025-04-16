@@ -104,17 +104,26 @@ function TranscriptHistory() {
   
   // Check if the current organization is the master organization
   const isMasterOrganizationSelected = () => {
-    if (!currentOrganization) return false;
-    console.log('Checking if master org selected. Org code:', currentOrganization.code);
-    console.log('Organization details:', currentOrganization);
+    console.log('====== MASTER ORG CHECK ======');
+    if (!currentOrganization) {
+      console.log('No current organization selected');
+      return false;
+    }
     
-    // More thorough check for master organization
-    return (
-      currentOrganization.code === 'master-org' || 
-      currentOrganization.name === 'Master Organization' ||
-      currentOrganization.name?.toLowerCase().includes('master') ||
-      currentOrganization._id === '123456789012345678901234'
-    );
+    console.log('Checking if master org selected:', currentOrganization);
+    
+    // Get the organization name and code in lowercase for comparison
+    const orgName = currentOrganization.name ? currentOrganization.name.toLowerCase() : '';
+    const orgCode = currentOrganization.code ? currentOrganization.code.toLowerCase() : '';
+    
+    // Look for any indicators of master organization
+    const isMasterByCode = orgCode === 'master-org' || orgCode === 'master' || orgCode.includes('master');
+    const isMasterByName = orgName.includes('master') || orgName === 'master organization';
+    
+    const result = isMasterByCode || isMasterByName;
+    console.log('Is master organization?', result, '(code match:', isMasterByCode, ', name match:', isMasterByName, ')');
+    
+    return result;
   };
   
   // Fetch transcripts when component mounts (don't wait for user/org context to be perfect)
@@ -186,8 +195,8 @@ function TranscriptHistory() {
       console.log('Organizations array:', organizations);
       
       // If user is master admin, always fetch all transcripts to allow filtering
-      if (isMasterAdmin) {
-        console.log('User is master admin, fetching all transcripts');
+      if (isMasterAdmin || isMasterOrganizationSelected()) {
+        console.log('User is master admin or in master organization, fetching all transcripts');
         
         let url = `${apiUrl}/api/transcripts`;
         console.log('Master admin API URL:', url);
@@ -221,7 +230,9 @@ function TranscriptHistory() {
             setFilteredTranscripts(transcriptData);
             
             // Extract unique organization names for master admins
-            if (isMasterAdmin && Array.isArray(transcriptData) && transcriptData.length > 0) {
+            if ((isMasterAdmin || isMasterOrganizationSelected()) && 
+                Array.isArray(transcriptData) && 
+                transcriptData.length > 0) {
               console.log('Analyzing transcript data for organizations:', transcriptData.length, 'records');
               
               // Log a sample transcript to understand its structure
@@ -367,7 +378,7 @@ function TranscriptHistory() {
           setFilteredTranscripts(transcriptData);
           
           // Only extract organization filters for master admin
-          if (isMasterAdmin && transcriptData.length > 0) {
+          if ((isMasterAdmin || isMasterOrganizationSelected()) && transcriptData.length > 0) {
             console.log('Analyzing fallback transcript data for organizations:', transcriptData.length, 'records');
             
             // Log a sample transcript to understand its structure
@@ -455,8 +466,7 @@ function TranscriptHistory() {
   };
 
   // Also add a debug message to the filter section
-  {/* Always show organization filter for master admins when organizations are available */}
-  {isMasterAdmin && organizations.length > 0 ? (
+  {(isMasterAdmin || isMasterOrganizationSelected()) && organizations.length > 0 ? (
     <div className="filter-controls">
       <div className="filter-group">
         <label htmlFor="organizationFilter"><strong>Filter by Organization:</strong></label>
@@ -475,9 +485,9 @@ function TranscriptHistory() {
     </div>
   ) : (
     <div className="debug-message" style={{margin: '10px 0', fontSize: '0.9rem', color: '#555'}}>
-      {isMasterAdmin ? 
+      {isMasterAdmin || isMasterOrganizationSelected() ? 
         `Filter not shown: No organizations found (${organizations.length})` : 
-        "Filter not shown: User is not a master admin"}
+        "Filter not shown: Not in Master Organization context"}
     </div>
   )}
 
@@ -504,8 +514,7 @@ function TranscriptHistory() {
       <h2>Transcript History</h2>
       {renderDebug()}
       
-      {/* Always show organization filter for master admins when organizations are available */}
-      {isMasterAdmin && organizations.length > 0 ? (
+      {(isMasterAdmin || isMasterOrganizationSelected()) && organizations.length > 0 ? (
         <div className="filter-controls">
           <div className="filter-group">
             <label htmlFor="organizationFilter"><strong>Filter by Organization:</strong></label>
@@ -524,9 +533,9 @@ function TranscriptHistory() {
         </div>
       ) : (
         <div className="debug-message" style={{margin: '10px 0', fontSize: '0.9rem', color: '#555'}}>
-          {isMasterAdmin ? 
+          {isMasterAdmin || isMasterOrganizationSelected() ? 
             `Filter not shown: No organizations found (${organizations.length})` : 
-            "Filter not shown: User is not a master admin"}
+            "Filter not shown: Not in Master Organization context"}
         </div>
       )}
       
