@@ -6,7 +6,14 @@ const Organization = require('../models/organization');
 exports.getAllTranscripts = async (req, res) => {
   try {
     // Filter by organization ID from authenticated user or request
-    const organizationId = req.tenantId || req.user.organizationId;
+    let organizationId = req.tenantId || req.user.organizationId;
+    
+    // Override with query parameter if provided (for client-side filtering)
+    if (req.query.organizationId) {
+      console.log('Overriding organization ID with query parameter:', req.query.organizationId);
+      organizationId = req.query.organizationId;
+    }
+    
     console.log('Getting transcripts for organization:', organizationId);
     
     // Additional debug logging to track the organization context
