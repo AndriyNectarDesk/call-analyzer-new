@@ -8,9 +8,14 @@ const OrganizationDetails = () => {
   const navigate = useNavigate();
   const [organization, setOrganization] = useState(null);
   const [users, setUsers] = useState([]);
+  const [apiKeys, setApiKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showNewKey, setShowNewKey] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [generatedKey, setGeneratedKey] = useState(null);
+  const [keyLoading, setKeyLoading] = useState(false);
 
   useEffect(() => {
     fetchOrganizationDetails();
@@ -23,6 +28,20 @@ const OrganizationDetails = () => {
       const response = await axios.get(`/api/master-admin/organizations/${id}`);
       setOrganization(response.data.organization);
       setUsers(response.data.users);
+      
+      try {
+        // Fetch API keys separately 
+        const statsResponse = await axios.get(`/api/master-admin/organizations/${id}/stats`);
+        if (statsResponse.data && statsResponse.data.activeApiKeyCount !== undefined) {
+          // If we have API key count data, we can show it in the UI
+          setOrganization(prev => ({
+            ...prev,
+            apiKeyCount: statsResponse.data.activeApiKeyCount
+          }));
+        }
+      } catch (statsErr) {
+        console.error('Error fetching organization stats:', statsErr);
+      }
     } catch (err) {
       console.error('Error fetching organization details:', err);
       if (err.response && err.response.status === 400 && err.response.data.message === 'Invalid organization ID format') {
@@ -56,6 +75,29 @@ const OrganizationDetails = () => {
       console.error('Error updating features:', err);
     }
   };
+  
+  const handleGenerateApiKey = async () => {
+    if (!newKeyName) {
+      setError('Please enter a name for the API key');
+      return;
+    }
+    
+    try {
+      setKeyLoading(true);
+      const response = await axios.post(`/api/master-admin/organizations/${id}/api-key`, {
+        name: newKeyName
+      });
+      
+      setGeneratedKey(response.data);
+      setNewKeyName('');
+      fetchOrganizationDetails();
+    } catch (err) {
+      setError('Failed to generate API key');
+      console.error('Error generating API key:', err);
+    } finally {
+      setKeyLoading(false);
+    }
+  };
 
   if (loading) return <div className="loading">Loading...</div>;
   if (error) return <div className="error">{error}</div>;
@@ -82,6 +124,12 @@ const OrganizationDetails = () => {
           onClick={() => setActiveTab('users')}
         >
           Users
+        </button>
+        <button 
+          className={activeTab === 'api-keys' ? 'active' : ''}
+          onClick={() => setActiveTab('api-keys')}
+        >
+          API Keys
         </button>
         <button 
           className={activeTab === 'settings' ? 'active' : ''}
@@ -154,6 +202,10 @@ const OrganizationDetails = () => {
                 <p>{organization.usageStats?.totalTranscripts || 0}</p>
               </div>
               <div className="usage-item">
+                <label>API Keys</label>
+                <p>{organization.apiKeyCount || 0}</p>
+              </div>
+              <div className="usage-item">
                 <label>API Calls</label>
                 <p>{organization.usageStats?.apiCalls || 0}</p>
               </div>
@@ -204,6 +256,81 @@ const OrganizationDetails = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      
+      {activeTab === 'api-keys' && (
+        <div className="api-keys-tab">
+          <div className="api-keys-header">
+            <h2>API Keys</h2>
+            <button 
+              className="generate-key-button"
+              onClick={() => setShowNewKey(true)}
+            >
+              Generate New Key
+            </button>
+          </div>
+          
+          {showNewKey && (
+            <div className="new-key-form">
+              <h3>Generate New API Key</h3>
+              <div className="form-group">
+                <label>Key Name</label>
+                <input 
+                  type="text"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="Enter a name for this API key"
+                />
+              </div>
+              <div className="form-actions">
+                <button 
+                  className="cancel-button"
+                  onClick={() => {
+                    setShowNewKey(false);
+                    setNewKeyName('');
+                    setGeneratedKey(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="generate-button"
+                  onClick={handleGenerateApiKey}
+                  disabled={keyLoading || !newKeyName}
+                >
+                  {keyLoading ? 'Generating...' : 'Generate Key'}
+                </button>
+              </div>
+              
+              {generatedKey && (
+                <div className="generated-key-display">
+                  <p className="key-warning">Please copy this API key now. You won't be able to see it again!</p>
+                  <div className="key-value">
+                    <code>{generatedKey.key}</code>
+                    <button 
+                      className="copy-button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedKey.key);
+                        alert('API key copied to clipboard');
+                      }}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <div className="api-keys-info">
+            <p>
+              This organization has <strong>{organization.apiKeyCount || 0}</strong> active API {organization.apiKeyCount === 1 ? 'key' : 'keys'}.
+            </p>
+            <p>
+              API keys are used to authenticate requests to the API. For security reasons, we only show the full key value when it is first generated.
+            </p>
           </div>
         </div>
       )}
