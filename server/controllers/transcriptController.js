@@ -22,13 +22,12 @@ exports.getAllTranscripts = async (req, res) => {
       console.log('User JWT organization context:', req.user.organizationId);
     }
     
-    // Check if the current organization is a master organization
-    // This is the ONLY condition that matters for transcript visibility
-    const isMasterOrg = req.overrideOrganizationName && 
-      (req.overrideOrganizationName.toLowerCase().includes('master') || 
-       req.overrideOrganizationName.toLowerCase() === 'nectardesk');
+    // Check if the current organization is the master organization
+    // We use organization ID for reliable identification
+    const MASTER_ORG_ID = process.env.MASTER_ORG_ID || '64d5ece33f7443afa6b684d2'; // Default ID or from env
+    const isMasterOrg = req.overrideOrganizationId === MASTER_ORG_ID;
     
-    console.log('Is master organization context:', isMasterOrg);
+    console.log('Is master organization context:', isMasterOrg, 'Current ID:', req.overrideOrganizationId, 'Master ID:', MASTER_ORG_ID);
     
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
