@@ -103,12 +103,12 @@ const OrganizationSelector = ({
           align-items: center;
           gap: 8px;
           padding: 8px 12px;
-          background-color: transparent;
-          border: 1px solid var(--border-color);
-          border-radius: var(--border-radius-pill);
-          color: var(--apple-black);
+          background-color: white;
+          border: 1px solid var(--border-color, #ddd);
+          border-radius: var(--border-radius-pill, 20px);
+          color: var(--apple-black, #333);
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 600;
           cursor: pointer;
           transition: all var(--transition-fast);
         }
@@ -127,9 +127,10 @@ const OrganizationSelector = ({
           top: calc(100% + 4px);
           left: 0;
           min-width: 220px;
-          background-color: var(--card-background);
+          background-color: white;
           border-radius: var(--border-radius-md);
-          box-shadow: var(--shadow-lg);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          border: 1px solid rgba(0, 0, 0, 0.1);
           overflow: hidden;
           z-index: 100;
           animation: dropdownFadeIn 0.2s ease-out;
@@ -153,6 +154,8 @@ const OrganizationSelector = ({
           padding: 10px 16px;
           cursor: pointer;
           transition: background-color var(--transition-fast);
+          color: var(--apple-black, #333);
+          font-weight: 500;
         }
         
         .org-option:hover {
@@ -162,6 +165,14 @@ const OrganizationSelector = ({
         .org-option.active {
           background-color: rgba(0, 113, 227, 0.1);
           color: var(--primary-color);
+        }
+        
+        .org-option-name {
+          color: inherit;
+          max-width: 150px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         
         .org-dropdown-divider {
@@ -178,6 +189,27 @@ const OrganizationSelector = ({
         .badge {
           font-size: 10px;
           padding: 2px 6px;
+          font-weight: 600;
+          color: white;
+          background-color: #6c757d;
+          border-radius: 4px;
+        }
+        
+        .badge-success {
+          background-color: #28a745;
+        }
+        
+        .badge-primary {
+          background-color: #007bff;
+        }
+        
+        .badge-secondary {
+          background-color: #6c757d;
+        }
+        
+        .badge-warning {
+          background-color: #ffc107;
+          color: #212529;
         }
       `}</style>
     </div>
@@ -195,6 +227,7 @@ const getTierBadgeClass = (tier) => {
       return 'primary';
     case 'basic':
       return 'secondary';
+    case 'free':
     case 'trial':
       return 'warning';
     default:
