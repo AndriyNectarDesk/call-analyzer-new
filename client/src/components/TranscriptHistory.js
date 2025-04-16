@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './TranscriptHistory.css';
-import Cookies from 'js-cookie';
 import axios from 'axios';
 
 function TranscriptHistory() {
@@ -173,7 +172,7 @@ function TranscriptHistory() {
     try {
       // Get organization ID from JWT or localStorage
       let orgId;
-      const token = Cookies.get('token');
+      const token = localStorage.getItem('auth_token');
       
       if (token) {
         try {
@@ -262,6 +261,35 @@ function TranscriptHistory() {
 
   return (
     <div className="history-container">
+      <div style={{
+        background: '#e3f2fd', 
+        padding: '10px 15px', 
+        borderRadius: '4px', 
+        marginBottom: '20px',
+        border: '1px solid #bbdefb',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div>
+          <strong>👋 Try our new enhanced Transcript History!</strong>
+          <p style={{ margin: '5px 0 0 0' }}>More robust error handling and improved data loading.</p>
+        </div>
+        <Link 
+          to="/new-history" 
+          style={{
+            background: '#2196f3',
+            color: 'white',
+            padding: '8px 15px',
+            borderRadius: '4px',
+            textDecoration: 'none',
+            fontWeight: '500'
+          }}
+        >
+          Try New Version
+        </Link>
+      </div>
+      
       <h2>Transcript History</h2>
       {renderDebug()}
       
