@@ -241,22 +241,49 @@ exports.belongsToOrganization = (req, res, next) => {
   next();
 };
 
-// Handle organization context switching (Only Blooms mode)
+// Handle organization context switching (Any organization override)
 exports.handleOrganizationContext = async (req, res, next) => {
   try {
-    // Check for onlyBlooms context in various places (headers, query params, cookies)
-    const onlyBlooms = 
+    // Check for organization override in headers
+    const orgNameHeader = req.headers['x-organization-name'];
+    // Keep legacy support for Only Blooms mode
+    const onlyBloomsMode = 
       req.headers['x-only-blooms'] === 'true' || 
-      req.headers['x-organization-name']?.toLowerCase().includes('blooms') ||
       req.query.onlyBlooms === 'true' || 
       req.cookies?.onlyBlooms === 'true';
     
-    console.log('Organization context middleware - Only Blooms mode:', onlyBlooms);
-    console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+    // Log the request context
+    console.log('Organization context middleware - Headers:', JSON.stringify(req.headers, null, 2));
     
-    // Only proceed with context switching if onlyBlooms is true
-    if (onlyBlooms) {
-      console.log('Only Blooms mode detected, finding Blooms organization');
+    // First check for explicit organization name override
+    if (orgNameHeader) {
+      console.log(`Organization override requested via X-Organization-Name: ${orgNameHeader}`);
+      
+      // Find the organization by name or code
+      const targetOrg = await Organization.findOne({
+        $or: [
+          { name: { $regex: orgNameHeader, $options: 'i' } },
+          { code: { $regex: orgNameHeader, $options: 'i' } }
+        ],
+        active: true
+      });
+      
+      if (targetOrg) {
+        console.log(`Found target organization: ${targetOrg.name} (${targetOrg._id})`);
+        
+        // Override the user's organization context for this request
+        req.overrideOrganizationId = targetOrg._id;
+        req.overrideOrganizationName = targetOrg.name;
+        
+        // Also set tenantId for use in other middleware
+        req.tenantId = targetOrg._id;
+      } else {
+        console.warn(`Organization override requested but no organization matching '${orgNameHeader}' found`);
+      }
+    }
+    // Check for legacy Only Blooms mode if no explicit organization was specified
+    else if (onlyBloomsMode) {
+      console.log('Legacy Only Blooms mode detected, finding Blooms organization');
       
       // Find the Blooms organization
       const bloomsOrg = await Organization.findOne({
