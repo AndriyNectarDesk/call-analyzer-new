@@ -200,6 +200,14 @@ function TranscriptHistory() {
       console.log('Fetching transcripts URL:', url);
       
       const response = await axios.get(url);
+      
+      // Check if response is not JSON (likely HTML error page)
+      const contentType = response.headers['content-type'];
+      if (contentType && !contentType.includes('application/json')) {
+        console.error('Received non-JSON response:', contentType);
+        throw new Error('Server returned non-JSON response. Please check authentication and try again.');
+      }
+      
       console.log('API response data:', response.data);
       
       // Handle both older and newer pagination formats
@@ -216,8 +224,18 @@ function TranscriptHistory() {
       }
     } catch (error) {
       console.error('Error fetching transcripts:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'An error occurred while fetching transcripts';
-      setError(errorMessage);
+      
+      // Check for authentication errors
+      const status = error.response?.status;
+      if (status === 401 || status === 403) {
+        setError('Authentication error. Your session may have expired. Please try refreshing or logging in again.');
+      } else if (error.message.includes('non-JSON response')) {
+        setError('Server response error. This could be due to an authentication issue. Please try refreshing the page.');
+      } else {
+        const errorMessage = error.response?.data?.message || error.message || 'An error occurred while fetching transcripts';
+        setError(errorMessage);
+      }
+      
       setTranscripts([]);
       setTotalPages(1);
     } finally {
@@ -253,6 +271,22 @@ function TranscriptHistory() {
       case 'hearing': return 'badge-hearing';
       default: return 'badge-auto';
     }
+  };
+
+  // Add a refresh handler
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
+  // Add a logout handler
+  const handleLogout = () => {
+    // Clear authentication data
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    localStorage.removeItem('selectedOrganization');
+    
+    // Redirect to login
+    window.location.href = '/login';
   };
 
   if (loading) {
@@ -297,7 +331,17 @@ function TranscriptHistory() {
       )}
       
       {error && (
-        <div className="error-message">{error}</div>
+        <div className="error-message">
+          <p>{error}</p>
+          <div className="error-actions">
+            <button className="refresh-button" onClick={handleRefresh}>
+              Refresh Page
+            </button>
+            <button className="logout-button" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        </div>
       )}
       
       {!error && filteredTranscripts.length === 0 ? (
