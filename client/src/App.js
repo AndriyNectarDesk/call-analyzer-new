@@ -327,10 +327,19 @@ function App() {
         'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
       };
       
-      // Add Only Blooms header if active
+      // Add organization header if needed
       if (onlyBloomsActive) {
+        // New general approach
+        headers['X-Organization-Name'] = 'Blooms';
+        
+        // Keep backward compatibility
         headers['X-Only-Blooms'] = 'true';
-        console.log('Adding X-Only-Blooms header for API request');
+        
+        console.log('Adding organization headers for API request - targeting Blooms organization');
+      } else if (currentOrganization) {
+        // For other organizations, we can specify the organization directly
+        headers['X-Organization-Name'] = currentOrganization.name;
+        console.log(`Adding organization header for API request - targeting ${currentOrganization.name}`);
       }
       
       const response = await fetch(apiUrl + '/api/analyze', {
@@ -403,10 +412,19 @@ function App() {
         'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
       };
       
-      // Add Only Blooms header if active
+      // Add organization header if needed
       if (onlyBloomsActive) {
+        // New general approach
+        headers['X-Organization-Name'] = 'Blooms';
+        
+        // Keep backward compatibility
         headers['X-Only-Blooms'] = 'true';
-        console.log('Adding X-Only-Blooms header for API request');
+        
+        console.log('Adding organization headers for API request - targeting Blooms organization');
+      } else if (currentOrganization) {
+        // For other organizations, we can specify the organization directly
+        headers['X-Organization-Name'] = currentOrganization.name;
+        console.log(`Adding organization header for API request - targeting ${currentOrganization.name}`);
       }
       
       const response = await fetch(apiUrl + '/api/transcribe' || fallbackUrl + '/api/transcribe', {

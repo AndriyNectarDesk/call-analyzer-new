@@ -450,33 +450,45 @@ app.post('/api/analyze', async (req, res, next) => {
     const userId = decodedToken.userId;
     let organizationId = null;
     
-    // Check if "Only Blooms" mode is active - process this first as highest priority
-    const onlyBloomsHeader = req.headers['x-only-blooms'];
-    if (onlyBloomsHeader === 'true') {
-      console.log('Only Blooms mode detected in headers - looking for Blooms organization');
-      
-      // Find the Blooms organization
+    // Check if organization override is provided in headers - process this with highest priority
+    const orgNameHeader = req.headers['x-organization-name'];
+    const onlyBloomsHeader = req.headers['x-only-blooms']; // For backward compatibility
+    
+    let targetOrgName = null;
+    
+    if (orgNameHeader) {
+      // New general approach - any organization can be specified by name
+      targetOrgName = orgNameHeader;
+      console.log(`Organization override detected via X-Organization-Name: ${targetOrgName}`);
+    } else if (onlyBloomsHeader === 'true') {
+      // Legacy support for Only Blooms mode
+      targetOrgName = 'Blooms';
+      console.log('Only Blooms mode detected via X-Only-Blooms header');
+    }
+    
+    // If we have a target organization name, try to find the matching organization
+    if (targetOrgName) {
       try {
         const Organization = require('./models/organization');
-        const bloomsOrg = await Organization.findOne({
+        const targetOrg = await Organization.findOne({
           $or: [
-            { name: { $regex: 'Blooms', $options: 'i' } },
-            { code: { $regex: 'blooms', $options: 'i' } }
+            { name: { $regex: targetOrgName, $options: 'i' } },
+            { code: { $regex: targetOrgName, $options: 'i' } }
           ]
         });
         
-        if (bloomsOrg) {
-          console.log(`Found and using Blooms organization: ${bloomsOrg.name} (${bloomsOrg._id})`);
-          organizationId = bloomsOrg._id;
+        if (targetOrg) {
+          console.log(`Found and using organization: ${targetOrg.name} (${targetOrg._id})`);
+          organizationId = targetOrg._id;
         } else {
-          console.warn('Only Blooms mode active but no Blooms organization found in database');
+          console.warn(`Organization override requested but no organization matching '${targetOrgName}' found`);
         }
       } catch (err) {
-        console.error('Error finding Blooms organization:', err);
+        console.error('Error finding organization:', err);
       }
     }
     
-    // If no Blooms org was found or Only Blooms is not active, fall back to token organization
+    // If no organization was found or specified, fall back to token organization
     if (!organizationId) {
       organizationId = decodedToken.organizationId;
       
@@ -497,6 +509,8 @@ app.post('/api/analyze', async (req, res, next) => {
           console.error('Error fetching user organization:', userLookupError);
           return res.status(500).json({ error: 'Error verifying user organization' });
         }
+      } else {
+        console.log(`Using user's default organization ID from token: ${organizationId}`);
       }
     }
     
@@ -1016,33 +1030,45 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     const userId = decodedToken.userId;
     let organizationId = null;
     
-    // Check if "Only Blooms" mode is active - process this first as highest priority
-    const onlyBloomsHeader = req.headers['x-only-blooms'];
-    if (onlyBloomsHeader === 'true') {
-      console.log('Only Blooms mode detected in headers - looking for Blooms organization');
-      
-      // Find the Blooms organization
+    // Check if organization override is provided in headers - process this with highest priority
+    const orgNameHeader = req.headers['x-organization-name'];
+    const onlyBloomsHeader = req.headers['x-only-blooms']; // For backward compatibility
+    
+    let targetOrgName = null;
+    
+    if (orgNameHeader) {
+      // New general approach - any organization can be specified by name
+      targetOrgName = orgNameHeader;
+      console.log(`Organization override detected via X-Organization-Name: ${targetOrgName}`);
+    } else if (onlyBloomsHeader === 'true') {
+      // Legacy support for Only Blooms mode
+      targetOrgName = 'Blooms';
+      console.log('Only Blooms mode detected via X-Only-Blooms header');
+    }
+    
+    // If we have a target organization name, try to find the matching organization
+    if (targetOrgName) {
       try {
         const Organization = require('./models/organization');
-        const bloomsOrg = await Organization.findOne({
+        const targetOrg = await Organization.findOne({
           $or: [
-            { name: { $regex: 'Blooms', $options: 'i' } },
-            { code: { $regex: 'blooms', $options: 'i' } }
+            { name: { $regex: targetOrgName, $options: 'i' } },
+            { code: { $regex: targetOrgName, $options: 'i' } }
           ]
         });
         
-        if (bloomsOrg) {
-          console.log(`Found and using Blooms organization: ${bloomsOrg.name} (${bloomsOrg._id})`);
-          organizationId = bloomsOrg._id;
+        if (targetOrg) {
+          console.log(`Found and using organization: ${targetOrg.name} (${targetOrg._id})`);
+          organizationId = targetOrg._id;
         } else {
-          console.warn('Only Blooms mode active but no Blooms organization found in database');
+          console.warn(`Organization override requested but no organization matching '${targetOrgName}' found`);
         }
       } catch (err) {
-        console.error('Error finding Blooms organization:', err);
+        console.error('Error finding organization:', err);
       }
     }
     
-    // If no Blooms org was found or Only Blooms is not active, fall back to token organization
+    // If no organization was found or specified, fall back to token organization
     if (!organizationId) {
       organizationId = decodedToken.organizationId;
       
@@ -1063,6 +1089,8 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
           console.error('Error fetching user organization:', userLookupError);
           return res.status(500).json({ error: 'Error verifying user organization' });
         }
+      } else {
+        console.log(`Using user's default organization ID from token: ${organizationId}`);
       }
     }
     
