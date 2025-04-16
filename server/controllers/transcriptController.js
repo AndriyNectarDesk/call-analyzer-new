@@ -121,7 +121,8 @@ exports.getAllTranscripts = async (req, res) => {
       }
     }
     
-    res.json({
+    // Log the response data before sending
+    const responseData = {
       transcripts,
       pagination: {
         total,
@@ -129,7 +130,11 @@ exports.getAllTranscripts = async (req, res) => {
         limit,
         pages: Math.ceil(total / limit)
       }
-    });
+    };
+    
+    console.log('Sending response:', JSON.stringify(responseData, null, 2));
+    
+    res.json(responseData);
   } catch (error) {
     console.error('Error getting transcripts:', error);
     res.status(500).json({ message: 'Failed to retrieve transcripts' });

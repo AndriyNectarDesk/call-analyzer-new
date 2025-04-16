@@ -247,7 +247,27 @@ function TranscriptHistory() {
       
       const response = await axios.get(url, { headers });
       
-      console.log('API Response:', response);
+      // Add detailed response logging
+      console.log('Full API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: response.data
+      });
+      
+      // Validate response data structure
+      if (!response.data) {
+        throw new Error('Empty response received from server');
+      }
+      
+      // Log the exact shape of the response data
+      console.log('Response data structure:', {
+        hasTranscripts: Boolean(response.data.transcripts),
+        transcriptsIsArray: Array.isArray(response.data.transcripts),
+        hasPagination: Boolean(response.data.pagination),
+        paginationShape: response.data.pagination ? Object.keys(response.data.pagination) : null,
+        dataShape: Object.keys(response.data)
+      });
       
       // Handle different API response formats
       if (response.data.transcripts && Array.isArray(response.data.transcripts)) {
@@ -285,7 +305,19 @@ function TranscriptHistory() {
       }
     } catch (error) {
       console.error('Error fetching transcripts:', error);
-      console.error('Error response:', error.response);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        responseData: error.response?.data,
+        responseHeaders: error.response?.headers,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          data: error.config?.data
+        }
+      });
       const errorMessage = error.response?.data?.message || error.message || 'An error occurred while fetching transcripts';
       setError(errorMessage);
       
