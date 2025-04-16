@@ -274,13 +274,15 @@ function NewTranscriptHistory() {
       
       // Make the request with retries
       const makeApiCall = async () => {
-        return await axios.get(url, {
+        const result = await axios.get(url, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
             'Accept': 'application/json'
           },
           timeout: 15000 // 15 second timeout for fallback
         });
+        console.log('Fallback API response status:', result.status);
+        return result;
       };
       
       console.log('Making fallback API call with retry...');
@@ -288,20 +290,30 @@ function NewTranscriptHistory() {
       
       console.log('Fallback API response:', response.data);
       
-      // Process whatever data we get
-      if (response.data.transcripts && Array.isArray(response.data.transcripts)) {
-        setTranscripts(response.data.transcripts);
-        setFilteredTranscripts(response.data.transcripts);
-        setTotalPages(response.data.pagination?.pages || response.data.totalPages || 1);
+      // Try various response format parsers
+      const parsedData = parseAnyResponseFormat(response.data);
+      console.log('Parsed transcript data from fallback:', parsedData);
+      
+      if (parsedData.items.length > 0) {
+        setTranscripts(parsedData.items);
+        setFilteredTranscripts(parsedData.items);
+        setTotalPages(parsedData.totalPages);
         setError(null); // Clear any previous errors
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        setTranscripts(response.data.data);
-        setFilteredTranscripts(response.data.data);
-        setTotalPages(response.data.totalPages || response.data.meta?.totalPages || 1);
-        setError(null); // Clear any previous errors
+        
+        // If we're in a master context, extract orgs for filtering
+        const isMasterOrg = checkIfMasterOrganization();
+        if (isMasterOrg) {
+          const orgNames = [...new Set(
+            parsedData.items
+              .filter(t => t.organizationId && t.organizationId.name)
+              .map(t => t.organizationId.name)
+          )];
+          setOrganizations(orgNames);
+          console.log('Extracted organization names for filtering:', orgNames);
+        }
       } else {
-        console.error('Unexpected data format in fallback response:', response.data);
-        setError('Received data but in an unexpected format. Please try refreshing the page.');
+        console.error('No transcript data found even with fallback');
+        setError('Unable to retrieve transcript data. The server response contains no valid transcript entries.');
       }
     } catch (err) {
       console.error('Fallback method also failed:', err);
@@ -368,7 +380,82 @@ function NewTranscriptHistory() {
     throw lastError;
   };
 
-  // Main function to fetch transcripts
+  // Add a function to attempt to parse any response format
+  const parseAnyResponseFormat = (responseData) => {
+    console.log('Attempting to parse any response format:', responseData);
+    
+    // Case 1: Standard format with transcripts array
+    if (responseData.transcripts && Array.isArray(responseData.transcripts)) {
+      console.log('Found standard format with transcripts array');
+      return {
+        items: responseData.transcripts,
+        totalPages: responseData.totalPages || responseData.pagination?.pages || 1
+      };
+    }
+    
+    // Case 2: Alternative format with data array
+    if (responseData.data && Array.isArray(responseData.data)) {
+      console.log('Found alternative format with data array');
+      return {
+        items: responseData.data,
+        totalPages: responseData.totalPages || responseData.meta?.totalPages || 1
+      };
+    }
+    
+    // Case 3: Direct array of transcripts
+    if (Array.isArray(responseData)) {
+      console.log('Found direct array format');
+      return {
+        items: responseData,
+        totalPages: 1
+      };
+    }
+    
+    // Case 4: Nested format (object containing transcripts or records object)
+    if (responseData.records && Array.isArray(responseData.records)) {
+      console.log('Found nested format with records array');
+      return {
+        items: responseData.records,
+        totalPages: responseData.totalPages || responseData.pagination?.total || 1
+      };
+    }
+    
+    // Case 5: Response contains a results array
+    if (responseData.results && Array.isArray(responseData.results)) {
+      console.log('Found format with results array');
+      return {
+        items: responseData.results,
+        totalPages: responseData.totalPages || responseData.pagination?.pages || 1
+      };
+    }
+    
+    // Case 6: Deeply nested structure - try to find arrays that might be transcript lists
+    for (const key in responseData) {
+      if (typeof responseData[key] === 'object' && responseData[key] !== null) {
+        // Check if this object has an array we can use
+        for (const nestedKey in responseData[key]) {
+          if (Array.isArray(responseData[key][nestedKey])) {
+            console.log(`Found possible transcript array in nested structure: ${key}.${nestedKey}`);
+            return {
+              items: responseData[key][nestedKey],
+              totalPages: 1
+            };
+          }
+        }
+      }
+    }
+    
+    // Log the complete response structure for debugging
+    console.error('Unable to find transcript data in response structure:', JSON.stringify(responseData, null, 2));
+    
+    // If all else fails, return empty data
+    return {
+      items: [],
+      totalPages: 1
+    };
+  };
+
+  // Main function to fetch transcripts with enhanced response handling
   const fetchTranscripts = async () => {
     setLoading(true);
     try {
@@ -432,37 +519,26 @@ function NewTranscriptHistory() {
       
       if (!contentType || !contentType.includes('application/json')) {
         console.error('Received non-JSON response:', contentType);
+        console.log('Response data:', response.data);
         throw new Error('Server returned non-JSON response');
       }
       
-      // Process response
-      console.log('API response:', response.data);
+      // Process response data with the enhanced parser
+      console.log('API response (raw):', response.data);
       
-      if (response.data.transcripts && Array.isArray(response.data.transcripts)) {
-        setTranscripts(response.data.transcripts);
-        setFilteredTranscripts(response.data.transcripts);
-        setTotalPages(response.data.pagination?.pages || response.data.totalPages || 1);
+      // Try to parse any response format
+      const parsedData = parseAnyResponseFormat(response.data);
+      console.log('Parsed transcript data:', parsedData);
+      
+      if (parsedData.items.length > 0) {
+        setTranscripts(parsedData.items);
+        setFilteredTranscripts(parsedData.items);
+        setTotalPages(parsedData.totalPages);
         
-        // Extract unique organization names for filtering
+        // Extract unique organization names for filtering if we're in master context
         if (isMasterOrg) {
           const orgNames = [...new Set(
-            response.data.transcripts
-              .filter(t => t.organizationId && t.organizationId.name)
-              .map(t => t.organizationId.name)
-          )];
-          setOrganizations(orgNames);
-          console.log('Extracted organization names for filtering:', orgNames);
-        }
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        // Handle alternative response format
-        setTranscripts(response.data.data);
-        setFilteredTranscripts(response.data.data);
-        setTotalPages(response.data.totalPages || response.data.meta?.totalPages || 1);
-        
-        // Extract unique organization names for filtering
-        if (isMasterOrg) {
-          const orgNames = [...new Set(
-            response.data.data
+            parsedData.items
               .filter(t => t.organizationId && t.organizationId.name)
               .map(t => t.organizationId.name)
           )];
@@ -470,11 +546,15 @@ function NewTranscriptHistory() {
           console.log('Extracted organization names for filtering:', orgNames);
         }
       } else {
-        console.error('Unexpected API response format:', response.data);
-        throw new Error('Unexpected API response format');
+        console.warn('No transcripts found in response');
+        setTranscripts([]);
+        setFilteredTranscripts([]);
       }
     } catch (err) {
       console.error('Error fetching transcripts:', err);
+      
+      // Dump the full error object in console for debugging
+      console.error('Full error object:', err);
       
       // Handle specific error types
       if (err.response) {
@@ -493,6 +573,9 @@ function NewTranscriptHistory() {
         setError('No response received from server. Please check your connection.');
       } else if (err.message.includes('non-JSON')) {
         console.log('Non-JSON response, attempting fallback...');
+        await fetchTranscriptsWithFallback();
+      } else if (err.message.includes('Unexpected API response format')) {
+        console.log('Unexpected format, attempting fallback...');
         await fetchTranscriptsWithFallback();
       } else {
         setError(err.message || 'Failed to fetch transcripts');
