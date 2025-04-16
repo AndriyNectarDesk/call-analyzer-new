@@ -36,6 +36,12 @@ function App() {
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [userOrganizations, setUserOrganizations] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showDemoMode, setShowDemoMode] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+  const [isOnlyBloomsMode, setIsOnlyBloomsMode] = useState(localStorage.getItem('onlyBlooms') === 'true');
+
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Check authentication status
   useEffect(() => {
@@ -191,6 +197,152 @@ function App() {
     };
   }, [userOrganizations, currentOrganization]);
 
+  // Set up global axios interceptors for authentication and organization context
+  useEffect(() => {
+    // Add JWT token to all requests
+    const requestInterceptor = axios.interceptors.request.use(
+      config => {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        
+        // Add Only Blooms header for organization context when active
+        if (localStorage.getItem('onlyBlooms') === 'true') {
+          config.headers['X-Only-Blooms'] = 'true';
+          console.log('Adding X-Only-Blooms header to request:', config.url);
+        }
+        
+        return config;
+      },
+      error => {
+        return Promise.reject(error);
+      }
+    );
+    
+    // Handle 401 Unauthorized responses
+    const responseInterceptor = axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response && error.response.status === 401) {
+          console.error('Unauthorized request detected');
+          // Clear auth data and redirect to login
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_id');
+          setIsAuthenticated(false);
+          setIsMasterAdmin(false);
+          navigate('/login');
+        }
+        return Promise.reject(error);
+      }
+    );
+    
+    // Clean up interceptors on unmount
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor);
+      axios.interceptors.response.eject(responseInterceptor);
+    };
+  }, [navigate]);
+  
+  // Listen for Only Blooms mode changes
+  useEffect(() => {
+    const handleOnlyBloomsChange = () => {
+      const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
+      setIsOnlyBloomsMode(onlyBloomsActive);
+      console.log('Only Blooms mode changed in App.js:', onlyBloomsActive);
+    };
+    
+    // Listen for storage events from other tabs
+    window.addEventListener('storage', e => {
+      if (e.key === 'onlyBlooms') {
+        handleOnlyBloomsChange();
+      }
+    });
+    
+    // Initial check
+    handleOnlyBloomsChange();
+    
+    // Clean up event listener
+    return () => {
+      window.removeEventListener('storage', handleOnlyBloomsChange);
+    };
+  }, []);
+  
+  // Check if user is authenticated
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      setIsLoading(true);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        
+        // Redirect to login if on a protected route
+        if (
+          !location.pathname.startsWith('/login') && 
+          !location.pathname.startsWith('/register') && 
+          !location.pathname.startsWith('/forgot-password') && 
+          !location.pathname.startsWith('/reset-password') && 
+          !location.pathname.startsWith('/verify-email') && 
+          !location.pathname.startsWith('/activation-success')
+        ) {
+          navigate('/login');
+        }
+        return;
+      }
+      
+      try {
+        const baseApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        const response = await axios.get(`${baseApiUrl}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.data && response.data.user) {
+          setIsAuthenticated(true);
+          setIsMasterAdmin(response.data.user.isMasterAdmin || false);
+        } else {
+          setIsAuthenticated(false);
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Authentication check failed:', error);
+        localStorage.removeItem('auth_token');
+        setIsAuthenticated(false);
+        navigate('/login');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuthStatus();
+  }, [navigate, location.pathname]);
+  
+  // Check dark mode preference
+  useEffect(() => {
+    const darkModePreference = localStorage.getItem('darkMode') === 'true';
+    setIsDarkMode(darkModePreference);
+    
+    if (darkModePreference) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, []);
+  
+  // Check for demo mode
+  useEffect(() => {
+    // Only show and enable demo mode in development or specified environments
+    const allowDemo = process.env.REACT_APP_ALLOW_DEMO === 'true' || process.env.NODE_ENV === 'development';
+    setShowDemoMode(allowDemo);
+    
+    if (allowDemo) {
+      const isDemoActive = localStorage.getItem('demoMode') === 'true';
+      setDemoMode(isDemoActive);
+    }
+  }, []);
+
   const handleLogin = async (email, password) => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || '';
@@ -280,7 +432,14 @@ function App() {
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
+    localStorage.setItem('darkMode', newDarkMode);
     document.body.classList.toggle('dark', newDarkMode);
+  };
+
+  const toggleDemoMode = () => {
+    const newDemoMode = !demoMode;
+    setDemoMode(newDemoMode);
+    localStorage.setItem('demoMode', newDemoMode);
   };
 
   const analyzeTranscript = async (e) => {
