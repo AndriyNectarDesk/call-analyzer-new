@@ -1,62 +1,59 @@
-/**
- * Utility script to find the Master Organization in the database
- * and print its ID for environment variable configuration
- */
-
-require('dotenv').config();
 const mongoose = require('mongoose');
 const Organization = require('./models/organization');
+require('dotenv').config();
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('MongoDB connected'))
-.catch(err => {
-  console.error('MongoDB connection error:', err);
-  process.exit(1);
-});
-
-async function findMasterOrg() {
+async function setupMasterOrganization() {
   try {
-    // Find organizations with name containing "master" or exactly "nectardesk"
-    const masterOrgs = await Organization.find({
-      $or: [
-        { name: { $regex: /master/i } },
-        { name: 'NectarDesk' },
-        { code: { $regex: /master/i } },
-        { code: 'master-org' }
-      ]
-    });
-
-    if (masterOrgs.length === 0) {
-      console.log('No master organization found. Please create one first.');
-      process.exit(0);
-    }
-
-    console.log('\n=== Found Master Organization Candidates ===');
-    masterOrgs.forEach((org, index) => {
-      console.log(`[${index + 1}] ID: ${org._id}`);
-      console.log(`    Name: ${org.name}`);
-      console.log(`    Code: ${org.code}`);
-      console.log(`    Created: ${org.createdAt}`);
-      console.log('--------------------------------------------');
-    });
-
-    if (masterOrgs.length === 1) {
-      console.log('\n=== CONFIGURATION INSTRUCTIONS ===');
-      console.log('Add this to your .env file:');
-      console.log(`MASTER_ORG_ID=${masterOrgs[0]._id}`);
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('Connected to MongoDB');
+    
+    // Find the master organization
+    const masterOrg = await Organization.findOne({ isMaster: true });
+    
+    if (masterOrg) {
+      console.log('Master organization already set:');
+      console.log(`ID: ${masterOrg._id}`);
+      console.log(`Name: ${masterOrg.name}`);
+      console.log(`Code: ${masterOrg.code}`);
     } else {
-      console.log('\nMultiple candidates found. Please choose the correct one and add to your .env file.');
+      console.log('No master organization found. Looking for organization with code master-org...');
+      
+      // Find the organization with code 'master-org'
+      const masterOrgByCode = await Organization.findOne({ code: 'master-org' });
+      
+      if (masterOrgByCode) {
+        console.log('Organization with code master-org found:');
+        console.log(`ID: ${masterOrgByCode._id}`);
+        console.log(`Name: ${masterOrgByCode.name}`);
+        console.log(`Code: ${masterOrgByCode.code}`);
+        console.log(`isMaster flag: ${masterOrgByCode.isMaster}`);
+        
+        // Update this organization to be the master organization
+        console.log('Setting this as the master organization...');
+        masterOrgByCode.isMaster = true;
+        await masterOrgByCode.save();
+        console.log('Organization successfully set as master organization');
+      } else {
+        console.log('No organization with code master-org found');
+      }
     }
-
-    process.exit(0);
+    
+    console.log('\nAll Organizations:');
+    const orgs = await Organization.find({});
+    for (const org of orgs) {
+      console.log(`- ${org.name} (${org.code}) - ID: ${org._id} - IsMaster: ${org.isMaster ? 'Yes' : 'No'}`);
+    }
+    
+    await mongoose.connection.close();
+    console.log('\nMongoDB connection closed');
   } catch (error) {
-    console.error('Error finding master organization:', error);
-    process.exit(1);
+    console.error('Error:', error);
+    try {
+      await mongoose.connection.close();
+    } catch (closeError) {
+      console.error('Error closing MongoDB connection:', closeError);
+    }
   }
 }
 
-findMasterOrg(); 
+setupMasterOrganization(); 

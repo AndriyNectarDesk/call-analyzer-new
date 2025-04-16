@@ -13,7 +13,7 @@ const mongoose = require('mongoose');
 const Transcript = require(require('path').resolve(__dirname, 'models', 'transcript'));
 const CallType = require(require('path').resolve(__dirname, 'models', 'callType'));
 const Organization = require(require('path').resolve(__dirname, 'models', 'organization'));
-const { authenticateApiKey, authenticateJWT, handleOrganizationContext } = require('./middleware/authMiddleware');
+const { authenticateApiKey, authenticateJWT, handleOrganizationContext, verifyToken, requireMasterAdmin, organizationContextMiddleware } = require('./middleware/authMiddleware');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -1916,3 +1916,7 @@ async function processWebhookRecording(audioUrl, metadata, organizationId) {
     throw error;
   }
 }
+
+// API middleware
+app.use('/api', verifyToken); 
+app.use('/api', organizationContextMiddleware);

@@ -241,49 +241,47 @@ exports.belongsToOrganization = (req, res, next) => {
   next();
 };
 
-// Handle organization context switching (Any organization override)
-exports.handleOrganizationContext = async (req, res, next) => {
+// New middleware to handle organization context switching
+exports.organizationContextMiddleware = async (req, res, next) => {
   try {
-    // Check for organization override in headers
-    const orgNameHeader = req.headers['x-organization-name'];
+    // Skip if user is not authenticated
+    if (!req.user) {
+      console.log('[Organization Context] No user found in request, skipping organization context');
+      return next();
+    }
+
+    const requestedOrgId = req.headers['x-organization-id'] || req.cookies['organization_id'];
     
-    // Log the request context
-    console.log('Organization context middleware - Headers:', JSON.stringify(req.headers, null, 2));
-    
-    // First check for explicit organization name override
-    if (orgNameHeader) {
-      console.log(`Organization override requested via X-Organization-Name: ${orgNameHeader}`);
+    if (requestedOrgId) {
+      console.log(`[Organization Context] Override requested for org ID: ${requestedOrgId}`);
       
-      // Find the organization by name or code
-      const targetOrg = await Organization.findOne({
-        $or: [
-          { name: { $regex: orgNameHeader, $options: 'i' } },
-          { code: { $regex: orgNameHeader, $options: 'i' } }
-        ],
-        active: true
-      });
-      
-      if (targetOrg) {
-        console.log(`Found target organization: ${targetOrg.name} (${targetOrg._id})`);
-        
-        // Override the user's organization context for this request
-        req.overrideOrganizationId = targetOrg._id;
-        req.overrideOrganizationName = targetOrg.name;
-        
-        // Also set tenantId for use in other middleware
-        req.tenantId = targetOrg._id;
+      // Check if user has permission to access this organization
+      if (req.user.role === 'master_admin') {
+        console.log('[Organization Context] User is master admin, allowing override');
+        req.organizationId = requestedOrgId;
+      } else if (req.user.organizationId === requestedOrgId) {
+        console.log('[Organization Context] Organization matches user organization, allowing access');
+        req.organizationId = requestedOrgId;
       } else {
-        console.warn(`Organization override requested but no organization matching '${orgNameHeader}' found`);
+        console.log(`[Organization Context] User does not have permission to access org ${requestedOrgId}`);
+        // Use the user's assigned organization instead
+        req.organizationId = req.user.organizationId;
       }
+    } else {
+      // Use the user's assigned organization
+      console.log(`[Organization Context] Using user's assigned organization: ${req.user.organizationId}`);
+      req.organizationId = req.user.organizationId;
     }
     
-    // Continue to the next middleware
-    next();
+    // Log the final organization context
+    console.log(`[Organization Context] Set to: ${req.organizationId}`);
   } catch (error) {
-    console.error('Error in organization context middleware:', error);
-    // Continue anyway, falling back to user's default organization
-    next();
+    // Log the error but don't block the request
+    console.error('[Organization Context] Error setting organization context:', error);
   }
+  
+  // Always continue to the next middleware
+  next();
 };
 
 // Tenant isolation middleware - adds organizationId filter to all queries

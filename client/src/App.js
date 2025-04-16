@@ -12,6 +12,7 @@ import ResetPassword from './components/ResetPassword';
 import OrganizationsPage from './pages/OrganizationsPage';
 import NewOrganizationPage from './pages/NewOrganizationPage';
 import TranscriptHistory from './components/TranscriptHistory';
+import NewTranscriptHistory from './components/NewTranscriptHistory';
 import TranscriptDetail from './components/TranscriptDetail';
 import CallTypeManager from './components/CallTypeManager';
 import AgentAnalytics from './components/AgentAnalytics';
@@ -317,8 +318,8 @@ function AppContent() {
       console.error('Error saving organization to localStorage:', e);
     }
     
-    // Navigate to the dashboard instead of users page
-    window.location.href = '/';
+    // Navigate to the organization's page
+    window.location.href = `/organizations/${org._id}/users`;
   };
 
   const toggleDarkMode = () => {
@@ -876,6 +877,9 @@ function AppContent() {
                       <Link to="/history">History</Link>
                     </li>
                     <li>
+                      <Link to="/new-history">New History</Link>
+                    </li>
+                    <li>
                       <Link to="/call-types">Call Types</Link>
                     </li>
                     <li>
@@ -974,41 +978,55 @@ function AppContent() {
                 <TranscriptHistory />
               </ProtectedRoute>
             } />
+            
+            <Route path="/new-history" element={
+              <ProtectedRoute>
+                <NewTranscriptHistory />
+              </ProtectedRoute>
+            } />
+            
             <Route path="/transcript/:id" element={
               <ProtectedRoute>
                 <TranscriptDetail />
               </ProtectedRoute>
             } />
+            
             <Route path="/call-types" element={
               <ProtectedRoute>
                 <CallTypeManager />
               </ProtectedRoute>
             } />
+            
             <Route path="/agents" element={
               <ProtectedRoute>
                 <AgentAnalytics />
               </ProtectedRoute>
             } />
+            
             <Route path="/api" element={
               <ProtectedRoute>
                 <ApiPage />
               </ProtectedRoute>
             } />
+            
             <Route path="/organizations" element={
               <ProtectedRoute>
                 <OrganizationsPage />
               </ProtectedRoute>
             } />
+            
             <Route path="/organizations/:organizationId/users" element={
               <ProtectedRoute>
                 <UsersPage />
               </ProtectedRoute>
             } />
+            
             <Route path="/organizations/:organizationId/users/new" element={
               <ProtectedRoute>
                 <UserAddPage />
               </ProtectedRoute>
             } />
+            
             <Route path="/organizations/:organizationId/users/:userId/edit" element={
               <ProtectedRoute>
                 <UserEditPage />
