@@ -6,14 +6,7 @@ const Organization = require('../models/organization');
 exports.getAllTranscripts = async (req, res) => {
   try {
     // Filter by organization ID from authenticated user or request
-    let organizationId = req.tenantId || req.user.organizationId;
-    
-    // Override with query parameter if provided (for client-side filtering)
-    if (req.query.organizationId) {
-      console.log('Overriding organization ID with query parameter:', req.query.organizationId);
-      organizationId = req.query.organizationId;
-    }
-    
+    const organizationId = req.tenantId || req.user.organizationId;
     console.log('Getting transcripts for organization:', organizationId);
     
     // Additional debug logging to track the organization context
@@ -29,40 +22,33 @@ exports.getAllTranscripts = async (req, res) => {
       console.log('User JWT organization context:', req.user.organizationId);
     }
     
-    // Check if the current organization is the master organization
-    // We use organization ID for reliable identification
-    const MASTER_ORG_ID = process.env.MASTER_ORG_ID || '64d5ece33f7443afa6b684d2'; // Default ID or from env
+    // If user is master admin and no specific organization filter is applied,
+    // allow viewing all transcripts, otherwise enforce organization isolation
+    const isMasterAdmin = req.user && req.user.isMasterAdmin;
+    const isMasterOrg = req.overrideOrganizationName && 
+      (req.overrideOrganizationName.toLowerCase().includes('master') || 
+       req.overrideOrganizationName.toLowerCase() === 'nectardesk');
     
-    // Use the organizationId that was set by the tenant isolation middleware
-    const currentOrgId = organizationId ? organizationId.toString() : null;
-    const isMasterOrg = currentOrgId === MASTER_ORG_ID;
-    
-    console.log('Is master organization context:', isMasterOrg, 'Current ID:', currentOrgId, 'Master ID:', MASTER_ORG_ID);
+    console.log('User is master admin:', isMasterAdmin);
+    console.log('Is master organization context:', isMasterOrg);
     
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const skip = (page - 1) * limit;
     
-    // Build query based on organization context
+    // Build query based on role
     let query = {};
     
-    // Only organization type matters for transcript visibility
+    // Only allow viewing all transcripts if:
+    // They are in the master organization context
     if (isMasterOrg) {
       console.log('Master organization context - showing all transcripts');
       // Empty query means "all transcripts"
     } else {
-      // For any non-master organization, strictly filter by organization ID
+      // For regular users or users in a specific org context,
+      // strictly filter by the organization ID
       console.log('Filtering transcripts by organization ID:', organizationId);
-      
-      // Use MongoDB ObjectId for proper comparison
-      // This ensures we correctly filter by organization 
-      try {
-        query.organizationId = new mongoose.Types.ObjectId(organizationId);
-      } catch (err) {
-        console.error('Error converting organizationId to ObjectId:', err);
-        // Fall back to string comparison if conversion fails
-        query.organizationId = organizationId;
-      }
+      query.organizationId = organizationId;
     }
     
     // Add filters
