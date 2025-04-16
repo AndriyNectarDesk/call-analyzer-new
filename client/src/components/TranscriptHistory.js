@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import './TranscriptHistory.css';
-import Cookies from 'js-cookie';
 import axios from 'axios';
+import { UserContext } from '../contexts/UserContext';
 
 function TranscriptHistory() {
   const [transcripts, setTranscripts] = useState([]);
@@ -164,7 +164,7 @@ function TranscriptHistory() {
     try {
       // Get organization ID from JWT or localStorage
       let orgId;
-      const token = Cookies.get('token');
+      const token = localStorage.getItem('auth_token');
       
       if (token) {
         try {
