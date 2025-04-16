@@ -172,24 +172,31 @@ function TranscriptHistory() {
     }
   }, [page, currentUser, currentOrganization]);
   
-  // Decode JWT token function
+  // Decode and validate JWT token
   const decodeToken = (token) => {
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split('')
-          .map(function (c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-          })
-          .join('')
-      );
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      
       return JSON.parse(jsonPayload);
     } catch (error) {
       console.error('Error decoding token:', error);
       return null;
     }
+  };
+  
+  // Check if token is expired
+  const isTokenExpired = (decodedToken) => {
+    if (!decodedToken || !decodedToken.exp) {
+      return true; // If we can't verify expiration, assume it's expired
+    }
+    
+    // Token expiration is in seconds, Date.now() is in milliseconds
+    const currentTime = Date.now() / 1000;
+    return decodedToken.exp < currentTime;
   };
   
   // The main transcript fetching function
@@ -202,12 +209,34 @@ function TranscriptHistory() {
       if (!token) {
         setError('Authentication required. Please log in again.');
         setLoading(false);
+        window.location.href = '/login'; // Redirect to login if no token
+        return;
+      }
+      
+      // Validate token format - basic check for JWT format (header.payload.signature)
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        console.error('Invalid token format detected');
+        setError('Invalid authentication token. Please log in again.');
+        localStorage.removeItem('auth_token');
+        setLoading(false);
+        window.location.href = '/login';
         return;
       }
       
       // Debug the JWT token
       const decodedToken = decodeToken(token);
       console.log('Decoded token:', decodedToken);
+      
+      // Check if token is expired
+      if (isTokenExpired(decodedToken)) {
+        console.error('Token has expired');
+        setError('Your session has expired. Please log in again.');
+        localStorage.removeItem('auth_token');
+        setLoading(false);
+        window.location.href = '/login';
+        return;
+      }
       
       let url = `/api/transcripts?page=${page}&limit=10`;
       
@@ -318,14 +347,43 @@ function TranscriptHistory() {
           data: error.config?.data
         }
       });
-      const errorMessage = error.response?.data?.message || error.message || 'An error occurred while fetching transcripts';
-      setError(errorMessage);
+      
+      // Handle network errors (CORS, connection issues, etc)
+      if (error.message && (
+          error.message.includes('Network Error') || 
+          error.message.includes('CORS') || 
+          !error.response)) {
+        setError('Network error: Could not connect to the server. Please check your connection and try again.');
+        console.error('Network or CORS error detected:', error.message);
+      } else {
+        const errorMessage = error.response?.data?.message || error.message || 'An error occurred while fetching transcripts';
+        setError(errorMessage);
+      }
       
       // Check for authentication errors
       if (error.response?.status === 401) {
         setError('Your session has expired. Please log in again.');
         // Clear auth token to force login
         localStorage.removeItem('auth_token');
+      }
+      
+      // Handle server errors
+      if (error.response?.status >= 500) {
+        setError('Server error: The server encountered an issue. Please try again later or contact support.');
+        console.error('Server error detected:', error.response?.status, error.response?.statusText);
+      }
+      
+      // Check if we received HTML instead of JSON (likely a login page)
+      if (error.response?.data && typeof error.response.data === 'string' && 
+         (error.response.data.includes('<!doctype html>') || error.response.data.includes('<html'))) {
+        console.error('Received HTML response instead of JSON. You may need to log in again.');
+        setError('Session expired or authentication error. Please refresh the page and log in again.');
+        // Clear auth token to force login
+        localStorage.removeItem('auth_token');
+        // Redirect to login page after a short delay
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
       }
       
       setTranscripts([]);
