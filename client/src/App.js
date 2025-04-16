@@ -11,7 +11,7 @@ import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import OrganizationsPage from './pages/OrganizationsPage';
 import NewOrganizationPage from './pages/NewOrganizationPage';
-import TranscriptHistory from './components/NewTranscriptHistory';
+import TranscriptHistory from './components/TranscriptHistory';
 import TranscriptDetail from './components/TranscriptDetail';
 import CallTypeManager from './components/CallTypeManager';
 import AgentAnalytics from './components/AgentAnalytics';
