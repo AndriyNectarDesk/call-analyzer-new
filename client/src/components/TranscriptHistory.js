@@ -291,6 +291,20 @@ function TranscriptHistory() {
                 <span className="transcript-id-badge">
                   ID: {transcript._id}
                 </span>
+                <span className="transcript-info-item">
+                  <span className="info-label">Source:</span>
+                  <span className={`badge ${
+                    transcript.source === 'api' ? 'badge-primary' : 
+                    transcript.source === 'audio' ? 'badge-warning' : 
+                    transcript.source === 'nectar-desk-webhook' ? 'badge-nectar' : 
+                    'badge-secondary'
+                  }`}>
+                    {transcript.source === 'api' ? 'API' : 
+                     transcript.source === 'audio' ? 'Audio Upload' : 
+                     transcript.source === 'nectar-desk-webhook' ? 'NectarDesk' : 
+                     'Web UI'}
+                  </span>
+                </span>
               </div>
               
               <div className="card-summary">

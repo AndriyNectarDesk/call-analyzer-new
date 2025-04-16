@@ -768,6 +768,12 @@ textarea {
   border: 1px solid #e0e0e0;
 }
 
+.badge-nectar {
+  background-color: #fff0f5;
+  color: #c71585;
+  border: 1px solid #ffb6c1;
+}
+
 /* Call type in details page */
 .call-type {
   font-size: 0.9rem;
@@ -2388,26 +2394,4 @@ input:checked + .toggle-slider:before {
   .recommendation-section {
     padding: 20px;
   }
-}
-
-/* Transcript ID badge */
-.transcript-id-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  background-color: #e9ecef;
-  color: #495057;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  margin-left: 8px;
-  letter-spacing: 0.5px;
-  border: 1px solid #ced4da;
-}
-
-/* Ensure the transcript card header can accommodate all badges */
-.transcript-card .card-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
 }
