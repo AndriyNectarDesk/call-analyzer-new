@@ -561,4 +561,30 @@ exports.ensureMasterOrganization = async () => {
     console.error('Error ensuring Master Organization:', error);
     throw error;
   }
+};
+
+// Update organization status (active/inactive)
+exports.updateOrganizationStatus = async (req, res) => {
+  try {
+    const { active } = req.body;
+    
+    if (active === undefined) {
+      return res.status(400).json({ message: 'Active status is required' });
+    }
+    
+    const organization = await Organization.findByIdAndUpdate(
+      req.params.id,
+      { $set: { active, updatedAt: Date.now() } },
+      { new: true, runValidators: true }
+    );
+    
+    if (!organization) {
+      return res.status(404).json({ message: 'Organization not found' });
+    }
+    
+    res.json(organization);
+  } catch (error) {
+    console.error('Error updating organization status:', error);
+    res.status(500).json({ message: 'Failed to update organization status' });
+  }
 }; 

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const masterAdminController = require('../controllers/masterAdminController');
+const organizationController = require('../controllers/organizationController');
 const { authenticateJWT, isMasterAdmin } = require('../middleware/authMiddleware');
 
 // Apply authentication and master admin check to all routes
@@ -8,9 +9,11 @@ router.use(authenticateJWT, isMasterAdmin);
 
 // Organization management routes
 router.get('/organizations', masterAdminController.getAllOrganizations);
+router.post('/organizations', organizationController.createOrganization);
 router.get('/organizations/:id', masterAdminController.getOrganizationDetails);
 router.put('/organizations/:id/subscription', masterAdminController.updateOrganizationSubscription);
 router.put('/organizations/:id/features', masterAdminController.updateOrganizationFeatures);
+router.put('/organizations/:id/status', masterAdminController.updateOrganizationStatus);
 router.get('/organizations/:id/stats', masterAdminController.getOrganizationStats);
 
 // User management routes
