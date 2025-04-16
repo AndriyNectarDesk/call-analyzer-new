@@ -28,8 +28,5 @@
     "enabled": true,
     "autoAlias": true,
     "silent": false
-  },
-  "env": {
-    "DEBUG_URL": "https://call-analyzer-mu.vercel.app"
   }
 } 
