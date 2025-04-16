@@ -95,12 +95,16 @@ function ApiPage() {
       // Add Only Blooms context header if active
       if (isOnlyBlooms) {
         headers['X-Only-Blooms'] = 'true';
-        console.log('Adding X-Only-Blooms: true header for server-side context');
+        headers['X-Organization-Name'] = 'Blooms'; // Add the newer header format as well
+        console.log('Adding headers for server-side context:', headers);
       }
       
       try {
+        // Force a unique timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        
         // Fetch organizations to determine the appropriate one based on context
-        const orgsResponse = await axios.get(`${baseApiUrl}/api/master-admin/organizations`, {
+        const orgsResponse = await axios.get(`${baseApiUrl}/api/master-admin/organizations?nocache=${timestamp}`, {
           headers
         });
         
@@ -137,10 +141,21 @@ function ApiPage() {
         setCurrentOrganization(targetOrg);
         
         // Fetch API key passing the organization context
+        // Use a direct organizationId parameter in addition to headers when in Only Blooms mode
+        let apiEndpoint = `${baseApiUrl}/api/organizations/${targetOrg._id}/api-key?nocache=${timestamp}`;
+        if (isOnlyBlooms) {
+          apiEndpoint += `&organizationId=${targetOrg._id}`;
+          console.log('Adding explicit organizationId parameter for Only Blooms mode:', apiEndpoint);
+        }
+        
         const apiKeyResponse = await axios.get(
-          `${baseApiUrl}/api/organizations/${targetOrg._id}/api-key`, 
-          { headers }
+          apiEndpoint, 
+          { 
+            headers: headers // Ensure we use the same headers object with the context
+          }
         );
+        
+        console.log('Headers sent for API key request:', headers);
         
         if (apiKeyResponse.data && apiKeyResponse.data.key) {
           const orgName = apiKeyResponse.data.organization?.name || targetOrg.name;

@@ -394,18 +394,28 @@ exports.getCurrentApiKey = async (req, res) => {
 // Get API key for a specific organization by ID
 exports.getOrganizationApiKey = async (req, res) => {
   try {
-    // Check if we have an organization context override (e.g., Only Blooms mode)
+    // Priority order for organization ID: 
+    // 1. Context override (Only Blooms mode)
+    // 2. Query parameter (explicit organizationId)
+    // 3. URL parameter (/:id)
     let organizationId;
+    
     if (req.overrideOrganizationId) {
+      // 1. Use context override if available (highest priority)
       console.log(`Organization context override active: Using ${req.overrideOrganizationName} (${req.overrideOrganizationId}) instead of requested ID ${req.params.id}`);
       organizationId = req.overrideOrganizationId;
+    } else if (req.query.organizationId) {
+      // 2. Use query parameter if available (second priority)
+      console.log(`Using explicit organizationId from query parameter: ${req.query.organizationId}`);
+      organizationId = req.query.organizationId;
     } else {
-      console.log('getOrganizationApiKey called for organization ID:', req.params.id);
+      // 3. Fallback to URL parameter (lowest priority)
+      console.log('getOrganizationApiKey called for organization ID from URL param:', req.params.id);
       organizationId = req.params.id;
     }
     
     if (!organizationId) {
-      console.error('No organization ID provided in request params or context');
+      console.error('No organization ID provided in request params, query or context');
       return res.status(400).json({ message: 'Organization ID is required' });
     }
 
