@@ -29,14 +29,14 @@ router.use(tenantIsolation);
 // Get all transcripts with pagination and filtering
 router.get('/', transcriptController.getAllTranscripts);
 
+// Get transcript analytics 
+router.get('/analytics/summary', transcriptController.getTranscriptAnalytics);
+
 // Get a single transcript by ID
 router.get('/:id', transcriptController.getTranscript);
 
 // Create a new transcript from raw text
 router.post('/', transcriptController.createTranscript);
-
-// Get transcript analytics 
-router.get('/analytics/summary', transcriptController.getTranscriptAnalytics);
 
 // Delete a transcript
 router.delete('/:id', transcriptController.deleteTranscript);

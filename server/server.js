@@ -1361,7 +1361,11 @@ initEmailService().catch(err => {
   console.error('Error during email service initialization:', err);
 });
 
-// Create API routes first - before the catch-all middleware
+// API middleware - apply to all /api routes
+app.use('/api', verifyToken); 
+app.use('/api', organizationContextMiddleware);
+
+// Mount API routes - these must come before the catch-all route
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/organizations', require('./routes/organizationRoutes'));
@@ -1369,17 +1373,17 @@ app.use('/api/transcripts', require('./routes/transcriptRoutes'));
 app.use('/api/call-types', require('./routes/callTypeRoutes'));
 app.use('/api/master-admin', require('./routes/masterAdminRoutes'));
 
-// API middleware - apply to routes that haven't been matched yet
-app.use('/api', verifyToken); 
-app.use('/api', organizationContextMiddleware);
-
 // Serve static files from the React app build directory
 app.use(express.static(path.join(__dirname, '../client/build')));
 
-// Handle React routing - this should be the last route
+// This must be the last route - handles React routing
 app.get('*', function(req, res) {
-  // Send the React app's index.html for any unmatched routes
-  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  // Only send index.html if the request isn't for an API route
+  if (!req.path.startsWith('/api/')) {
+    return res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  }
+  // If it's an API route that wasn't handled, return 404
+  res.status(404).json({ error: 'API endpoint not found' });
 });
 
 // Start the server
