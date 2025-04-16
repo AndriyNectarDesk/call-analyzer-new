@@ -167,9 +167,9 @@ function TranscriptHistory() {
         console.error('Error decoding JWT token:', e);
       }
       
-      // If user is master admin, fetch all transcripts to allow for organization filtering
-      if (isMasterAdmin) {
-        console.log('User is master admin, fetching all transcripts');
+      // If user is master admin AND in master organization, fetch all transcripts
+      if (isMasterAdmin && isMasterOrganizationSelected()) {
+        console.log('User is master admin in master org context, fetching all transcripts');
         
         let url = `${apiUrl}/api/transcripts`;
         console.log('Master admin API URL:', url);
@@ -217,12 +217,61 @@ function TranscriptHistory() {
           console.error('Error in master admin API call:', err);
           // Continue to try other approaches
         }
+      } else {
+        // For non-master-admins or when a specific organization is selected,
+        // fetch only for the current organization
+        if (currentOrganization) {
+          const orgId = currentOrganization.id || currentOrganization._id;
+          if (orgId) {
+            console.log(`Using organization filter for current org: ${orgId}`);
+            let url = `${apiUrl}/api/transcripts?organizationId=${orgId}`;
+            
+            try {
+              console.log('Fetching organization-specific transcripts from:', url);
+              const response = await fetch(url, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              
+              console.log('Response status:', response.status);
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API error response text with org filter:', errorText);
+                throw new Error(`Failed to fetch transcripts with organization filter: ${response.status} ${response.statusText}`);
+              }
+              
+              const data = await response.json();
+              console.log('Organization filter API Response:', data);
+              
+              // Handle both pagination and direct array formats
+              const transcriptData = data.transcripts || data;
+              console.log(`Organization transcripts found: ${Array.isArray(transcriptData) ? transcriptData.length : 'N/A'}`);
+              
+              if (Array.isArray(transcriptData)) {
+                setTranscripts(transcriptData);
+                setFilteredTranscripts(transcriptData);
+                
+                // We don't need organization filtering when viewing a specific org
+                setOrganizations([]);
+                setFilterOrganization('');
+                
+                setLoading(false);
+                return; // Exit early
+              }
+            } catch (err) {
+              console.error('Error in organization-specific API call:', err);
+              // Only fall through to generic API call if this fails
+            }
+          }
+        }
       }
       
-      // Try direct API call first - no filter, let the server handle it
-      console.log('Making direct API call without filters');
+      // Fallback to direct API call if the specific approaches above failed
+      console.log('Trying fallback API call without filters');
       let url = `${apiUrl}/api/transcripts`;
-      console.log('API URL:', url);
+      console.log('Fallback API URL:', url);
       
       try {
         console.log('Fetching from:', url);
@@ -254,7 +303,7 @@ function TranscriptHistory() {
           setTranscripts(transcriptData);
           setFilteredTranscripts(transcriptData);
           
-          // Extract unique organization names if master admin
+          // Only extract organization filters for master admin
           if (isMasterAdmin && transcriptData.length > 0) {
             const uniqueOrganizations = [...new Set(transcriptData
               .filter(t => t.organizationId && t.organizationId.name)
@@ -268,61 +317,7 @@ function TranscriptHistory() {
           return; // Exit early since we have data
         }
       } catch (err) {
-        console.error('Error in direct API call:', err);
-        // Continue to try other approaches
-      }
-      
-      // If the direct call didn't work or returned no results, try with organization filter
-      if (currentOrganization) {
-        // The organizationId may be in either the 'id' or '_id' property
-        const orgId = currentOrganization.id || currentOrganization._id;
-        if (orgId) {
-          console.log(`Trying with organization filter: ${orgId}`);
-          url = `${apiUrl}/api/transcripts?organizationId=${orgId}`;
-          
-          try {
-            console.log('Fetching from:', url);
-            const response = await fetch(url, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
-            
-            console.log('Response status:', response.status);
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('API error response text with org filter:', errorText);
-              throw new Error(`Failed to fetch transcripts with organization filter: ${response.status} ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            console.log('Organization filter API Response:', data);
-            
-            // Handle both pagination and direct array formats
-            const transcriptData = data.transcripts || data;
-            
-            if (Array.isArray(transcriptData)) {
-              setTranscripts(transcriptData);
-              setFilteredTranscripts(transcriptData);
-              
-              // Extract unique organization names if master admin
-              if (isMasterAdmin && transcriptData.length > 0) {
-                const uniqueOrganizations = [...new Set(transcriptData
-                  .filter(t => t.organizationId && t.organizationId.name)
-                  .map(t => t.organizationId.name)
-                )];
-                setOrganizations(uniqueOrganizations);
-              }
-              
-              setLoading(false);
-              return; // Exit early
-            }
-          } catch (err) {
-            console.error('Error in API call with organization filter:', err);
-            // Fall through to the next approach
-          }
-        }
+        console.error('Error in fallback API call:', err);
       }
       
       // If we got here, all approaches failed or returned no results
@@ -382,8 +377,8 @@ function TranscriptHistory() {
     <div className="history-container">
       <h2>Transcript History</h2>
       
-      {/* Show organization filter for master admins regardless of selected organization */}
-      {isMasterAdmin && organizations.length > 0 && (
+      {/* Show organization filter for master admins in master org context only */}
+      {isMasterAdmin && isMasterOrganizationSelected() && organizations.length > 0 && (
         <div className="filter-controls">
           <div className="filter-group">
             <label htmlFor="organizationFilter">Filter by Organization:</label>
@@ -440,8 +435,8 @@ function TranscriptHistory() {
                 <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
                   {getCallTypeLabel(transcript.callType)}
                 </span>
-                {/* Show organization badge for all transcripts when master admin */}
-                {isMasterAdmin && transcript.organizationId && (
+                {/* Show organization badge for all transcripts when in master org context */}
+                {isMasterAdmin && isMasterOrganizationSelected() && transcript.organizationId && (
                   <span className="organization-badge">
                     Org: {transcript.organizationId.name}
                   </span>
