@@ -124,6 +124,25 @@ function App() {
     fetchCallTypes();
   }, [currentOrganization]);
 
+  // Load saved organization from localStorage
+  useEffect(() => {
+    if (userOrganizations.length > 0) {
+      try {
+        const savedOrg = localStorage.getItem('selectedOrganization');
+        if (savedOrg) {
+          const parsedOrg = JSON.parse(savedOrg);
+          // Find the full organization object from our userOrganizations
+          const matchingOrg = userOrganizations.find(org => org._id === parsedOrg.id);
+          if (matchingOrg) {
+            setCurrentOrganization(matchingOrg);
+          }
+        }
+      } catch (e) {
+        console.error('Error loading saved organization:', e);
+      }
+    }
+  }, [userOrganizations]);
+
   const handleLogin = async (email, password) => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || '';
@@ -185,6 +204,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('selectedOrganization');
     setIsAuthenticated(false);
     setCurrentUser(null);
     setCurrentOrganization(null);
@@ -193,6 +213,20 @@ function App() {
 
   const handleSwitchOrganization = (org) => {
     setCurrentOrganization(org);
+    
+    // Store the selected organization in localStorage for persistence
+    try {
+      localStorage.setItem('selectedOrganization', JSON.stringify({
+        id: org._id,
+        name: org.name,
+        code: org.code
+      }));
+    } catch (e) {
+      console.error('Error saving organization to localStorage:', e);
+    }
+    
+    // Navigate to the organization's page
+    window.location.href = `/organizations/${org._id}/users`;
   };
 
   const toggleDarkMode = () => {
@@ -271,11 +305,11 @@ function App() {
         },
         body: formData
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to transcribe audio');
       }
-      
+
       const data = await response.json();
       console.log('Transcribe API Response:', data); // Log the full response for debugging
       
@@ -337,12 +371,12 @@ function App() {
                   <form onSubmit={analyzeTranscript}>
                     <div className="form-group">
                       <label htmlFor="transcript">Call Transcript</label>
-                      <textarea
+        <textarea
                         id="transcript"
                         className="transcript-input"
-                        value={transcript}
-                        onChange={(e) => setTranscript(e.target.value)}
-                        placeholder="Paste your call transcript here..."
+          value={transcript}
+          onChange={(e) => setTranscript(e.target.value)}
+          placeholder="Paste your call transcript here..."
                         rows={12}
                         disabled={isLoading}
                       ></textarea>
@@ -355,7 +389,7 @@ function App() {
                         value={callType}
                         onChange={(e) => setCallType(e.target.value)}
                         className="select"
-                        disabled={isLoading}
+          disabled={isLoading}
                       >
                         <option value="auto">Auto-detect</option>
                         {availableCallTypes.map(type => (
@@ -373,13 +407,13 @@ function App() {
                       >
                         Clear
                       </button>
-                      <button
+          <button
                         type="submit"
                         className="button"
-                        disabled={isLoading || !transcript.trim()}
-                      >
+            disabled={isLoading || !transcript.trim()}
+          >
                         {isLoading ? 'Analyzing...' : 'Analyze Call'}
-                      </button>
+          </button>
                     </div>
                   </form>
                 </div>
@@ -409,8 +443,8 @@ function App() {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
+        </div>
+      </div>
 
           {/* Results Section (Right Column) */}
           <div className="results-column">
@@ -419,10 +453,10 @@ function App() {
                 {error}
               </div>
             )}
-            
-            {isLoading ? (
-              <div className="loading-container">
-                <div className="spinner"></div>
+
+      {isLoading ? (
+        <div className="loading-container">
+          <div className="spinner"></div>
                 <p>Analyzing your call...</p>
               </div>
             ) : analysis && !error ? (
@@ -510,7 +544,7 @@ function App() {
                       <div className="metric-decoration"></div>
                     </div>
                   </div>
-                </div>
+        </div>
                 
                 <div className="key-insights-section">
                   <h2>
@@ -536,11 +570,11 @@ function App() {
                           <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
                         </svg>
                         <div className="insight-content">{insight}</div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
+                </li>
+              ))}
+            </ul>
+          </div>
+
                 <div className="recommendation-section">
                   <h2>
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -558,9 +592,9 @@ function App() {
                         </svg>
                         <div className="recommendation-content">{item}</div>
                       </li>
-                    ))}
-                  </ul>
-                </div>
+                  ))}
+                </ul>
+              </div>
               </div>
             ) : (
               <div className="empty-results">
@@ -568,7 +602,7 @@ function App() {
                   <h3>No Analysis Results</h3>
                   <p>Enter a transcript or upload audio to see analysis results here.</p>
                 </div>
-              </div>
+            </div>
             )}
           </div>
         </div>
@@ -582,8 +616,8 @@ function App() {
       return (
         <div className="auth-loading">
           <div className="spinner"></div>
-        </div>
-      );
+    </div>
+  );
     }
     return isAuthenticated ? children : <Navigate to="/login" />;
   };
@@ -629,7 +663,7 @@ function App() {
         }} />
         
         {isAuthenticated && !authLoading ? (
-          <header className="app-header">
+        <header className="app-header">
             <div className="header-content">
               <div className="header-left">
                 <Link to="/" className="logo">
@@ -709,11 +743,11 @@ function App() {
                 </div>
               </div>
             </div>
-          </header>
+        </header>
         ) : null}
-        
+
         <main className="app-main">
-          <Routes>
+        <Routes>
             <Route path="/login" element={
               isAuthenticated ? <Navigate to="/" /> : (authLoading ? (
                 <div className="auth-loading">
@@ -790,7 +824,7 @@ function App() {
             } />
             
             <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
+        </Routes>
         </main>
         
         <footer className="app-footer">

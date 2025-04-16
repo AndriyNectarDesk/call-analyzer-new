@@ -40,6 +40,7 @@ const OrganizationSelector = ({
 
   // Handle organization selection
   const handleSelect = (org) => {
+    console.log('Organization selected:', org.name, org._id);
     if (onSelectOrganization) {
       onSelectOrganization(org);
     }
