@@ -287,6 +287,10 @@ function TranscriptHistory() {
                     Org: {transcript.organizationId.name}
                   </span>
                 )}
+                {/* Display transcript ID */}
+                <span className="transcript-id-badge">
+                  ID: {transcript._id}
+                </span>
               </div>
               
               <div className="card-summary">
