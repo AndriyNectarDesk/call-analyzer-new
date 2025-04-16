@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Toaster, toast } from 'react-hot-toast';
 import './App.css';
@@ -23,7 +23,17 @@ import OrganizationDetails from './components/OrganizationDetails';
 import MasterAdminDashboard from './components/MasterAdminDashboard';
 import Settings from './components/Settings';
 
-function App() {
+// Create a wrapper component for App that provides the router context
+function AppWrapper() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}
+
+// Main App component that can use router hooks
+function AppContent() {
   const [transcript, setTranscript] = useState('');
   const [callType, setCallType] = useState('auto');
   const [isLoading, setIsLoading] = useState(false);
@@ -39,6 +49,7 @@ function App() {
   const [showDemoMode, setShowDemoMode] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [isOnlyBloomsMode, setIsOnlyBloomsMode] = useState(localStorage.getItem('onlyBlooms') === 'true');
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -957,18 +968,17 @@ function App() {
   };
 
   return (
-    <Router>
-      <div className="app-container">
-        <Toaster position="top-right" toastOptions={{
-          style: {
-            borderRadius: '10px',
-            background: 'var(--card-background)',
-            color: 'var(--text-color)',
-            boxShadow: 'var(--shadow-md)'
-          }
-        }} />
-        
-        {isAuthenticated && !authLoading ? (
+    <div className="app-container">
+      <Toaster position="top-right" toastOptions={{
+        style: {
+          borderRadius: '10px',
+          background: 'var(--card-background)',
+          color: 'var(--text-color)',
+          boxShadow: 'var(--shadow-md)'
+        }
+      }} />
+      
+      {isAuthenticated && !authLoading ? (
         <header className="app-header">
             <div className="header-content">
               <div className="header-left">
@@ -1137,9 +1147,8 @@ function App() {
         <footer className="app-footer">
           <p>AI Nectar Desk © 2023</p>
         </footer>
-      </div>
-    </Router>
+    </div>
   );
 }
 
-export default App;
+export default AppWrapper;
