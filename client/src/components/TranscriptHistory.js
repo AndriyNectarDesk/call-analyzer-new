@@ -13,7 +13,10 @@ function TranscriptHistory() {
   const [currentOrganization, setCurrentOrganization] = useState(null);
   
   // Check if user is master admin
-  const isMasterAdmin = currentUser?.isMasterAdmin;
+  const isMasterAdmin = currentUser?.isMasterAdmin || false;
+  console.log('====== MASTER ADMIN CHECK ======');
+  console.log('Is user a master admin?', isMasterAdmin);
+  console.log('Current user:', currentUser);
   
   // Get the current user from local storage on mount
   useEffect(() => {
@@ -176,6 +179,12 @@ function TranscriptHistory() {
         console.error('Error decoding JWT token:', e);
       }
       
+      // Add debug logging to the fetchTranscripts function, right after the JWT token check
+      console.log('====== ORGANIZATIONS DATA ======');
+      console.log('Master admin status:', isMasterAdmin);
+      console.log('Number of organizations available:', organizations.length);
+      console.log('Organizations array:', organizations);
+      
       // If user is master admin, always fetch all transcripts to allow filtering
       if (isMasterAdmin) {
         console.log('User is master admin, fetching all transcripts');
@@ -212,12 +221,58 @@ function TranscriptHistory() {
             setFilteredTranscripts(transcriptData);
             
             // Extract unique organization names for master admins
-            const uniqueOrganizations = [...new Set(transcriptData
-              .filter(t => t.organizationId && t.organizationId.name)
-              .map(t => t.organizationId.name)
-            )];
-            console.log('Extracted organization filters:', uniqueOrganizations);
-            setOrganizations(uniqueOrganizations);
+            if (isMasterAdmin && Array.isArray(transcriptData) && transcriptData.length > 0) {
+              console.log('Analyzing transcript data for organizations:', transcriptData.length, 'records');
+              
+              // Log a sample transcript to understand its structure
+              if (transcriptData.length > 0) {
+                console.log('Sample transcript for org extraction:', JSON.stringify(transcriptData[0], null, 2));
+                console.log('Sample transcript organizationId:', 
+                  transcriptData[0].organizationId ? 
+                  JSON.stringify(transcriptData[0].organizationId, null, 2) : 
+                  'None');
+              }
+              
+              // Extract organizations with better error handling
+              try {
+                const orgsWithNames = transcriptData.filter(t => 
+                  t && t.organizationId && 
+                  typeof t.organizationId === 'object' && 
+                  t.organizationId.name
+                );
+                
+                console.log('Transcripts with valid org names:', orgsWithNames.length);
+                
+                if (orgsWithNames.length > 0) {
+                  const orgNames = orgsWithNames.map(t => t.organizationId.name);
+                  console.log('Extracted org names:', orgNames);
+                  
+                  const uniqueOrganizations = [...new Set(orgNames)];
+                  console.log('Unique organization names:', uniqueOrganizations);
+                  
+                  if (uniqueOrganizations.length > 0) {
+                    setOrganizations(uniqueOrganizations);
+                    console.log('Organization filter set with', uniqueOrganizations.length, 'options');
+                  } else {
+                    console.warn('No unique organizations found even though orgs exist');
+                  }
+                } else {
+                  console.warn('No transcripts with valid organization names found');
+                  
+                  // Alternative approach - look for raw organization IDs
+                  const orgsWithIds = transcriptData.filter(t => 
+                    t && t.organizationId && 
+                    (typeof t.organizationId === 'string' || t.organizationId._id || t.organizationId.id)
+                  );
+                  
+                  if (orgsWithIds.length > 0) {
+                    console.log('Found transcripts with organization IDs but no names:', orgsWithIds.length);
+                  }
+                }
+              } catch (err) {
+                console.error('Error extracting organization names:', err);
+              }
+            }
             
             setLoading(false);
             return; // Exit early since we have data
@@ -313,12 +368,39 @@ function TranscriptHistory() {
           
           // Only extract organization filters for master admin
           if (isMasterAdmin && transcriptData.length > 0) {
-            const uniqueOrganizations = [...new Set(transcriptData
-              .filter(t => t.organizationId && t.organizationId.name)
-              .map(t => t.organizationId.name)
-            )];
-            console.log('Extracted organization filters:', uniqueOrganizations);
-            setOrganizations(uniqueOrganizations);
+            console.log('Analyzing fallback transcript data for organizations:', transcriptData.length, 'records');
+            
+            // Log a sample transcript to understand its structure
+            if (transcriptData.length > 0) {
+              console.log('Sample fallback transcript for org extraction:', 
+                JSON.stringify(transcriptData[0], null, 2).substring(0, 500) + '...');
+            }
+            
+            // Extract organizations with better error handling
+            try {
+              const orgsWithNames = transcriptData.filter(t => 
+                t && t.organizationId && 
+                typeof t.organizationId === 'object' && 
+                t.organizationId.name
+              );
+              
+              console.log('Fallback transcripts with valid org names:', orgsWithNames.length);
+              
+              if (orgsWithNames.length > 0) {
+                const orgNames = orgsWithNames.map(t => t.organizationId.name);
+                console.log('Extracted fallback org names:', orgNames);
+                
+                const uniqueOrganizations = [...new Set(orgNames)];
+                console.log('Unique fallback organization names:', uniqueOrganizations);
+                
+                if (uniqueOrganizations.length > 0) {
+                  setOrganizations(uniqueOrganizations);
+                  console.log('Organization filter set with', uniqueOrganizations.length, 'options from fallback');
+                }
+              }
+            } catch (err) {
+              console.error('Error extracting fallback organization names:', err);
+            }
           }
           
           setLoading(false);
@@ -372,6 +454,42 @@ function TranscriptHistory() {
     }
   };
 
+  // Also add a debug message to the filter section
+  {/* Always show organization filter for master admins when organizations are available */}
+  {isMasterAdmin && organizations.length > 0 ? (
+    <div className="filter-controls">
+      <div className="filter-group">
+        <label htmlFor="organizationFilter"><strong>Filter by Organization:</strong></label>
+        <select 
+          id="organizationFilter" 
+          value={filterOrganization} 
+          onChange={(e) => setFilterOrganization(e.target.value)}
+          className="organization-filter"
+        >
+          <option value="">All Organizations ({organizations.length} orgs available)</option>
+          {organizations.map(org => (
+            <option key={org} value={org}>{org}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  ) : (
+    <div className="debug-message" style={{margin: '10px 0', fontSize: '0.9rem', color: '#555'}}>
+      {isMasterAdmin ? 
+        `Filter not shown: No organizations found (${organizations.length})` : 
+        "Filter not shown: User is not a master admin"}
+    </div>
+  )}
+
+  // Also add a debug message to the return/render function
+  const renderDebug = () => {
+    console.log('====== RENDER DEBUG ======');
+    console.log('Master admin (render time):', isMasterAdmin);
+    console.log('Organizations length (render time):', organizations.length);
+    console.log('Organizations data (render time):', organizations);
+    return null;
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -384,9 +502,10 @@ function TranscriptHistory() {
   return (
     <div className="history-container">
       <h2>Transcript History</h2>
+      {renderDebug()}
       
       {/* Always show organization filter for master admins when organizations are available */}
-      {isMasterAdmin && organizations.length > 0 && (
+      {isMasterAdmin && organizations.length > 0 ? (
         <div className="filter-controls">
           <div className="filter-group">
             <label htmlFor="organizationFilter"><strong>Filter by Organization:</strong></label>
@@ -396,12 +515,18 @@ function TranscriptHistory() {
               onChange={(e) => setFilterOrganization(e.target.value)}
               className="organization-filter"
             >
-              <option value="">All Organizations</option>
+              <option value="">All Organizations ({organizations.length} orgs available)</option>
               {organizations.map(org => (
                 <option key={org} value={org}>{org}</option>
               ))}
             </select>
           </div>
+        </div>
+      ) : (
+        <div className="debug-message" style={{margin: '10px 0', fontSize: '0.9rem', color: '#555'}}>
+          {isMasterAdmin ? 
+            `Filter not shown: No organizations found (${organizations.length})` : 
+            "Filter not shown: User is not a master admin"}
         </div>
       )}
       
