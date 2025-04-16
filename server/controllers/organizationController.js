@@ -391,6 +391,69 @@ exports.getCurrentApiKey = async (req, res) => {
   }
 };
 
+// Get API key for a specific organization by ID
+exports.getOrganizationApiKey = async (req, res) => {
+  try {
+    console.log('getOrganizationApiKey called for organization ID:', req.params.id);
+    
+    const organizationId = req.params.id;
+    
+    if (!organizationId) {
+      console.error('No organization ID provided in request params');
+      return res.status(400).json({ message: 'Organization ID is required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+      console.error('Invalid organization ID format:', organizationId);
+      return res.status(400).json({ message: 'Invalid organization ID format' });
+    }
+
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+    console.log('Looking for API key with organizationId:', orgObjectId.toString());
+    
+    // Check if organization exists
+    const organization = await Organization.findById(orgObjectId);
+    if (!organization) {
+      console.error(`Organization not found with ID: ${organizationId}`);
+      return res.status(404).json({ message: 'Organization not found' });
+    }
+
+    // Find the most recently created active API key
+    const apiKey = await ApiKey.findOne({
+      organizationId: orgObjectId,
+      isActive: true
+    }).sort({ createdAt: -1 }).lean();
+    
+    console.log('API key found for organization:', apiKey ? 'Yes' : 'No');
+    
+    if (!apiKey) {
+      console.log(`No active API key found for organization: ${organizationId}`);
+      return res.status(404).json({ 
+        message: 'No active API key found', 
+        organizationId: organizationId,
+        needsGeneration: true 
+      });
+    }
+
+    // Return the API key info
+    const response = {
+      id: apiKey._id,
+      name: apiKey.name,
+      prefix: apiKey.prefix,
+      key: `${apiKey.prefix}_${apiKey.key}`, // Return full key format
+      createdAt: apiKey.createdAt,
+      lastUsed: apiKey.lastUsed
+    };
+    
+    console.log('Returning organization API key info:', { ...response, key: `${apiKey.prefix}_******` });
+    res.json(response);
+  } catch (error) {
+    console.error(`Error getting API key for organization ${req.params.id}:`, error);
+    console.error(error.stack);
+    res.status(500).json({ message: 'Failed to retrieve organization API key: ' + error.message });
+  }
+};
+
 // Helper function to generate an API key for the current user's organization
 const generateApiKeyForCurrentUser = async (req, res) => {
   try {
