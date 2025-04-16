@@ -3,11 +3,17 @@
   "version": "1.0.0",
   "scripts": {
     "start": "cd server && node server.js",
-    "install-server": "cd server && npm install"
+    "install-server": "cd server && npm install",
+    "install-client": "cd client && npm install",
+    "build-client": "cd client && npm run build",
+    "postinstall": "npm run install-server && npm run install-client",
+    "build": "npm run build-client",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm start\""
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "call-analyzer": "file:",
+    "concurrently": "^8.2.2",
     "crypto": "^1.0.1",
     "js-cookie": "^3.0.5",
     "jsonwebtoken": "^9.0.2"

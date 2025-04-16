@@ -1377,10 +1377,48 @@ app.use('/api', organizationContextMiddleware);
 // Serve static files from the React app build directory
 app.use(express.static(path.join(__dirname, '../client/build')));
 
-// This must be the last route - handles React routing
-app.get('*', function(req, res) {
-  // Only send index.html for non-API routes
-  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+// Add better error handling for static file serving
+app.use((req, res, next) => {
+  // Skip API routes - only handle frontend routes
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+
+  // Log request for debugging
+  console.log(`Serving static file for path: ${req.path}`);
+  
+  try {
+    // Try to send the index.html file for all client-side routes
+    // This supports React Router's client-side routing
+    const indexPath = path.join(__dirname, '../client/build/index.html');
+    
+    // Check if the file exists
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      // Log the error and potential paths for debugging
+      console.error(`Static file not found: ${indexPath}`);
+      console.error(`Current directory: ${__dirname}`);
+      console.error(`Attempted to serve: ${path.resolve(indexPath)}`);
+      
+      // List available directories for debugging
+      try {
+        const parentDir = path.join(__dirname, '..');
+        console.error(`Parent directory contents: ${fs.readdirSync(parentDir).join(', ')}`);
+        
+        if (fs.existsSync(path.join(parentDir, 'client'))) {
+          console.error(`Client directory contents: ${fs.readdirSync(path.join(parentDir, 'client')).join(', ')}`);
+        }
+      } catch (e) {
+        console.error(`Error listing directories: ${e.message}`);
+      }
+      
+      res.status(404).send('Client application not found. Please check server logs for details.');
+    }
+  } catch (err) {
+    console.error(`Error serving static file: ${err.message}`);
+    next(err);
+  }
 });
 
 // Start the server
