@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import OrganizationSelector from './OrganizationSelector';
 
 function ApiPage() {
   const [apiKey, setApiKey] = useState('');
@@ -19,110 +20,176 @@ function ApiPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [exampleTab, setExampleTab] = useState('transcript');
   const [currentOrganization, setCurrentOrganization] = useState(null);
+  const [userOrganizations, setUserOrganizations] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Base URL for the API, defaulting to localhost in development
   const baseApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   
+  // Fetch user data and available organizations on component mount
+  useEffect(() => {
+    const fetchUserAndOrganizations = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          setError('Authentication token not found. Please log in again.');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Fetch user data
+        const userData = localStorage.getItem('user_data');
+        if (userData) {
+          try {
+            const parsedUser = JSON.parse(userData);
+            setCurrentUser(parsedUser);
+          } catch (e) {
+            console.error('Error parsing user data:', e);
+          }
+        }
+        
+        // Setup request headers
+        const headers = {
+          'Authorization': `Bearer ${token}`
+        };
+        
+        // Force a unique timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        
+        // Fetch organizations
+        const endpoint = `${baseApiUrl}/api/master-admin/organizations?nocache=${timestamp}`;
+        const orgsResponse = await axios.get(endpoint, { headers });
+        
+        if (!orgsResponse.data || orgsResponse.data.length === 0) {
+          throw new Error('No organizations found in the system');
+        }
+        
+        setUserOrganizations(orgsResponse.data);
+        
+        // Get selected organization from localStorage or use first available
+        const savedOrg = localStorage.getItem('selectedOrganization');
+        let selectedOrg;
+        
+        if (savedOrg) {
+          try {
+            const parsedOrg = JSON.parse(savedOrg);
+            // Find the matching organization from the fetched organizations
+            selectedOrg = orgsResponse.data.find(org => org._id === parsedOrg.id);
+          } catch (e) {
+            console.error('Error parsing saved organization:', e);
+          }
+        }
+        
+        // If no saved org or saved org not found in fetched orgs, use first org
+        if (!selectedOrg && orgsResponse.data.length > 0) {
+          selectedOrg = orgsResponse.data[0];
+        }
+        
+        if (selectedOrg) {
+          setCurrentOrganization(selectedOrg);
+          // Fetch API key for the selected organization
+          fetchApiKeyForOrganization(selectedOrg);
+        } else {
+          setError('No organization available. Please contact your administrator.');
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('Error fetching user and organizations:', err);
+        setError(`Error loading data: ${err.message}`);
+        setIsLoading(false);
+      }
+    };
+    
+    fetchUserAndOrganizations();
+  }, []);
+
   // Generate a masked API key for display (last 8 chars are real)
   const maskApiKey = (key) => {
     if (!key) return 'Not available';
     return `••••••••••••••••${key.slice(-8)}`;
   };
+  
+  // Handle organization switching
+  const handleSwitchOrganization = (org) => {
+    setCurrentOrganization(org);
+    setApiKey('');
+    setApiStatus('Loading...');
+    setError(null);
+    
+    // Save selected organization to localStorage
+    try {
+      localStorage.setItem('selectedOrganization', JSON.stringify({
+        id: org._id,
+        name: org.name,
+        code: org.code
+      }));
+    } catch (e) {
+      console.error('Error saving organization to localStorage:', e);
+    }
+    
+    // Fetch API key for the newly selected organization
+    fetchApiKeyForOrganization(org);
+  };
 
-  // Get API key for the current context (Only Blooms or Master)
-  const fetchApiKeyForCurrentContext = async () => {
+  // Fetch API key for a specific organization
+  const fetchApiKeyForOrganization = async (organization) => {
     try {
       setIsLoading(true);
       setError(null);
+      
+      if (!organization || !organization._id) {
+        setError('Invalid organization. Please select a valid organization.');
+        setApiStatus('Error');
+        setIsLoading(false);
+        return;
+      }
       
       // Get the token from localStorage
       const token = localStorage.getItem('auth_token');
       
       if (!token) {
-        console.error('Authentication token not found');
         setError('Authentication token not found. Please log in again.');
         setApiStatus('Error');
         setIsLoading(false);
         return;
       }
       
-      // Setup request headers with organization context
+      // Setup request headers
       const headers = {
         'Authorization': `Bearer ${token}`
       };
       
-      try {
-        // Force a unique timestamp to prevent caching
-        const timestamp = new Date().getTime();
-        
-        // Fetch organizations to determine the appropriate one based on context
-        const orgsResponse = await axios.get(`${baseApiUrl}/api/master-admin/organizations?nocache=${timestamp}`, {
-          headers
-        });
-        
-        if (!orgsResponse.data || orgsResponse.data.length === 0) {
-          throw new Error('No organizations found in the system');
-        }
-        
-        // Find the target organization based on context
-        let targetOrg;
-        targetOrg = orgsResponse.data.find(org => org.isMaster);
-        
-        if (!targetOrg) {
-          // If no master org is found, use the first one
-          targetOrg = orgsResponse.data[0];
-          console.warn('No master organization found, using first organization instead:', targetOrg.name);
-        } else {
-          console.log('Master Organization mode - using organization:', targetOrg.name, targetOrg._id);
-        }
-        
-        setCurrentOrganization(targetOrg);
-        
-        // Fetch API key passing the organization context
-        // For Only Blooms mode, use a completely different endpoint to avoid path parameters
-        let apiEndpoint;
-        let requestHeaders = { ...headers }; // Clone the headers
-
-        apiEndpoint = `${baseApiUrl}/api/organizations/${targetOrg._id}/api-key?nocache=${timestamp}`;
-        
-        console.log('Making API key request to:', apiEndpoint);
-        console.log('With headers:', requestHeaders);
-        
-        const apiKeyResponse = await axios.get(
-          apiEndpoint, 
-          { headers: requestHeaders }
-        );
-        
-        console.log('Headers sent for API key request:', requestHeaders);
-        
-        if (apiKeyResponse.data && apiKeyResponse.data.key) {
-          const orgName = apiKeyResponse.data.organization?.name || targetOrg.name;
-          console.log(`Successfully retrieved API key for ${orgName}`);
-          setApiKey(apiKeyResponse.data.key);
-          setApiStatus('Valid');
-        } else {
-          const orgName = apiKeyResponse.data.organization?.name || targetOrg.name;
-          console.log(`No API key found for ${orgName}`);
-          setApiKey('');
-          setApiStatus('Not Found');
-          setError(`No active API key found for ${orgName}`);
-        }
-      } catch (err) {
-        console.error('Error fetching organization or API key:', err);
-        
-        let errorMessage = 'Failed to retrieve API key: ';
-        if (err.response && err.response.data && err.response.data.message) {
-          errorMessage += err.response.data.message;
-        } else {
-          errorMessage += err.message;
-        }
-        
-        setError(errorMessage);
-        setApiStatus('Error');
+      // Force a unique timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      
+      const apiEndpoint = `${baseApiUrl}/api/organizations/${organization._id}/api-key?nocache=${timestamp}`;
+      
+      console.log('Making API key request to:', apiEndpoint);
+      console.log('For organization:', organization.name, organization._id);
+      
+      const apiKeyResponse = await axios.get(apiEndpoint, { headers });
+      
+      if (apiKeyResponse.data && apiKeyResponse.data.key) {
+        console.log(`Successfully retrieved API key for ${organization.name}`);
+        setApiKey(apiKeyResponse.data.key);
+        setApiStatus('Valid');
+      } else {
+        console.log(`No API key found for ${organization.name}`);
+        setApiKey('');
+        setApiStatus('Not Found');
+        setError(`No active API key found for ${organization.name}`);
       }
     } catch (err) {
-      console.error('Error in fetchApiKeyForCurrentContext:', err);
-      setError(`Error loading API key: ${err.message}`);
+      console.error('Error fetching API key:', err);
+      
+      let errorMessage = 'Failed to retrieve API key: ';
+      if (err.response && err.response.data && err.response.data.message) {
+        errorMessage += err.response.data.message;
+      } else {
+        errorMessage += err.message;
+      }
+      
+      setError(errorMessage);
       setApiStatus('Error');
     } finally {
       setIsLoading(false);
@@ -137,7 +204,7 @@ function ApiPage() {
       setError(null);
       
       if (!currentOrganization || !currentOrganization._id) {
-        setError('No organization selected. Please refresh the page and try again.');
+        setError('No organization selected. Please select an organization and try again.');
         setIsGenerating(false);
         return;
       }
@@ -321,6 +388,16 @@ analyzeAudioUrl();`;
     return (
       <div className="api-page error">
         <h2>API Access</h2>
+        {userOrganizations.length > 0 && currentUser?.isMasterAdmin && (
+          <div className="org-selector-wrapper">
+            <OrganizationSelector
+              organizations={userOrganizations}
+              currentOrganization={currentOrganization}
+              onSelectOrganization={handleSwitchOrganization}
+              isMasterAdmin={currentUser?.isMasterAdmin}
+            />
+          </div>
+        )}
         <div className="error-container">
           <p className="error-message">{error}</p>
           {error.includes('No active API key found') && (
@@ -352,7 +429,19 @@ analyzeAudioUrl();`;
 
   return (
     <div className="api-page">
-      <h2>API Access</h2>
+      <div className="api-header">
+        <h2>API Access</h2>
+        {userOrganizations.length > 0 && currentUser?.isMasterAdmin && (
+          <div className="org-selector-wrapper">
+            <OrganizationSelector
+              organizations={userOrganizations}
+              currentOrganization={currentOrganization}
+              onSelectOrganization={handleSwitchOrganization}
+              isMasterAdmin={currentUser?.isMasterAdmin}
+            />
+          </div>
+        )}
+      </div>
       
       {successMessage && (
         <div className="success-message">

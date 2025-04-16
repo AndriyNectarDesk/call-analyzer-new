@@ -2419,3 +2419,28 @@ input:checked + .toggle-slider:before {
   background-color: #e3f2fd;
   color: #0d47a1;
 }
+
+/* API Page Organization Selector Styles */
+.api-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.api-header h2 {
+  margin: 0;
+}
+
+.org-selector-wrapper {
+  margin-left: 20px;
+}
+
+.api-page .org-selector-container {
+  margin-right: 0;
+}
+
+/* Make the error container display properly with the selector */
+.api-page.error .error-container {
+  margin-top: 20px;
+}
