@@ -247,10 +247,12 @@ exports.handleOrganizationContext = async (req, res, next) => {
     // Check for onlyBlooms context in various places (headers, query params, cookies)
     const onlyBlooms = 
       req.headers['x-only-blooms'] === 'true' || 
+      req.headers['x-organization-name']?.toLowerCase().includes('blooms') ||
       req.query.onlyBlooms === 'true' || 
       req.cookies?.onlyBlooms === 'true';
     
     console.log('Organization context middleware - Only Blooms mode:', onlyBlooms);
+    console.log('Request headers:', JSON.stringify(req.headers, null, 2));
     
     // Only proceed with context switching if onlyBlooms is true
     if (onlyBlooms) {
