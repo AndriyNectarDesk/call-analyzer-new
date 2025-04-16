@@ -19,7 +19,6 @@ function ApiPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [exampleTab, setExampleTab] = useState('transcript');
   const [currentOrganization, setCurrentOrganization] = useState(null);
-  const [onlyBloomsActive, setOnlyBloomsActive] = useState(localStorage.getItem('onlyBlooms') === 'true');
 
   // Base URL for the API, defaulting to localhost in development
   const baseApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -29,43 +28,6 @@ function ApiPage() {
     if (!key) return 'Not available';
     return `••••••••••••••••${key.slice(-8)}`;
   };
-
-  // Setup listener for Only Blooms mode changes
-  useEffect(() => {
-    const handleStorageChange = (event) => {
-      if (event.key === 'onlyBlooms') {
-        const newOnlyBloomsValue = event.newValue === 'true';
-        console.log('Only Blooms setting changed to:', newOnlyBloomsValue);
-        setOnlyBloomsActive(newOnlyBloomsValue);
-      }
-    };
-
-    // Check for direct changes to localStorage
-    const checkLocalStorage = () => {
-      const currentValue = localStorage.getItem('onlyBlooms') === 'true';
-      if (currentValue !== onlyBloomsActive) {
-        console.log('Only Blooms local setting changed to:', currentValue);
-        setOnlyBloomsActive(currentValue);
-      }
-    };
-
-    // Listen for storage events from other tabs
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Set up interval to check localStorage directly (for changes in same tab)
-    const intervalId = setInterval(checkLocalStorage, 1000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(intervalId);
-    };
-  }, [onlyBloomsActive]);
-
-  // Fetch API key whenever Only Blooms mode changes
-  useEffect(() => {
-    console.log('Organization context changed, Only Blooms mode:', onlyBloomsActive);
-    fetchApiKeyForCurrentContext();
-  }, [onlyBloomsActive]);
 
   // Get API key for the current context (Only Blooms or Master)
   const fetchApiKeyForCurrentContext = async () => {
@@ -84,20 +46,10 @@ function ApiPage() {
         return;
       }
       
-      const isOnlyBlooms = localStorage.getItem('onlyBlooms') === 'true';
-      console.log('Current context - Only Blooms mode:', isOnlyBlooms);
-      
       // Setup request headers with organization context
       const headers = {
         'Authorization': `Bearer ${token}`
       };
-      
-      // Add Only Blooms context header if active
-      if (isOnlyBlooms) {
-        headers['X-Only-Blooms'] = 'true';
-        headers['X-Organization-Name'] = 'Blooms'; // Add the newer header format as well
-        console.log('Adding headers for server-side context:', headers);
-      }
       
       try {
         // Force a unique timestamp to prevent caching
@@ -114,28 +66,14 @@ function ApiPage() {
         
         // Find the target organization based on context
         let targetOrg;
-        if (isOnlyBlooms) {
-          // Find Only Blooms organization
-          targetOrg = orgsResponse.data.find(org => 
-            org.name.includes('Blooms') || org.code.includes('blooms')
-          );
-          
-          if (!targetOrg) {
-            throw new Error('Only Blooms organization not found');
-          }
-          
-          console.log('Only Blooms mode active - using organization:', targetOrg.name, targetOrg._id);
+        targetOrg = orgsResponse.data.find(org => org.isMaster);
+        
+        if (!targetOrg) {
+          // If no master org is found, use the first one
+          targetOrg = orgsResponse.data[0];
+          console.warn('No master organization found, using first organization instead:', targetOrg.name);
         } else {
-          // Find Master organization
-          targetOrg = orgsResponse.data.find(org => org.isMaster);
-          
-          if (!targetOrg) {
-            // If no master org is found, use the first one
-            targetOrg = orgsResponse.data[0];
-            console.warn('No master organization found, using first organization instead:', targetOrg.name);
-          } else {
-            console.log('Master Organization mode - using organization:', targetOrg.name, targetOrg._id);
-          }
+          console.log('Master Organization mode - using organization:', targetOrg.name, targetOrg._id);
         }
         
         setCurrentOrganization(targetOrg);
@@ -145,18 +83,7 @@ function ApiPage() {
         let apiEndpoint;
         let requestHeaders = { ...headers }; // Clone the headers
 
-        if (isOnlyBlooms) {
-          // Use generic endpoint with query parameter
-          apiEndpoint = `${baseApiUrl}/api/organizations/api-key-by-query?organizationId=${targetOrg._id}&nocache=${timestamp}`;
-          console.log('Using special endpoint for Only Blooms mode:', apiEndpoint);
-          
-          // Ensure the headers have the organization context
-          requestHeaders['X-Only-Blooms'] = 'true';
-          requestHeaders['X-Organization-Name'] = 'Blooms';
-        } else {
-          // Regular endpoint with ID in path
-          apiEndpoint = `${baseApiUrl}/api/organizations/${targetOrg._id}/api-key?nocache=${timestamp}`;
-        }
+        apiEndpoint = `${baseApiUrl}/api/organizations/${targetOrg._id}/api-key?nocache=${timestamp}`;
         
         console.log('Making API key request to:', apiEndpoint);
         console.log('With headers:', requestHeaders);

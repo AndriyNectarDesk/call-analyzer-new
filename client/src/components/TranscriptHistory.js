@@ -1,63 +1,64 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import './TranscriptHistory.css';
 
 function TranscriptHistory() {
   const [transcripts, setTranscripts] = useState([]);
   const [filteredTranscripts, setFilteredTranscripts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [filterOrganization, setFilterOrganization] = useState('');
   const [organizations, setOrganizations] = useState([]);
+  const [filterOrganization, setFilterOrganization] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [currentOrganization, setCurrentOrganization] = useState(null);
-
+  
   // Check if user is master admin
   const isMasterAdmin = currentUser?.isMasterAdmin;
   
-  // Check if we're in master organization context
-  const isMasterOrganizationSelected = () => {
-    if (!currentOrganization) return false;
-    return currentOrganization.code === 'master-org';
-  };
-
+  // Get the current user from local storage on mount
   useEffect(() => {
-    // Get current user and organization from localStorage
-    const fetchUserContext = async () => {
+    fetchUserContext();
+    
+    async function fetchUserContext() {
       try {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-          const response = await fetch(`${apiUrl}/api/auth/me`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            setCurrentUser(data.user);
-            
-            // Get current organization from localStorage
-            try {
-              const savedOrg = localStorage.getItem('selectedOrganization');
-              if (savedOrg) {
-                setCurrentOrganization(JSON.parse(savedOrg));
-              } else if (data.user.organization) {
-                setCurrentOrganization(data.user.organization);
-              }
-            } catch (e) {
-              console.error('Error loading organization from localStorage:', e);
-            }
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
+          setLoading(false);
+          return;
+        }
+        
+        const userData = localStorage.getItem('user_data');
+        if (userData) {
+          try {
+            const parsedUser = JSON.parse(userData);
+            setCurrentUser(parsedUser);
+          } catch (e) {
+            console.error('Error parsing user data:', e);
+          }
+        }
+        
+        const orgData = localStorage.getItem('selectedOrganization');
+        if (orgData) {
+          try {
+            const parsedOrg = JSON.parse(orgData);
+            setCurrentOrganization(parsedOrg);
+          } catch (e) {
+            console.error('Error parsing organization data:', e);
           }
         }
       } catch (err) {
         console.error('Error fetching user context:', err);
       }
-    };
-    
-    fetchUserContext();
+    }
   }, []);
-
+  
+  // Check if the current organization is the master organization
+  const isMasterOrganizationSelected = () => {
+    if (!currentOrganization) return false;
+    return currentOrganization.code === 'master-org';
+  };
+  
+  // Fetch transcripts when user and organization are loaded
   useEffect(() => {
     const fetchTranscripts = async () => {
       try {
@@ -66,24 +67,16 @@ function TranscriptHistory() {
         const token = localStorage.getItem('auth_token');
         
         if (!token) {
-          setError('Authentication required');
+          setError('Authentication token not found. Please log in again.');
           setLoading(false);
           return;
         }
         
-        // Check if "Only Blooms" is active
-        const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
-        
-        // Only master admins in master org context can see all transcripts
-        // Others should see only their organization's transcripts
+        // Determine the URL based on user's role and organization context
         let url = `${apiUrl}/api/transcripts`;
         
-        // If Only Blooms is active, always filter by current organization
-        if (onlyBloomsActive && currentOrganization?.id) {
-          url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization.id}`;
-        }
-        // Otherwise, if not a master admin or not in master org context, filter by current organization
-        else if (!(isMasterAdmin && isMasterOrganizationSelected()) && currentOrganization?.id) {
+        // If not a master admin or not in master org context, filter by current organization
+        if (!(isMasterAdmin && isMasterOrganizationSelected()) && currentOrganization?.id) {
           url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization.id}`;
         }
         
@@ -102,7 +95,7 @@ function TranscriptHistory() {
         setFilteredTranscripts(data);
         
         // Extract unique organization names - only if master admin in master org
-        if (isMasterAdmin && isMasterOrganizationSelected() && !onlyBloomsActive) {
+        if (isMasterAdmin && isMasterOrganizationSelected()) {
           const uniqueOrganizations = [...new Set(data
             .filter(t => t.organizationId && t.organizationId.name)
             .map(t => t.organizationId.name)
@@ -124,78 +117,7 @@ function TranscriptHistory() {
     if (currentUser && currentOrganization) {
       fetchTranscripts();
     }
-  }, [currentUser, currentOrganization, isMasterAdmin]);
-  
-  // Listen for changes to the "Only Blooms" setting
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'onlyBlooms' && currentUser && currentOrganization) {
-        // Refetch transcripts when Only Blooms setting changes
-        fetchTranscripts();
-      }
-    };
-    
-    const fetchTranscripts = async () => {
-      try {
-        setLoading(true);
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        const token = localStorage.getItem('auth_token');
-        const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
-        
-        // By default, use the base API endpoint
-        let url = `${apiUrl}/api/transcripts`;
-        
-        // If Only Blooms is active, ALWAYS filter by current organization
-        if (onlyBloomsActive && currentOrganization?.id) {
-          url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization.id}`;
-          console.log("[Storage Change] Filtering by organization ID:", currentOrganization.id, "- Only Blooms active");
-        }
-        // Otherwise, if not a master admin or not in master org context, filter by current organization
-        else if (!(isMasterAdmin && isMasterOrganizationSelected()) && currentOrganization?.id) {
-          url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization.id}`;
-          console.log("[Storage Change] Filtering by organization ID:", currentOrganization.id, "- Regular user or not in master org");
-        } else if (isMasterAdmin && isMasterOrganizationSelected()) {
-          console.log("[Storage Change] Not filtering by organization - Master admin in master org");
-        }
-        
-        console.log("[Storage Change] Making API request to:", url);
-        
-        const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch transcripts');
-        }
-        
-        const data = await response.json();
-        console.log(`[Storage Change] Received ${data.length} transcripts`);
-        setTranscripts(data);
-        setFilteredTranscripts(data);
-        
-        // Update organization filter options
-        if (isMasterAdmin && isMasterOrganizationSelected() && !onlyBloomsActive) {
-          const uniqueOrganizations = [...new Set(data
-            .filter(t => t.organizationId && t.organizationId.name)
-            .map(t => t.organizationId.name)
-          )];
-          setOrganizations(uniqueOrganizations);
-        } else {
-          setOrganizations([]);
-          setFilterOrganization('');
-        }
-      } catch (err) {
-        console.error('Error refreshing transcripts:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [currentUser, currentOrganization, isMasterAdmin]);
+  }, [currentUser, currentOrganization]);
   
   // Filter transcripts when filterOrganization changes
   useEffect(() => {
@@ -240,14 +162,12 @@ function TranscriptHistory() {
     return <div className="error-message">{error}</div>;
   }
 
-  const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
-
   return (
     <div className="history-container">
       <h2>Transcript History</h2>
       
-      {/* Only show organization filter for master admins in master org context and Only Blooms is not active*/}
-      {isMasterAdmin && isMasterOrganizationSelected() && !onlyBloomsActive && organizations.length > 0 && (
+      {/* Only show organization filter for master admins in master org context */}
+      {isMasterAdmin && isMasterOrganizationSelected() && organizations.length > 0 && (
         <div className="filter-controls">
           <div className="filter-group">
             <label htmlFor="organizationFilter">Filter by Organization:</label>
@@ -293,7 +213,7 @@ function TranscriptHistory() {
                   {getCallTypeLabel(transcript.callType)}
                 </span>
                 {/* Only show organization badge if master admin in master org context */}
-                {isMasterAdmin && isMasterOrganizationSelected() && !onlyBloomsActive && transcript.organizationId && (
+                {isMasterAdmin && isMasterOrganizationSelected() && transcript.organizationId && (
                   <span className="organization-badge">
                     Org: {transcript.organizationId.name}
                   </span>

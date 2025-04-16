@@ -13,7 +13,7 @@ const mongoose = require('mongoose');
 const Transcript = require(require('path').resolve(__dirname, 'models', 'transcript'));
 const CallType = require(require('path').resolve(__dirname, 'models', 'callType'));
 const Organization = require(require('path').resolve(__dirname, 'models', 'organization'));
-const { authenticateApiKey } = require('./middleware/authMiddleware');
+const { authenticateApiKey, authenticateJWT, handleOrganizationContext } = require('./middleware/authMiddleware');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -452,7 +452,6 @@ app.post('/api/analyze', async (req, res, next) => {
     
     // Check if organization override is provided in headers - process this with highest priority
     const orgNameHeader = req.headers['x-organization-name'];
-    const onlyBloomsHeader = req.headers['x-only-blooms']; // For backward compatibility
     
     let targetOrgName = null;
     
@@ -460,10 +459,6 @@ app.post('/api/analyze', async (req, res, next) => {
       // New general approach - any organization can be specified by name
       targetOrgName = orgNameHeader;
       console.log(`Organization override detected via X-Organization-Name: ${targetOrgName}`);
-    } else if (onlyBloomsHeader === 'true') {
-      // Legacy support for Only Blooms mode
-      targetOrgName = 'Blooms';
-      console.log('Only Blooms mode detected via X-Only-Blooms header');
     }
     
     // If we have a target organization name, try to find the matching organization
@@ -1032,7 +1027,6 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     
     // Check if organization override is provided in headers - process this with highest priority
     const orgNameHeader = req.headers['x-organization-name'];
-    const onlyBloomsHeader = req.headers['x-only-blooms']; // For backward compatibility
     
     let targetOrgName = null;
     
@@ -1040,10 +1034,6 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
       // New general approach - any organization can be specified by name
       targetOrgName = orgNameHeader;
       console.log(`Organization override detected via X-Organization-Name: ${targetOrgName}`);
-    } else if (onlyBloomsHeader === 'true') {
-      // Legacy support for Only Blooms mode
-      targetOrgName = 'Blooms';
-      console.log('Only Blooms mode detected via X-Only-Blooms header');
     }
     
     // If we have a target organization name, try to find the matching organization
