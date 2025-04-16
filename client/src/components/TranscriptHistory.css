@@ -86,6 +86,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
   font-size: 0.85rem;
 }
 
@@ -109,6 +110,10 @@
 
 .source {
   white-space: nowrap;
+  background-color: #f3f3f3;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
 }
 
 .card-summary {
@@ -162,6 +167,7 @@
   border-radius: 4px;
   font-size: 0.8rem;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .nectar-desk-badge {
