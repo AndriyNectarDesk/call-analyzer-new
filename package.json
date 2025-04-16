@@ -9,6 +9,7 @@
     "bcryptjs": "^3.0.2",
     "call-analyzer": "file:",
     "crypto": "^1.0.1",
+    "js-cookie": "^3.0.5",
     "jsonwebtoken": "^9.0.2"
   }
 }
