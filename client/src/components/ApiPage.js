@@ -19,6 +19,7 @@ function ApiPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [exampleTab, setExampleTab] = useState('transcript');
   const [currentOrganization, setCurrentOrganization] = useState(null);
+  const [onlyBloomsActive, setOnlyBloomsActive] = useState(localStorage.getItem('onlyBlooms') === 'true');
 
   // Base URL for the API, defaulting to localhost in development
   const baseApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -29,10 +30,34 @@ function ApiPage() {
     return `••••••••••••••••${key.slice(-8)}`;
   };
 
-  // Check API key status from server
+  // Setup listener for Only Blooms mode changes
   useEffect(() => {
+    const handleStorageChange = () => {
+      const newOnlyBloomsValue = localStorage.getItem('onlyBlooms') === 'true';
+      if (newOnlyBloomsValue !== onlyBloomsActive) {
+        console.log('Only Blooms setting changed to:', newOnlyBloomsValue);
+        setOnlyBloomsActive(newOnlyBloomsValue);
+      }
+    };
+
+    // Listen for storage events
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check directly when component mounts
+    handleStorageChange();
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [onlyBloomsActive]);
+
+  // Check API key status from server whenever Only Blooms mode changes
+  useEffect(() => {
+    console.log('Fetching API key due to organization change or mount, Only Blooms mode:', onlyBloomsActive);
+    setIsLoading(true);
+    setError(null);
     fetchApiKey();
-  }, []);
+  }, [onlyBloomsActive]);
 
   const fetchApiKey = async () => {
     try {
@@ -50,6 +75,10 @@ function ApiPage() {
         return;
       }
       
+      // Check for Only Blooms mode
+      const isOnlyBlooms = localStorage.getItem('onlyBlooms') === 'true';
+      console.log('Fetching API key with Only Blooms mode:', isOnlyBlooms);
+      
       // Get user info to check organization ID
       try {
         const userResponse = await axios.get(`${baseApiUrl}/api/auth/me`, {
@@ -58,51 +87,108 @@ function ApiPage() {
           }
         });
         console.log('Current user info:', userResponse.data);
-        if (!userResponse.data.user?.organization?._id) {
-          console.error('User has no organization ID', userResponse.data);
-          setError('Your account is not associated with an organization. Please contact an administrator.');
+        
+        if (!userResponse.data.user) {
+          console.error('User data not found in response', userResponse.data);
+          setError('Failed to retrieve user information. Please try logging in again.');
           setApiStatus('Error');
           setIsLoading(false);
           return;
         }
+        
+        const userData = userResponse.data.user;
+        
+        // Handle different scenarios based on Only Blooms mode and user role
+        if (isOnlyBlooms) {
+          console.log('Only Blooms mode is active, fetching organizations to find Blooms');
+          
+          // Fetch all organizations to find Blooms
+          const orgsEndpoint = userData.isMasterAdmin 
+            ? `${baseApiUrl}/api/master-admin/organizations` 
+            : `${baseApiUrl}/api/organizations/all`;
+            
+          const orgsResponse = await axios.get(orgsEndpoint, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (!orgsResponse.data || orgsResponse.data.length === 0) {
+            console.error('No organizations found');
+            setError('No organizations found in the system');
+            setApiStatus('Error');
+            setIsLoading(false);
+            return;
+          }
+          
+          // Find the Blooms organization
+          const bloomsOrg = orgsResponse.data.find(org => 
+            org.name.includes('Blooms') || org.code.includes('blooms')
+          );
+          
+          if (!bloomsOrg) {
+            console.error('Blooms organization not found');
+            setError('Only Blooms mode active but no Blooms organization found');
+            setApiStatus('Error');
+            setIsLoading(false);
+            return;
+          }
+          
+          console.log('Found Blooms organization for API key:', bloomsOrg.name, bloomsOrg._id);
+          setCurrentOrganization(bloomsOrg);
+          
+          // Fetch API key for Blooms organization
+          await fetchOrganizationApiKey(token, bloomsOrg._id);
+        }
+        // Regular user with assigned organization
+        else if (userData.organization && userData.organization._id) {
+          const userOrg = userData.organization;
+          console.log('Using user organization for API key:', userOrg.name, userOrg._id);
+          setCurrentOrganization(userOrg);
+          
+          // Fetch API key for user's organization
+          await fetchOrganizationApiKey(token, userOrg._id);
+        }
+        // Master admin without an organization
+        else if (userData.isMasterAdmin) {
+          console.log('Master admin detected, fetching master organization');
+          
+          const orgsResponse = await axios.get(`${baseApiUrl}/api/master-admin/organizations`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (!orgsResponse.data || orgsResponse.data.length === 0) {
+            console.error('No organizations found for master admin');
+            setError('No organizations found in the system');
+            setApiStatus('Error');
+            setIsLoading(false);
+            return;
+          }
+          
+          // Find master org or use first org
+          const masterOrg = orgsResponse.data.find(org => org.isMaster) || orgsResponse.data[0];
+          console.log('Master admin using organization for API key:', masterOrg.name, masterOrg._id);
+          setCurrentOrganization(masterOrg);
+          
+          // Fetch API key for master organization
+          await fetchOrganizationApiKey(token, masterOrg._id);
+        }
+        else {
+          console.error('User has no organization and is not a master admin', userData);
+          setError('Your account is not associated with an organization. Please contact an administrator.');
+          setApiStatus('Error');
+          setIsLoading(false);
+        }
       } catch (userErr) {
         console.error('Error fetching user info:', userErr);
-      }
-      
-      console.log('Fetching API key from:', `${baseApiUrl}/api/organizations/api-key`);
-      
-      // Fetch the API key from the server
-      const response = await axios.get(`${baseApiUrl}/api/organizations/api-key`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      console.log('API key response:', { 
-        status: response.status, 
-        data: response.data ? '(data received)' : 'no data',
-        hasKey: response.data?.key ? 'yes' : 'no'
-      });
-      
-      if (response.data && response.data.key) {
-        setApiKey(response.data.key);
-        setApiStatus('Valid');
-      } else {
-        console.error('No key in response data:', response.data);
-        setApiKey('');
-        setApiStatus('Not Found');
+        setError('Error retrieving user information: ' + userErr.message);
+        setApiStatus('Error');
+        setIsLoading(false);
       }
     } catch (err) {
-      console.error('Error fetching API key:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response ? {
-          status: err.response.status,
-          data: err.response.data
-        } : 'No response',
-        request: err.request ? 'Request was made but no response' : 'No request'
-      });
-      
+      console.error('Error in fetchApiKey:', err);
       let errorMessage = 'Error loading API key information. ';
       if (err.response && err.response.data) {
         errorMessage += err.response.data.message || JSON.stringify(err.response.data);
@@ -112,7 +198,6 @@ function ApiPage() {
       
       setError(errorMessage);
       setApiStatus('Error');
-    } finally {
       setIsLoading(false);
     }
   };
