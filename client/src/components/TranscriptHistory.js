@@ -168,7 +168,19 @@ function TranscriptHistory() {
   // Fetch transcripts when page changes or when user/organization context changes
   useEffect(() => {
     if (page && (currentUser || currentOrganization)) {
+      console.log('===== Transcript Fetch Debug =====');
+      console.log('Call History: Initiating fetch with user and org context:');
+      console.log('Current user:', currentUser ? `${currentUser.firstName} ${currentUser.lastName} (${currentUser.email})` : 'No user');
+      console.log('Current organization:', currentOrganization ? `${currentOrganization.name} (${currentOrganization._id})` : 'No organization');
+      console.log('================================');
       fetchTranscripts();
+    } else {
+      console.log('===== Transcript Fetch Debug =====');
+      console.log('Call History: Not fetching because:');
+      console.log('- page:', page);
+      console.log('- currentUser:', Boolean(currentUser));
+      console.log('- currentOrganization:', Boolean(currentOrganization));
+      console.log('================================');
     }
   }, [page, currentUser, currentOrganization]);
   
@@ -207,11 +219,14 @@ function TranscriptHistory() {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
+        console.error('No auth token found in localStorage');
         setError('Authentication required. Please log in again.');
         setLoading(false);
         window.location.href = '/login'; // Redirect to login if no token
         return;
       }
+      
+      console.log('Transcript fetch: Auth token exists and has length:', token.length);
       
       // Validate token format - basic check for JWT format (header.payload.signature)
       const tokenParts = token.split('.');
@@ -231,6 +246,8 @@ function TranscriptHistory() {
       // Check if token is expired
       if (isTokenExpired(decodedToken)) {
         console.error('Token has expired');
+        console.error('Token expiry:', new Date(decodedToken.exp * 1000).toLocaleString());
+        console.error('Current time:', new Date().toLocaleString());
         setError('Your session has expired. Please log in again.');
         localStorage.removeItem('auth_token');
         setLoading(false);
@@ -270,67 +287,130 @@ function TranscriptHistory() {
         }
       }
       
-      console.log('Fetching transcripts URL:', url);
-      console.log('Fetching transcripts with headers:', headers);
-      console.log('Current organization:', currentOrganization);
+      console.log('===== Transcript API Request Debug =====');
+      console.log('URL:', url);
+      console.log('Headers:', JSON.stringify(headers));
+      console.log('=======================================');
       
-      const response = await axios.get(url, { headers });
-      
-      // Add detailed response logging
-      console.log('Full API Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        data: response.data
-      });
-      
-      // Validate response data structure
-      if (!response.data) {
-        throw new Error('Empty response received from server');
-      }
-      
-      // Log the exact shape of the response data
-      console.log('Response data structure:', {
-        hasTranscripts: Boolean(response.data.transcripts),
-        transcriptsIsArray: Array.isArray(response.data.transcripts),
-        hasPagination: Boolean(response.data.pagination),
-        paginationShape: response.data.pagination ? Object.keys(response.data.pagination) : null,
-        dataShape: Object.keys(response.data)
-      });
-      
-      // Handle different API response formats
-      if (response.data.transcripts && Array.isArray(response.data.transcripts)) {
-        console.log('Response format: transcripts array with data.transcripts');
-        setTranscripts(response.data.transcripts);
-        setTotalPages(response.data.pagination?.pages || 1);
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        console.log('Response format: data array with data.data');
-        setTranscripts(response.data.data);
-        setTotalPages(response.data.totalPages || response.data.meta?.totalPages || 1);
-      } else if (Array.isArray(response.data)) {
-        console.log('Response format: direct array');
-        setTranscripts(response.data);
-        setTotalPages(1);
-      } else {
-        console.error('Unexpected API response format:', response.data);
+      try {
+        console.log('Executing axios.get request...');
+        const response = await axios.get(url, { headers });
+        console.log('API request completed successfully');
+        
+        // Add detailed response logging
+        console.log('Full API Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+          data: response.data
+        });
+        
+        // Validate response data structure
+        if (!response.data) {
+          throw new Error('Empty response received from server');
+        }
+        
+        // Log the exact shape of the response data
+        console.log('Response data structure:', {
+          hasTranscripts: Boolean(response.data.transcripts),
+          transcriptsIsArray: Array.isArray(response.data.transcripts),
+          hasPagination: Boolean(response.data.pagination),
+          paginationShape: response.data.pagination ? Object.keys(response.data.pagination) : null,
+          dataShape: Object.keys(response.data)
+        });
+        
+        // Handle different API response formats
+        if (response.data.transcripts && Array.isArray(response.data.transcripts)) {
+          console.log('Response format: transcripts array with data.transcripts');
+          setTranscripts(response.data.transcripts);
+          setTotalPages(response.data.pagination?.pages || 1);
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          console.log('Response format: data array with data.data');
+          setTranscripts(response.data.data);
+          setTotalPages(response.data.totalPages || response.data.meta?.totalPages || 1);
+        } else if (Array.isArray(response.data)) {
+          console.log('Response format: direct array');
+          setTranscripts(response.data);
+          setTotalPages(1);
+        } else {
+          console.error('Unexpected API response format:', response.data);
+          setTranscripts([]);
+          setTotalPages(1);
+          setError('Unexpected API response format. Please check the console for details.');
+        }
+        
+        // Update filtered transcripts based on current filter
+        if (!filterOrganization) {
+          setFilteredTranscripts(response.data.transcripts || 
+                                 response.data.data || 
+                                 (Array.isArray(response.data) ? response.data : []));
+        } else {
+          const dataArray = response.data.transcripts || 
+                            response.data.data || 
+                            (Array.isArray(response.data) ? response.data : []);
+          
+          setFilteredTranscripts(dataArray.filter(
+            t => t.organizationId && t.organizationId.name === filterOrganization
+          ));
+        }
+      } catch (error) {
+        console.error('Error fetching transcripts:', error);
+        console.error('Error details:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          responseData: error.response?.data,
+          responseHeaders: error.response?.headers,
+          config: {
+            url: error.config?.url,
+            method: error.config?.method,
+            headers: error.config?.headers,
+            data: error.config?.data
+          }
+        });
+        
+        // Handle network errors (CORS, connection issues, etc)
+        if (error.message && (
+            error.message.includes('Network Error') || 
+            error.message.includes('CORS') || 
+            !error.response)) {
+          setError('Network error: Could not connect to the server. Please check your connection and try again.');
+          console.error('Network or CORS error detected:', error.message);
+        } else {
+          const errorMessage = error.response?.data?.message || error.message || 'An error occurred while fetching transcripts';
+          setError(errorMessage);
+        }
+        
+        // Check for authentication errors
+        if (error.response?.status === 401) {
+          setError('Your session has expired. Please log in again.');
+          // Clear auth token to force login
+          localStorage.removeItem('auth_token');
+        }
+        
+        // Handle server errors
+        if (error.response?.status >= 500) {
+          setError('Server error: The server encountered an issue. Please try again later or contact support.');
+          console.error('Server error detected:', error.response?.status, error.response?.statusText);
+        }
+        
+        // Check if we received HTML instead of JSON (likely a login page)
+        if (error.response?.data && typeof error.response.data === 'string' && 
+           (error.response.data.includes('<!doctype html>') || error.response.data.includes('<html'))) {
+          console.error('Received HTML response instead of JSON. You may need to log in again.');
+          setError('Session expired or authentication error. Please refresh the page and log in again.');
+          // Clear auth token to force login
+          localStorage.removeItem('auth_token');
+          // Redirect to login page after a short delay
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        }
+        
         setTranscripts([]);
         setTotalPages(1);
-        setError('Unexpected API response format. Please check the console for details.');
-      }
-      
-      // Update filtered transcripts based on current filter
-      if (!filterOrganization) {
-        setFilteredTranscripts(response.data.transcripts || 
-                               response.data.data || 
-                               (Array.isArray(response.data) ? response.data : []));
-      } else {
-        const dataArray = response.data.transcripts || 
-                          response.data.data || 
-                          (Array.isArray(response.data) ? response.data : []);
-        
-        setFilteredTranscripts(dataArray.filter(
-          t => t.organizationId && t.organizationId.name === filterOrganization
-        ));
+      } finally {
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error fetching transcripts:', error);
@@ -388,8 +468,6 @@ function TranscriptHistory() {
       
       setTranscripts([]);
       setTotalPages(1);
-    } finally {
-      setLoading(false);
     }
   };
   

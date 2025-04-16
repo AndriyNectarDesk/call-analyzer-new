@@ -5,6 +5,8 @@ const Organization = require('../models/organization');
 // Get all transcripts
 exports.getAllTranscripts = async (req, res) => {
   try {
+    console.log('===== TRANSCRIPT API DEBUG =====');
+    
     // Filter by organization ID from authenticated user or request
     const organizationId = req.tenantId || req.user.organizationId;
     console.log('Getting transcripts for organization:', organizationId);
@@ -39,6 +41,12 @@ exports.getAllTranscripts = async (req, res) => {
       // Look up the organization to see if it's marked as the master organization
       try {
         const organization = await Organization.findById(organizationId);
+        console.log('Organization lookup result:', organization ? {
+          id: organization._id,
+          name: organization.name,
+          isMaster: organization.isMaster
+        } : 'Organization not found');
+        
         if (organization && organization.isMaster === true) {
           isMasterOrg = true;
           console.log('Found master organization with ID:', organizationId);
@@ -98,9 +106,25 @@ exports.getAllTranscripts = async (req, res) => {
     
     console.log('Final transcript query:', JSON.stringify(query));
     
+    // DEBUG: Check if collection exists and has documents
+    try {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      const collectionNames = collections.map(c => c.name);
+      console.log('Available collections:', collectionNames);
+      
+      if (collectionNames.includes('transcripts')) {
+        const count = await Transcript.countDocuments({});
+        console.log('Total documents in transcripts collection:', count);
+      } else {
+        console.log('Warning: transcripts collection does not exist in database');
+      }
+    } catch (err) {
+      console.error('Error checking collections:', err);
+    }
+    
     // Get total count for pagination
     const total = await Transcript.countDocuments(query);
-    console.log('Total matching transcripts:', total);
+    console.log('Total matching transcripts for query:', total);
     
     // Get transcripts with pagination
     const transcripts = await Transcript.find(query)
