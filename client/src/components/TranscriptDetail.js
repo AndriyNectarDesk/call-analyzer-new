@@ -74,6 +74,9 @@ function TranscriptDetail() {
         {/* Header Info */}
         <div className="meta-info">
           <p>
+            <strong>Transcript ID:</strong> {id}
+          </p>
+          <p>
             <strong>Date:</strong> {new Date(createdAt).toLocaleString()}
           </p>
           <p>

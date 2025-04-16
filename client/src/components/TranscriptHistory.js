@@ -278,6 +278,9 @@ function TranscriptHistory() {
                 <span className="score">
                   Overall Score: {transcript.analysis.scorecard.overallScore}/10
                 </span>
+                <span className="transcript-id">
+                  ID: {transcript._id}
+                </span>
                 <span className="source">
                   Source: {
                     transcript.source === 'api' ? 'API' : 

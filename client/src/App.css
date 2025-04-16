@@ -2395,3 +2395,27 @@ input:checked + .toggle-slider:before {
     padding: 20px;
   }
 }
+
+.card-header .score,
+.card-header .date,
+.card-header .source,
+.card-header .transcript-id {
+  margin-right: 15px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.transcript-id {
+  font-family: monospace;
+  background-color: #f5f5f5;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  color: #666;
+  border: 1px solid #e0e0e0;
+}
+
+.card-header .organization-badge {
+  background-color: #e3f2fd;
+  color: #0d47a1;
+}
