@@ -25,9 +25,12 @@ exports.getAllTranscripts = async (req, res) => {
     // Check if the current organization is the master organization
     // We use organization ID for reliable identification
     const MASTER_ORG_ID = process.env.MASTER_ORG_ID || '64d5ece33f7443afa6b684d2'; // Default ID or from env
-    const isMasterOrg = req.overrideOrganizationId === MASTER_ORG_ID;
     
-    console.log('Is master organization context:', isMasterOrg, 'Current ID:', req.overrideOrganizationId, 'Master ID:', MASTER_ORG_ID);
+    // Use the organizationId that was set by the tenant isolation middleware
+    const currentOrgId = organizationId ? organizationId.toString() : null;
+    const isMasterOrg = currentOrgId === MASTER_ORG_ID;
+    
+    console.log('Is master organization context:', isMasterOrg, 'Current ID:', currentOrgId, 'Master ID:', MASTER_ORG_ID);
     
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
@@ -43,7 +46,16 @@ exports.getAllTranscripts = async (req, res) => {
     } else {
       // For any non-master organization, strictly filter by organization ID
       console.log('Filtering transcripts by organization ID:', organizationId);
-      query.organizationId = organizationId;
+      
+      // Use MongoDB ObjectId for proper comparison
+      // This ensures we correctly filter by organization 
+      try {
+        query.organizationId = new mongoose.Types.ObjectId(organizationId);
+      } catch (err) {
+        console.error('Error converting organizationId to ObjectId:', err);
+        // Fall back to string comparison if conversion fails
+        query.organizationId = organizationId;
+      }
     }
     
     // Add filters
