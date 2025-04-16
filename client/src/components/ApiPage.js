@@ -32,34 +32,43 @@ function ApiPage() {
 
   // Setup listener for Only Blooms mode changes
   useEffect(() => {
-    const handleStorageChange = () => {
-      const newOnlyBloomsValue = localStorage.getItem('onlyBlooms') === 'true';
-      if (newOnlyBloomsValue !== onlyBloomsActive) {
+    const handleStorageChange = (event) => {
+      if (event.key === 'onlyBlooms') {
+        const newOnlyBloomsValue = event.newValue === 'true';
         console.log('Only Blooms setting changed to:', newOnlyBloomsValue);
         setOnlyBloomsActive(newOnlyBloomsValue);
       }
     };
 
-    // Listen for storage events
+    // Check for direct changes to localStorage
+    const checkLocalStorage = () => {
+      const currentValue = localStorage.getItem('onlyBlooms') === 'true';
+      if (currentValue !== onlyBloomsActive) {
+        console.log('Only Blooms local setting changed to:', currentValue);
+        setOnlyBloomsActive(currentValue);
+      }
+    };
+
+    // Listen for storage events from other tabs
     window.addEventListener('storage', handleStorageChange);
     
-    // Also check directly when component mounts
-    handleStorageChange();
+    // Set up interval to check localStorage directly (for changes in same tab)
+    const intervalId = setInterval(checkLocalStorage, 1000);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      clearInterval(intervalId);
     };
   }, [onlyBloomsActive]);
 
-  // Check API key status from server whenever Only Blooms mode changes
+  // Fetch API key whenever Only Blooms mode changes
   useEffect(() => {
-    console.log('Fetching API key due to organization change or mount, Only Blooms mode:', onlyBloomsActive);
-    setIsLoading(true);
-    setError(null);
-    fetchApiKey();
+    console.log('Organization context changed, Only Blooms mode:', onlyBloomsActive);
+    fetchApiKeyForCurrentContext();
   }, [onlyBloomsActive]);
 
-  const fetchApiKey = async () => {
+  // Get API key for the current context (Only Blooms or Master)
+  const fetchApiKeyForCurrentContext = async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -75,141 +84,103 @@ function ApiPage() {
         return;
       }
       
-      // Check for Only Blooms mode
       const isOnlyBlooms = localStorage.getItem('onlyBlooms') === 'true';
-      console.log('Fetching API key with Only Blooms mode:', isOnlyBlooms);
+      console.log('Current context - Only Blooms mode:', isOnlyBlooms);
       
-      // Get user info to check organization ID
+      // Fetch organizations to find the correct one based on context
       try {
-        const userResponse = await axios.get(`${baseApiUrl}/api/auth/me`, {
+        // Use master admin endpoint to get all organizations
+        const orgsResponse = await axios.get(`${baseApiUrl}/api/master-admin/organizations`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
-        console.log('Current user info:', userResponse.data);
         
-        if (!userResponse.data.user) {
-          console.error('User data not found in response', userResponse.data);
-          setError('Failed to retrieve user information. Please try logging in again.');
-          setApiStatus('Error');
-          setIsLoading(false);
-          return;
+        if (!orgsResponse.data || orgsResponse.data.length === 0) {
+          throw new Error('No organizations found in the system');
         }
         
-        const userData = userResponse.data.user;
+        let targetOrg;
         
-        // Handle different scenarios based on Only Blooms mode and user role
+        // Determine which organization to use based on context
         if (isOnlyBlooms) {
-          console.log('Only Blooms mode is active, fetching organizations to find Blooms');
-          
-          // Fetch all organizations to find Blooms
-          const orgsEndpoint = userData.isMasterAdmin 
-            ? `${baseApiUrl}/api/master-admin/organizations` 
-            : `${baseApiUrl}/api/organizations/all`;
-            
-          const orgsResponse = await axios.get(orgsEndpoint, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (!orgsResponse.data || orgsResponse.data.length === 0) {
-            console.error('No organizations found');
-            setError('No organizations found in the system');
-            setApiStatus('Error');
-            setIsLoading(false);
-            return;
-          }
-          
-          // Find the Blooms organization
-          const bloomsOrg = orgsResponse.data.find(org => 
+          // Find Only Blooms organization
+          targetOrg = orgsResponse.data.find(org => 
             org.name.includes('Blooms') || org.code.includes('blooms')
           );
           
-          if (!bloomsOrg) {
-            console.error('Blooms organization not found');
-            setError('Only Blooms mode active but no Blooms organization found');
-            setApiStatus('Error');
-            setIsLoading(false);
-            return;
+          if (!targetOrg) {
+            throw new Error('Only Blooms organization not found');
           }
           
-          console.log('Found Blooms organization for API key:', bloomsOrg.name, bloomsOrg._id);
-          setCurrentOrganization(bloomsOrg);
+          console.log('Only Blooms mode active - using organization:', targetOrg.name, targetOrg._id);
+        } else {
+          // Find Master organization
+          targetOrg = orgsResponse.data.find(org => org.isMaster);
           
-          // Fetch API key for Blooms organization
-          await fetchOrganizationApiKey(token, bloomsOrg._id);
-        }
-        // Regular user with assigned organization
-        else if (userData.organization && userData.organization._id) {
-          const userOrg = userData.organization;
-          console.log('Using user organization for API key:', userOrg.name, userOrg._id);
-          setCurrentOrganization(userOrg);
-          
-          // Fetch API key for user's organization
-          await fetchOrganizationApiKey(token, userOrg._id);
-        }
-        // Master admin without an organization
-        else if (userData.isMasterAdmin) {
-          console.log('Master admin detected, fetching master organization');
-          
-          const orgsResponse = await axios.get(`${baseApiUrl}/api/master-admin/organizations`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (!orgsResponse.data || orgsResponse.data.length === 0) {
-            console.error('No organizations found for master admin');
-            setError('No organizations found in the system');
-            setApiStatus('Error');
-            setIsLoading(false);
-            return;
+          if (!targetOrg) {
+            // If no master org is found, use the first one
+            targetOrg = orgsResponse.data[0];
+            console.warn('No master organization found, using first organization instead:', targetOrg.name);
+          } else {
+            console.log('Master Organization mode - using organization:', targetOrg.name, targetOrg._id);
           }
-          
-          // Find master org or use first org
-          const masterOrg = orgsResponse.data.find(org => org.isMaster) || orgsResponse.data[0];
-          console.log('Master admin using organization for API key:', masterOrg.name, masterOrg._id);
-          setCurrentOrganization(masterOrg);
-          
-          // Fetch API key for master organization
-          await fetchOrganizationApiKey(token, masterOrg._id);
         }
-        else {
-          console.error('User has no organization and is not a master admin', userData);
-          setError('Your account is not associated with an organization. Please contact an administrator.');
-          setApiStatus('Error');
-          setIsLoading(false);
+        
+        setCurrentOrganization(targetOrg);
+        
+        // Fetch API key for the selected organization
+        const apiKeyResponse = await axios.get(`${baseApiUrl}/api/organizations/${targetOrg._id}/api-key`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (apiKeyResponse.data && apiKeyResponse.data.key) {
+          console.log(`Successfully retrieved API key for ${targetOrg.name} (ID: ${targetOrg._id})`);
+          setApiKey(apiKeyResponse.data.key);
+          setApiStatus('Valid');
+        } else {
+          console.log(`No API key found for ${targetOrg.name} (ID: ${targetOrg._id})`);
+          setApiKey('');
+          setApiStatus('Not Found');
+          setError(`No active API key found for ${targetOrg.name}`);
         }
-      } catch (userErr) {
-        console.error('Error fetching user info:', userErr);
-        setError('Error retrieving user information: ' + userErr.message);
+      } catch (err) {
+        console.error('Error fetching organization or API key:', err);
+        
+        let errorMessage = 'Failed to retrieve API key: ';
+        if (err.response && err.response.data && err.response.data.message) {
+          errorMessage += err.response.data.message;
+        } else {
+          errorMessage += err.message;
+        }
+        
+        setError(errorMessage);
         setApiStatus('Error');
-        setIsLoading(false);
       }
     } catch (err) {
-      console.error('Error in fetchApiKey:', err);
-      let errorMessage = 'Error loading API key information. ';
-      if (err.response && err.response.data) {
-        errorMessage += err.response.data.message || JSON.stringify(err.response.data);
-      } else {
-        errorMessage += err.message;
-      }
-      
-      setError(errorMessage);
+      console.error('Error in fetchApiKeyForCurrentContext:', err);
+      setError(`Error loading API key: ${err.message}`);
       setApiStatus('Error');
+    } finally {
       setIsLoading(false);
     }
   };
 
-  // Generate a new API key
+  // Generate a new API key for the current organization
   const generateNewApiKey = async () => {
     try {
       setIsGenerating(true);
       setSuccessMessage('');
       setError(null);
       
-      // Get the token from localStorage
+      if (!currentOrganization || !currentOrganization._id) {
+        setError('No organization selected. Please refresh the page and try again.');
+        setIsGenerating(false);
+        return;
+      }
+      
       const token = localStorage.getItem('auth_token');
       
       if (!token) {
@@ -218,65 +189,29 @@ function ApiPage() {
         return;
       }
       
-      // First check user information to ensure we have a valid organization
-      let userOrganizationId;
-      try {
-        const userResponse = await axios.get(`${baseApiUrl}/api/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        console.log('Current user info for key generation:', userResponse.data);
-        userOrganizationId = userResponse.data.user?.organization?._id;
-        
-        if (!userOrganizationId) {
-          console.error('User has no organization ID for key generation', userResponse.data);
-          setError('Your account is not associated with an organization. Please contact an administrator.');
-          setIsGenerating(false);
-          return;
-        }
-      } catch (userErr) {
-        console.error('Error fetching user info for key generation:', userErr);
-        setError('Error fetching user information: ' + userErr.message);
-        setIsGenerating(false);
-        return;
-      }
+      console.log(`Generating new API key for organization: ${currentOrganization.name} (${currentOrganization._id})`);
       
-      try {
-        console.log('Generating new API key for organization:', userOrganizationId);
-        
-        // Call the API to generate a new API key with explicit organizationId
-        const response = await axios.post(`${baseApiUrl}/api/organizations/${userOrganizationId}/api-keys`, {
-          name: `API Key - ${new Date().toLocaleDateString()}`
-        }, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        console.log('API key generation response:', {
-          status: response.status,
-          hasData: !!response.data,
-          keyInfo: response.data ? 'API key data received' : 'No key data'
-        });
-        
-        if (response.data && response.data.key) {
-          setApiKey(response.data.key);
-          setApiStatus('Valid');
-          setSuccessMessage('New API key generated successfully');
-          
-          // Clear success message after 5 seconds
-          setTimeout(() => {
-            setSuccessMessage('');
-          }, 5000);
-        } else {
-          console.error('No key in generation response:', response.data);
-          setError('Failed to generate API key. Please try again.');
+      // Call the API to generate a new API key for the current organization
+      const response = await axios.post(`${baseApiUrl}/api/organizations/${currentOrganization._id}/api-keys`, {
+        name: `API Key - ${new Date().toLocaleDateString()}`
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      } catch (userErr) {
-        console.error('Error fetching user info for key generation:', userErr);
+      });
+      
+      if (response.data && response.data.key) {
+        setApiKey(response.data.key);
+        setApiStatus('Valid');
+        setSuccessMessage(`New API key generated successfully for ${currentOrganization.name}`);
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setSuccessMessage('');
+        }, 5000);
+      } else {
+        throw new Error('Failed to generate API key. Please try again.');
       }
     } catch (err) {
       console.error('Error generating API key:', err);
@@ -411,123 +346,6 @@ async function analyzeAudioUrl() {
 }
 
 analyzeAudioUrl();`;
-
-  // Get the current organization info from state/local storage
-  useEffect(() => {
-    // Get the token
-    const token = localStorage.getItem('auth_token');
-    
-    if (token) {
-      // Check if Only Blooms mode is active
-      const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
-      console.log('Only Blooms mode active in API page?', onlyBloomsActive);
-      
-      // First get the user info to determine the appropriate organization
-      axios.get(`${baseApiUrl}/api/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      .then(response => {
-        console.log('User info for organization:', response.data);
-        if (response.data && response.data.user) {
-          if (onlyBloomsActive) {
-            // When Only Blooms is active, we need to find the Blooms organization
-            console.log('Only Blooms mode is active, fetching organizations to find Blooms');
-            
-            // For any user, we need to find the Blooms organization
-            axios.get(`${baseApiUrl}/api/master-admin/organizations`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            })
-            .then(orgsResponse => {
-              if (orgsResponse.data && orgsResponse.data.length > 0) {
-                // Find the Blooms organization
-                const bloomsOrg = orgsResponse.data.find(org => 
-                  org.name.includes('Blooms') || org.code.includes('blooms')
-                );
-                
-                if (bloomsOrg) {
-                  console.log('Found Blooms organization for API key:', bloomsOrg.name, bloomsOrg._id);
-                  setCurrentOrganization(bloomsOrg);
-                  
-                  // Now fetch the API key for this specific organization
-                  fetchOrganizationApiKey(token, bloomsOrg._id);
-                } else {
-                  console.error('Only Blooms mode active but no Blooms organization found');
-                  setError('Only Blooms mode active but no Blooms organization found');
-                }
-              }
-            })
-            .catch(err => console.error('Error fetching organizations for Only Blooms mode:', err));
-          }
-          // If not in Only Blooms mode, use the regular flow
-          else if (response.data.user.organization && response.data.user.organization._id) {
-            const userOrg = response.data.user.organization;
-            console.log('Using user organization for API key:', userOrg.name, userOrg._id);
-            setCurrentOrganization(userOrg);
-            
-            // Now fetch the API key for this user's organization
-            fetchOrganizationApiKey(token, userOrg._id);
-          } 
-          // For master admins without an organization, find the appropriate one
-          else if (response.data.user.isMasterAdmin) {
-            axios.get(`${baseApiUrl}/api/master-admin/organizations`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            })
-            .then(orgsResponse => {
-              if (orgsResponse.data && orgsResponse.data.length > 0) {
-                // Find master org or use first org
-                const masterOrg = orgsResponse.data.find(org => org.isMaster) || orgsResponse.data[0];
-                console.log('Master admin using organization for API key:', masterOrg.name, masterOrg._id);
-                setCurrentOrganization(masterOrg);
-                
-                // Now fetch the API key for this master org
-                fetchOrganizationApiKey(token, masterOrg._id);
-              }
-            })
-            .catch(err => console.error('Error fetching organizations for master admin:', err));
-          }
-        }
-      })
-      .catch(err => {
-        console.error('Error fetching user info for organization ID:', err);
-        setError('Failed to determine your organization. Please try refreshing the page.');
-      });
-    }
-  }, []);
-  
-  // Helper function to fetch the API key for a specific organization
-  const fetchOrganizationApiKey = (token, orgId) => {
-    console.log(`Fetching API key for organization: ${orgId}`);
-    
-    axios.get(`${baseApiUrl}/api/organizations/${orgId}/api-key`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    .then(response => {
-      if (response.data && response.data.key) {
-        console.log('Successfully retrieved API key for organization:', orgId);
-        setApiKey(response.data.key);
-        setApiStatus('Valid');
-      } else {
-        console.log('No API key found for organization:', orgId);
-        setApiKey('');
-        setApiStatus('Not Found');
-      }
-    })
-    .catch(err => {
-      console.error(`Error fetching API key for organization ${orgId}:`, err);
-      setError(`Failed to retrieve API key for your organization: ${err.response?.data?.message || err.message}`);
-    })
-    .finally(() => {
-      setIsLoading(false);
-    });
-  };
 
   if (isLoading) {
     return (
