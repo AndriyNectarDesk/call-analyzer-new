@@ -24,6 +24,12 @@ const OrganizationSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Flag to identify master organization
+  isMaster: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
   subscriptionTier: {
     type: String,
     enum: ['free', 'basic', 'pro', 'enterprise'],

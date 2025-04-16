@@ -852,11 +852,28 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
 // Route to get transcript history
 app.get('/api/transcripts', async (req, res) => {
   try {
+    // Build query - start with an empty filter
+    let query = {};
+    
+    // If organizationId is specified in the query, filter by it
+    if (req.query.organizationId) {
+      // Convert the string ID to MongoDB ObjectId
+      const mongoose = require('mongoose');
+      try {
+        query.organizationId = new mongoose.Types.ObjectId(req.query.organizationId);
+        console.log(`Filtering transcripts by organization ID: ${req.query.organizationId}`);
+      } catch (err) {
+        console.error(`Invalid organization ID format: ${req.query.organizationId}`, err);
+        return res.status(400).json({ error: 'Invalid organization ID format' });
+      }
+    }
+    
     // Find transcripts and populate the organization name
-    const transcripts = await Transcript.find()
-      .populate('organizationId', 'name code')
+    const transcripts = await Transcript.find(query)
+      .populate('organizationId', 'name code isMaster')
       .sort({ createdAt: -1 });
     
+    console.log(`Found ${transcripts.length} transcripts matching query:`, query);
     res.json(transcripts);
   } catch (error) {
     console.error('Error fetching transcripts:', error);

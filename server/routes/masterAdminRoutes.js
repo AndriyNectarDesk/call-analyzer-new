@@ -16,6 +16,7 @@ router.put('/organizations/:id/subscription', masterAdminController.updateOrgani
 router.put('/organizations/:id/features', masterAdminController.updateOrganizationFeatures);
 router.put('/organizations/:id/status', masterAdminController.updateOrganizationStatus);
 router.get('/organizations/:id/stats', masterAdminController.getOrganizationStats);
+router.post('/organizations/:id/api-key', organizationController.generateApiKey);
 
 // User management routes
 router.post('/organizations/:id/users', masterAdminController.createOrganizationUser);

@@ -142,16 +142,23 @@ function TranscriptHistory() {
         const token = localStorage.getItem('auth_token');
         const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
         
+        // By default, use the base API endpoint
         let url = `${apiUrl}/api/transcripts`;
         
-        // If Only Blooms is active, filter by current organization
+        // If Only Blooms is active, ALWAYS filter by current organization
         if (onlyBloomsActive && currentOrganization?.id) {
           url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization.id}`;
+          console.log("[Storage Change] Filtering by organization ID:", currentOrganization.id, "- Only Blooms active");
         }
         // Otherwise, if not a master admin or not in master org context, filter by current organization
         else if (!(isMasterAdmin && isMasterOrganizationSelected()) && currentOrganization?.id) {
           url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization.id}`;
+          console.log("[Storage Change] Filtering by organization ID:", currentOrganization.id, "- Regular user or not in master org");
+        } else if (isMasterAdmin && isMasterOrganizationSelected()) {
+          console.log("[Storage Change] Not filtering by organization - Master admin in master org");
         }
+        
+        console.log("[Storage Change] Making API request to:", url);
         
         const response = await fetch(url, {
           headers: {
@@ -164,6 +171,7 @@ function TranscriptHistory() {
         }
         
         const data = await response.json();
+        console.log(`[Storage Change] Received ${data.length} transcripts`);
         setTranscripts(data);
         setFilteredTranscripts(data);
         
@@ -287,24 +295,6 @@ function TranscriptHistory() {
                     Org: {transcript.organizationId.name}
                   </span>
                 )}
-                {/* Display transcript ID */}
-                <span className="transcript-id-badge">
-                  ID: {transcript._id}
-                </span>
-                <span className="transcript-info-item">
-                  <span className="info-label">Source:</span>
-                  <span className={`badge ${
-                    transcript.source === 'api' ? 'badge-primary' : 
-                    transcript.source === 'audio' ? 'badge-warning' : 
-                    transcript.source === 'nectar-desk-webhook' ? 'badge-nectar' : 
-                    'badge-secondary'
-                  }`}>
-                    {transcript.source === 'api' ? 'API' : 
-                     transcript.source === 'audio' ? 'Audio Upload' : 
-                     transcript.source === 'nectar-desk-webhook' ? 'NectarDesk' : 
-                     'Web UI'}
-                  </span>
-                </span>
               </div>
               
               <div className="card-summary">
