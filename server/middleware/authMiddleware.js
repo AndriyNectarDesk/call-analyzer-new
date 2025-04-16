@@ -308,4 +308,39 @@ exports.tenantIsolation = (req, res, next) => {
   
   // If no organization found, deny access
   return res.status(403).json({ error: 'Access denied. No organization context found' });
+};
+
+// Handle organization context for API key and other organization-specific routes
+exports.handleOrganizationContext = async (req, res, next) => {
+  try {
+    // If there's an organization ID in the URL params, use that
+    if (req.params.id) {
+      req.overrideOrganizationId = req.params.id;
+      console.log(`Setting organization context from URL param: ${req.overrideOrganizationId}`);
+    } 
+    // If there's an organization ID in the query params, use that
+    else if (req.query.organizationId) {
+      req.overrideOrganizationId = req.query.organizationId;
+      console.log(`Setting organization context from query param: ${req.overrideOrganizationId}`);
+    }
+    // Otherwise, use the user's organization from JWT
+    else if (req.user && req.user.organizationId) {
+      req.overrideOrganizationId = req.user.organizationId;
+      console.log(`Setting organization context from user JWT: ${req.overrideOrganizationId}`);
+    }
+    
+    // If we have an organization ID, try to get the organization name
+    if (req.overrideOrganizationId) {
+      const Organization = require('../models/organization');
+      const organization = await Organization.findById(req.overrideOrganizationId);
+      if (organization) {
+        req.overrideOrganizationName = organization.name;
+      }
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Error in handleOrganizationContext middleware:', error);
+    next(error);
+  }
 }; 
