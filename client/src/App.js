@@ -212,15 +212,7 @@ function App() {
   };
 
   const handleSwitchOrganization = (org) => {
-    console.log('handleSwitchOrganization called with org:', org);
-    
-    if (!org || !org._id) {
-      console.error('Invalid organization object received:', org);
-      return;
-    }
-    
     setCurrentOrganization(org);
-    console.log('Current organization set to:', org.name);
     
     // Store the selected organization in localStorage for persistence
     try {
@@ -229,15 +221,12 @@ function App() {
         name: org.name,
         code: org.code
       }));
-      console.log('Organization saved to localStorage successfully');
     } catch (e) {
       console.error('Error saving organization to localStorage:', e);
     }
     
     // Navigate to the organization's page
-    const url = `/organizations/${org._id}/users`;
-    console.log('Navigating to:', url);
-    window.location.href = url;
+    window.location.href = `/organizations/${org._id}/users`;
   };
 
   const toggleDarkMode = () => {
@@ -661,6 +650,26 @@ function App() {
     return '#F44336'; // red
   };
 
+  // Check if the current organization is the master organization
+  const isMasterOrganizationSelected = () => {
+    if (!currentOrganization) return false;
+    return currentOrganization.code === 'master-org';
+  };
+  
+  // Home route component with conditional rendering
+  const HomeRoute = () => {
+    // If user is master admin but not in master organization context
+    if (currentUser?.isMasterAdmin && !isMasterOrganizationSelected()) {
+      console.log("Master admin in non-master organization context. Showing analyzer page.");
+      return <AnalyzerPage />;
+    }
+    
+    // Normal routing logic
+    return currentUser?.isMasterAdmin && isMasterOrganizationSelected() ? 
+      <MasterAdminDashboard /> : 
+      <AnalyzerPage />;
+  };
+
   return (
     <Router>
       <div className="app-container">
@@ -773,7 +782,7 @@ function App() {
             
             <Route path="/" element={
               <ProtectedRoute>
-                {currentUser?.isMasterAdmin ? <MasterAdminDashboard /> : <AnalyzerPage />}
+                <HomeRoute />
               </ProtectedRoute>
             } />
             
