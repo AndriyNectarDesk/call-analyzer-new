@@ -7,12 +7,45 @@ exports.getAllTranscripts = async (req, res) => {
   try {
     // Filter by organization ID from authenticated user or request
     const organizationId = req.tenantId || req.user.organizationId;
+    console.log('Getting transcripts for organization:', organizationId);
+    
+    // Additional debug logging to track the organization context
+    if (req.overrideOrganizationId) {
+      console.log('Organization context override in effect:', 
+        req.overrideOrganizationName, 
+        `(${req.overrideOrganizationId})`
+      );
+    }
+    
+    // Debug the user's organization context from JWT
+    if (req.user && req.user.organizationId) {
+      console.log('User JWT organization context:', req.user.organizationId);
+    }
+    
+    // Check if the current organization is a master organization
+    // This is the ONLY condition that matters for transcript visibility
+    const isMasterOrg = req.overrideOrganizationName && 
+      (req.overrideOrganizationName.toLowerCase().includes('master') || 
+       req.overrideOrganizationName.toLowerCase() === 'nectardesk');
+    
+    console.log('Is master organization context:', isMasterOrg);
+    
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const skip = (page - 1) * limit;
     
-    // Build query
-    const query = { organizationId };
+    // Build query based on organization context
+    let query = {};
+    
+    // Only organization type matters for transcript visibility
+    if (isMasterOrg) {
+      console.log('Master organization context - showing all transcripts');
+      // Empty query means "all transcripts"
+    } else {
+      // For any non-master organization, strictly filter by organization ID
+      console.log('Filtering transcripts by organization ID:', organizationId);
+      query.organizationId = organizationId;
+    }
     
     // Add filters
     if (req.query.callType) {
@@ -34,16 +67,22 @@ exports.getAllTranscripts = async (req, res) => {
       query.createdAt = { $lte: new Date(req.query.endDate) };
     }
     
+    console.log('Final transcript query:', JSON.stringify(query));
+    
     // Get total count for pagination
     const total = await Transcript.countDocuments(query);
+    console.log('Total matching transcripts:', total);
     
     // Get transcripts with pagination
     const transcripts = await Transcript.find(query)
       .select('-rawTranscript') // Don't return full transcript in listing
       .populate('createdBy', 'firstName lastName email')
+      .populate('organizationId', 'name code')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
+    
+    console.log('Retrieved transcripts:', transcripts.length);
     
     res.json({
       transcripts,
