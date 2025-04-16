@@ -8,41 +8,90 @@ function AgentAnalytics() {
   const [agents, setAgents] = useState([]);
   const [agentMetrics, setAgentMetrics] = useState(null);
   const [timeRange, setTimeRange] = useState('all'); // 'all', 'month', 'week'
+  const [currentOrganization, setCurrentOrganization] = useState(null);
 
+  // Get current organization and check for "Only Blooms" setting
   useEffect(() => {
-    const fetchTranscripts = async () => {
-      try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/transcripts`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch transcripts');
-        }
-        
-        const data = await response.json();
-        setTranscripts(data);
-        
-        // Extract unique agent names
-        const uniqueAgents = [...new Set(data
-          .map(t => t.analysis.callSummary.agentName)
-          .filter(name => name && name.trim() !== '')
-        )];
-        setAgents(uniqueAgents);
+    try {
+      const savedOrg = localStorage.getItem('selectedOrganization');
+      if (savedOrg) {
+        setCurrentOrganization(JSON.parse(savedOrg));
+      }
+    } catch (e) {
+      console.error('Error loading organization from localStorage:', e);
+    }
+  }, []);
 
-        // Auto-select first agent if available
-        if (uniqueAgents.length > 0 && !selectedAgent) {
-          setSelectedAgent(uniqueAgents[0]);
-        }
-      } catch (err) {
-        setError('Error loading transcript data');
-        console.error(err);
-      } finally {
-        setLoading(false);
+  // Listen for changes to the "Only Blooms" setting
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'onlyBlooms' || e.key === 'selectedOrganization') {
+        // Refresh data when the setting changes
+        fetchTranscripts();
       }
     };
-
-    fetchTranscripts();
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  const fetchTranscripts = async () => {
+    try {
+      setLoading(true);
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication required');
+        setLoading(false);
+        return;
+      }
+      
+      // Check if "Only Blooms" is active and we have a current organization
+      const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
+      let url = `${apiUrl}/api/transcripts`;
+      
+      // If Only Blooms is active and we have an organization ID, filter by it
+      if (onlyBloomsActive && currentOrganization?.id) {
+        url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization.id}`;
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch transcripts');
+      }
+      
+      const data = await response.json();
+      setTranscripts(data);
+      
+      // Extract unique agent names
+      const uniqueAgents = [...new Set(data
+        .map(t => t.analysis.callSummary.agentName)
+        .filter(name => name && name.trim() !== '')
+      )];
+      setAgents(uniqueAgents);
+
+      // Auto-select first agent if available
+      if (uniqueAgents.length > 0 && !selectedAgent) {
+        setSelectedAgent(uniqueAgents[0]);
+      }
+    } catch (err) {
+      setError('Error loading transcript data');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchTranscripts();
+  }, [currentOrganization]);
 
   // Filter transcripts based on time range
   const getFilteredTranscripts = () => {

@@ -25,7 +25,39 @@ function CallTypeManager() {
     const fetchCallTypes = async () => {
       try {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/call-types`);
+        const token = localStorage.getItem('auth_token');
+        
+        if (!token) {
+          setError('Authentication required');
+          setLoading(false);
+          return;
+        }
+        
+        // Check if "Only Blooms" is active
+        const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
+        const currentOrg = localStorage.getItem('selectedOrganization');
+        let orgId = null;
+        
+        if (onlyBloomsActive && currentOrg) {
+          try {
+            const parsedOrg = JSON.parse(currentOrg);
+            orgId = parsedOrg.id;
+          } catch (e) {
+            console.error('Error parsing organization:', e);
+          }
+        }
+        
+        // Build URL with organization filter if needed
+        let url = `${apiUrl}/api/call-types`;
+        if (orgId) {
+          url += `?organizationId=${orgId}`;
+        }
+        
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Failed to fetch call types');
@@ -122,15 +154,18 @@ function CallTypeManager() {
       
       const method = isEditing ? 'PUT' : 'POST';
       
-      // Include API key for authenticated routes
-      const apiKey = prompt('Enter API key for authorization:');
-      if (!apiKey) return;
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setError('Authentication required');
+        return;
+      }
       
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(formData)
       });
@@ -170,14 +205,17 @@ function CallTypeManager() {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
       
-      // Include API key for authenticated routes
-      const apiKey = prompt('Enter API key for authorization:');
-      if (!apiKey) return;
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setError('Authentication required');
+        return;
+      }
       
       const response = await fetch(`${apiUrl}/api/call-types/${id}`, {
         method: 'DELETE',
         headers: {
-          'x-api-key': apiKey
+          'Authorization': `Bearer ${token}`
         }
       });
       

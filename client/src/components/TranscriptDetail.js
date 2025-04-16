@@ -11,7 +11,19 @@ function TranscriptDetail() {
     const fetchTranscript = async () => {
       try {
         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/transcripts/${id}`);
+        const token = localStorage.getItem('auth_token');
+        
+        if (!token) {
+          setError('Authentication required');
+          setLoading(false);
+          return;
+        }
+        
+        const response = await fetch(`${apiUrl}/api/transcripts/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Failed to fetch transcript');
