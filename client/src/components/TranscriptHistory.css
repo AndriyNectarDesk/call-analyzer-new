@@ -57,9 +57,9 @@
 }
 
 .transcript-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .transcript-card {
@@ -71,6 +71,7 @@
   background-color: #fff;
   display: flex;
   flex-direction: column;
+  max-width: 100%;
 }
 
 .transcript-card:hover {

@@ -167,8 +167,60 @@ function TranscriptHistory() {
         console.error('Error decoding JWT token:', e);
       }
       
+      // If user is master admin, fetch all transcripts to allow for organization filtering
+      if (isMasterAdmin) {
+        console.log('User is master admin, fetching all transcripts');
+        
+        let url = `${apiUrl}/api/transcripts`;
+        console.log('Master admin API URL:', url);
+        
+        try {
+          console.log('Fetching from:', url);
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          console.log('Response status:', response.status);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API error response text:', errorText);
+            throw new Error(`Failed to fetch transcripts: ${response.status} ${response.statusText}`);
+          }
+          
+          const data = await response.json();
+          console.log('API Response data type:', typeof data);
+          console.log('API Response data keys:', Object.keys(data));
+          
+          // Handle both pagination and direct array formats
+          const transcriptData = data.transcripts || data;
+          console.log(`Extracted transcript data length: ${Array.isArray(transcriptData) ? transcriptData.length : 'N/A'}`);
+          
+          if (Array.isArray(transcriptData)) {
+            setTranscripts(transcriptData);
+            setFilteredTranscripts(transcriptData);
+            
+            // Extract unique organization names
+            const uniqueOrganizations = [...new Set(transcriptData
+              .filter(t => t.organizationId && t.organizationId.name)
+              .map(t => t.organizationId.name)
+            )];
+            console.log('Extracted organization filters:', uniqueOrganizations);
+            setOrganizations(uniqueOrganizations);
+            
+            setLoading(false);
+            return; // Exit early since we have data
+          }
+        } catch (err) {
+          console.error('Error in master admin API call:', err);
+          // Continue to try other approaches
+        }
+      }
+      
       // Try direct API call first - no filter, let the server handle it
-      console.log('Making direct API call without filters first');
+      console.log('Making direct API call without filters');
       let url = `${apiUrl}/api/transcripts`;
       console.log('API URL:', url);
       
@@ -191,7 +243,6 @@ function TranscriptHistory() {
         const data = await response.json();
         console.log('API Response data type:', typeof data);
         console.log('API Response data keys:', Object.keys(data));
-        console.log('API Response data sample:', data);
         
         // Handle both pagination and direct array formats
         const transcriptData = data.transcripts || data;
@@ -274,7 +325,7 @@ function TranscriptHistory() {
         }
       }
       
-      // If we got here, both approaches failed or returned no results
+      // If we got here, all approaches failed or returned no results
       console.log('All transcript fetch attempts completed with no results');
       setTranscripts([]);
       setFilteredTranscripts([]);
@@ -331,7 +382,7 @@ function TranscriptHistory() {
     <div className="history-container">
       <h2>Transcript History</h2>
       
-      {/* Only show organization filter for master admins in master org context */}
+      {/* Show organization filter for master admins regardless of selected organization */}
       {isMasterAdmin && organizations.length > 0 && (
         <div className="filter-controls">
           <div className="filter-group">
@@ -389,7 +440,7 @@ function TranscriptHistory() {
                 <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
                   {getCallTypeLabel(transcript.callType)}
                 </span>
-                {/* Only show organization badge if master admin in master org context */}
+                {/* Show organization badge for all transcripts when master admin */}
                 {isMasterAdmin && transcript.organizationId && (
                   <span className="organization-badge">
                     Org: {transcript.organizationId.name}
