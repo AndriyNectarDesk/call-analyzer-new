@@ -43,31 +43,46 @@ exports.getOrganization = async (req, res) => {
 // Create new organization
 exports.createOrganization = async (req, res) => {
   try {
-    const { name, description, contactEmail } = req.body;
+    const { name, code, description, contactEmail, active, subscriptionTier, features } = req.body;
     
     // Validate input
-    if (!name || !contactEmail) {
-      return res.status(400).json({ message: 'Organization name and contact email are required' });
+    if (!name || !code || !contactEmail) {
+      return res.status(400).json({ message: 'Organization name, code, and contact email are required' });
     }
     
     // Check if organization with same name exists
-    const existingOrg = await Organization.findOne({ name, isActive: true });
+    const existingOrg = await Organization.findOne({ 
+      $or: [
+        { name, active: true },
+        { code, active: true }
+      ]
+    });
+    
     if (existingOrg) {
-      return res.status(400).json({ message: 'An organization with this name already exists' });
+      if (existingOrg.name === name) {
+        return res.status(400).json({ message: 'An organization with this name already exists' });
+      }
+      if (existingOrg.code === code) {
+        return res.status(400).json({ message: 'An organization with this code already exists' });
+      }
     }
     
     const newOrganization = new Organization({
       name,
+      code,
       description,
       contactEmail,
-      createdBy: req.user.id
+      active: active !== undefined ? active : true,
+      subscriptionTier: subscriptionTier || 'free',
+      features: features || undefined,
+      createdBy: req.user.userId || req.user.id
     });
     
     await newOrganization.save();
     res.status(201).json(newOrganization);
   } catch (error) {
     console.error('Error creating organization:', error);
-    res.status(500).json({ message: 'Failed to create organization' });
+    res.status(500).json({ message: error.message || 'Failed to create organization' });
   }
 };
 
