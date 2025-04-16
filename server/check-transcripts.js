@@ -3,18 +3,13 @@ const mongoose = require('mongoose');
 const Transcript = require('./models/transcript');
 const Organization = require('./models/organization');
 
-// MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI;
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => {
-    console.log('MongoDB Connection Error:', err);
-    process.exit(1);
-  });
-
 // Function to check transcripts
 async function checkTranscripts() {
   try {
+    // Connect to MongoDB
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('MongoDB Connected');
+    
     // Check if collection exists
     const collections = await mongoose.connection.db.listCollections().toArray();
     const collectionNames = collections.map(c => c.name);
@@ -23,7 +18,8 @@ async function checkTranscripts() {
     
     if (!collectionNames.includes('transcripts')) {
       console.log('Warning: transcripts collection does not exist in database');
-      process.exit(0);
+      await mongoose.disconnect();
+      return;
     }
     
     // Get total count of transcripts
@@ -64,12 +60,20 @@ async function checkTranscripts() {
       console.log('No master organization found');
     }
     
-    mongoose.disconnect();
+    await mongoose.disconnect();
+    console.log('MongoDB disconnected');
   } catch (error) {
     console.error('Error checking transcripts:', error);
-    mongoose.disconnect();
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
     process.exit(1);
   }
 }
 
-checkTranscripts(); 
+// Run the function
+checkTranscripts()
+  .catch(err => {
+    console.error('Unhandled error:', err);
+    process.exit(1);
+  }); 
