@@ -448,31 +448,12 @@ app.post('/api/analyze', async (req, res, next) => {
     }
     
     const userId = decodedToken.userId;
-    let organizationId = decodedToken.organizationId;
+    let organizationId = null;
     
-    // If organizationId is missing in the token, fetch it from the user record
-    if (!organizationId) {
-      console.log(`organizationId missing in token for user: ${userId}, fetching from database...`);
-      try {
-        const User = require('./models/user');
-        const user = await User.findById(userId);
-        if (user && user.organizationId) {
-          organizationId = user.organizationId;
-          console.log(`Retrieved organizationId ${organizationId} for user ${userId}`);
-        } else {
-          console.error(`User ${userId} has no organization assigned`);
-          return res.status(400).json({ error: 'User has no organization assigned' });
-        }
-      } catch (userLookupError) {
-        console.error('Error fetching user organization:', userLookupError);
-        return res.status(500).json({ error: 'Error verifying user organization' });
-      }
-    }
-
-    // Check if "Only Blooms" mode is active
+    // Check if "Only Blooms" mode is active - process this first as highest priority
     const onlyBloomsHeader = req.headers['x-only-blooms'];
     if (onlyBloomsHeader === 'true') {
-      console.log('Only Blooms mode detected in headers');
+      console.log('Only Blooms mode detected in headers - looking for Blooms organization');
       
       // Find the Blooms organization
       try {
@@ -485,12 +466,37 @@ app.post('/api/analyze', async (req, res, next) => {
         });
         
         if (bloomsOrg) {
-          console.log(`Overriding organizationId with Blooms organization: ${bloomsOrg._id}`);
+          console.log(`Found and using Blooms organization: ${bloomsOrg.name} (${bloomsOrg._id})`);
           organizationId = bloomsOrg._id;
+        } else {
+          console.warn('Only Blooms mode active but no Blooms organization found in database');
         }
       } catch (err) {
         console.error('Error finding Blooms organization:', err);
-        // Continue with original organizationId
+      }
+    }
+    
+    // If no Blooms org was found or Only Blooms is not active, fall back to token organization
+    if (!organizationId) {
+      organizationId = decodedToken.organizationId;
+      
+      // If organizationId is missing in the token, fetch it from the user record
+      if (!organizationId) {
+        console.log(`organizationId missing in token for user: ${userId}, fetching from database...`);
+        try {
+          const User = require('./models/user');
+          const user = await User.findById(userId);
+          if (user && user.organizationId) {
+            organizationId = user.organizationId;
+            console.log(`Retrieved organizationId ${organizationId} for user ${userId}`);
+          } else {
+            console.error(`User ${userId} has no organization assigned`);
+            return res.status(400).json({ error: 'User has no organization assigned' });
+          }
+        } catch (userLookupError) {
+          console.error('Error fetching user organization:', userLookupError);
+          return res.status(500).json({ error: 'Error verifying user organization' });
+        }
       }
     }
     
@@ -1008,31 +1014,12 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     }
     
     const userId = decodedToken.userId;
-    let organizationId = decodedToken.organizationId;
+    let organizationId = null;
     
-    // If organizationId is missing in the token, fetch it from the user record
-    if (!organizationId) {
-      console.log(`organizationId missing in token for user: ${userId}, fetching from database...`);
-      try {
-        const User = require('./models/user');
-        const user = await User.findById(userId);
-        if (user && user.organizationId) {
-          organizationId = user.organizationId;
-          console.log(`Retrieved organizationId ${organizationId} for user ${userId}`);
-        } else {
-          console.error(`User ${userId} has no organization assigned`);
-          return res.status(400).json({ error: 'User has no organization assigned' });
-        }
-      } catch (userLookupError) {
-        console.error('Error fetching user organization:', userLookupError);
-        return res.status(500).json({ error: 'Error verifying user organization' });
-      }
-    }
-
-    // Check if "Only Blooms" mode is active
+    // Check if "Only Blooms" mode is active - process this first as highest priority
     const onlyBloomsHeader = req.headers['x-only-blooms'];
     if (onlyBloomsHeader === 'true') {
-      console.log('Only Blooms mode detected in headers');
+      console.log('Only Blooms mode detected in headers - looking for Blooms organization');
       
       // Find the Blooms organization
       try {
@@ -1045,12 +1032,37 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
         });
         
         if (bloomsOrg) {
-          console.log(`Overriding organizationId with Blooms organization: ${bloomsOrg._id}`);
+          console.log(`Found and using Blooms organization: ${bloomsOrg.name} (${bloomsOrg._id})`);
           organizationId = bloomsOrg._id;
+        } else {
+          console.warn('Only Blooms mode active but no Blooms organization found in database');
         }
       } catch (err) {
         console.error('Error finding Blooms organization:', err);
-        // Continue with original organizationId
+      }
+    }
+    
+    // If no Blooms org was found or Only Blooms is not active, fall back to token organization
+    if (!organizationId) {
+      organizationId = decodedToken.organizationId;
+      
+      // If organizationId is missing in the token, fetch it from the user record
+      if (!organizationId) {
+        console.log(`organizationId missing in token for user: ${userId}, fetching from database...`);
+        try {
+          const User = require('./models/user');
+          const user = await User.findById(userId);
+          if (user && user.organizationId) {
+            organizationId = user.organizationId;
+            console.log(`Retrieved organizationId ${organizationId} for user ${userId}`);
+          } else {
+            console.error(`User ${userId} has no organization assigned`);
+            return res.status(400).json({ error: 'User has no organization assigned' });
+          }
+        } catch (userLookupError) {
+          console.error('Error fetching user organization:', userLookupError);
+          return res.status(500).json({ error: 'Error verifying user organization' });
+        }
       }
     }
     
