@@ -1355,6 +1355,32 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
 // Register the error handling middleware
 app.use(handleApiError);
 
+// Initialize email service
+const initEmailService = require('./init-email-service');
+initEmailService().catch(err => {
+  console.error('Error during email service initialization:', err);
+});
+
+// API middleware - apply to all /api routes
+app.use('/api', verifyToken); 
+app.use('/api', organizationContextMiddleware);
+
+// Create API routes
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/organizations', require('./routes/organizationRoutes'));
+app.use('/api/transcripts', require('./routes/transcriptRoutes'));
+app.use('/api/call-types', require('./routes/callTypeRoutes'));
+app.use('/api/master-admin', require('./routes/masterAdminRoutes'));
+
+// Serve static files from the React app build directory
+app.use(express.static(path.join(__dirname, '../client/build')));
+
+// Handle React routing, return all requests to React app
+app.get('*', function(req, res) {
+  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
@@ -1473,73 +1499,6 @@ const sanitizeJson = (jsonString) => {
     }
   }
 };
-
-// Initialize email service
-const initEmailService = require('./init-email-service');
-initEmailService().catch(err => {
-  console.error('Error during email service initialization:', err);
-});
-
-// Create routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/organizations', require('./routes/organizationRoutes'));
-app.use('/api/transcripts', require('./routes/transcriptRoutes'));
-app.use('/api/call-types', require('./routes/callTypeRoutes'));
-app.use('/api/master-admin', require('./routes/masterAdminRoutes'));
-
-// Test email service endpoint
-// TEMPORARY: available in production for troubleshooting
-const { emailService } = require('./services');
-
-app.get('/api/test-email', async (req, res) => {
-  try {
-    // Log environment variables
-    console.log('====== EMAIL ENVIRONMENT VARIABLES ======');
-    console.log(`EMAIL_HOST: ${process.env.EMAIL_HOST || 'not set'}`);
-    console.log(`EMAIL_PORT: ${process.env.EMAIL_PORT || 'not set'}`);
-    console.log(`EMAIL_USER: ${process.env.EMAIL_USER ? 'set' : 'not set'}`);
-    console.log(`EMAIL_PASS: ${process.env.EMAIL_PASS ? 'set' : 'not set'}`);
-    console.log(`EMAIL_FROM: ${process.env.EMAIL_FROM || 'not set'}`);
-    console.log(`FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set'}`);
-    
-    // Verify email configuration
-    console.log('====== TESTING EMAIL CONFIGURATION ======');
-    const configValid = await emailService.verifyEmailConfig();
-    console.log(`Email configuration valid: ${configValid}`);
-    
-    // Test sending email if config is valid
-    if (!req.query.email) {
-      return res.status(400).json({ 
-        message: 'Email parameter required',
-        usage: '/api/test-email?email=test@example.com' 
-      });
-    }
-    
-    console.log('====== SENDING TEST EMAIL ======');
-    const emailSent = await emailService.sendTestEmail(req.query.email);
-    
-    res.json({
-      success: emailSent,
-      message: emailSent 
-        ? `Test email sent to ${req.query.email}` 
-        : 'Failed to send test email',
-      emailConfig: {
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: process.env.EMAIL_PORT || 587,
-        user: process.env.EMAIL_USER ? 'set' : 'not set',
-        pass: process.env.EMAIL_PASS ? 'set' : 'not set',
-        from: process.env.EMAIL_FROM || 'noreply@nectardesk.ai'
-      }
-    });
-  } catch (error) {
-    console.error('Test email endpoint error:', error);
-    res.status(500).json({ 
-      error: 'Email test failed',
-      message: error.message
-    });
-  }
-});
 
 // Add a new webhook endpoint for NectarDesk call information
 app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => {
@@ -1868,7 +1827,3 @@ async function processWebhookRecording(audioUrl, metadata, organizationId) {
     throw error;
   }
 }
-
-// API middleware
-app.use('/api', verifyToken); 
-app.use('/api', organizationContextMiddleware);
