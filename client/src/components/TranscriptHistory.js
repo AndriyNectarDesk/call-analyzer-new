@@ -21,16 +21,17 @@ function TranscriptHistory() {
     
     async function fetchUserContext() {
       try {
+        console.log('====== DEBUGGING USER CONTEXT ======');
         const userId = localStorage.getItem('user_id');
-        if (!userId) {
-          setLoading(false);
-          return;
-        }
+        console.log('User ID from localStorage:', userId);
         
         const userData = localStorage.getItem('user_data');
+        console.log('User data exists in localStorage:', !!userData);
+        
         if (userData) {
           try {
             const parsedUser = JSON.parse(userData);
+            console.log('Parsed user data:', parsedUser);
             setCurrentUser(parsedUser);
           } catch (e) {
             console.error('Error parsing user data:', e);
@@ -38,18 +39,17 @@ function TranscriptHistory() {
         }
         
         const orgData = localStorage.getItem('selectedOrganization');
+        console.log('Organization data exists in localStorage:', !!orgData);
+        
         if (orgData) {
           try {
             const parsedOrg = JSON.parse(orgData);
             console.log('Loaded organization data from localStorage:', parsedOrg);
             
             // Ensure the organization object has the expected format
-            // The organization ID should be available directly as _id or id
             const formattedOrg = {
               ...parsedOrg,
-              // Make sure we have the _id property (some code might use this instead of id)
               _id: parsedOrg._id || parsedOrg.id,
-              // Make sure we have the id property (some code might use this instead of _id)
               id: parsedOrg.id || parsedOrg._id
             };
             
@@ -60,9 +60,41 @@ function TranscriptHistory() {
           }
         } else {
           console.warn('No selected organization found in localStorage');
+          
+          // Try to get org ID from the auth token as fallback
+          try {
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+              const base64Url = token.split('.')[1];
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+              }).join(''));
+              
+              const tokenData = JSON.parse(jsonPayload);
+              console.log('JWT token payload for org fallback:', tokenData);
+              
+              if (tokenData.organizationId) {
+                console.log('Using organization ID from JWT token as fallback:', tokenData.organizationId);
+                // Create minimal org object with the ID from the token
+                setCurrentOrganization({
+                  _id: tokenData.organizationId,
+                  id: tokenData.organizationId,
+                  name: 'Organization from JWT'
+                });
+              }
+            }
+          } catch (e) {
+            console.error('Error using JWT for organization fallback:', e);
+          }
         }
+        
+        // Important: Trigger transcript fetch even if we couldn't fully resolve the context
+        console.log('User context fetch complete - will proceed even if incomplete');
+        setLoading(false);
       } catch (err) {
         console.error('Error fetching user context:', err);
+        setLoading(false);
       }
     }
   }, []);
@@ -73,61 +105,75 @@ function TranscriptHistory() {
     return currentOrganization.code === 'master-org';
   };
   
-  // Fetch transcripts when user and organization are loaded
+  // Fetch transcripts when component mounts (don't wait for user/org context to be perfect)
   useEffect(() => {
-    const fetchTranscripts = async () => {
+    // Use a timeout to ensure this runs after the context effect
+    const timer = setTimeout(() => {
+      console.log('Initiating transcript fetch after delay');
+      fetchTranscripts();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Also fetch when user or organization context changes
+  useEffect(() => {
+    if (currentUser || currentOrganization) {
+      console.log('Context changed, fetching transcripts again');
+      fetchTranscripts();
+    }
+  }, [currentUser, currentOrganization]);
+  
+  // The main transcript fetching function
+  const fetchTranscripts = async () => {
+    try {
+      console.log('====== FETCHING TRANSCRIPTS ======');
+      setLoading(true);
+      setError(null);
+      
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        setLoading(false);
+        return;
+      }
+      
+      // Log current user and organization context
+      console.log('Current user context:', currentUser);
+      console.log('Current organization context:', currentOrganization);
+      
+      // Debug JWT token
       try {
-        setLoading(true);
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        const token = localStorage.getItem('auth_token');
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
         
-        if (!token) {
-          setError('Authentication token not found. Please log in again.');
-          setLoading(false);
-          return;
-        }
+        const tokenData = JSON.parse(jsonPayload);
+        console.log('JWT token payload for API call:', tokenData);
         
-        // Log current organization context for debugging
-        console.log('Current organization context:', currentOrganization);
-        
-        // Get user info from JWT token for debugging
-        try {
-          const base64Url = token.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-          }).join(''));
-          
-          const tokenData = JSON.parse(jsonPayload);
-          console.log('JWT token payload:', tokenData);
-          
-          // Check if the organization in token matches what we have
-          if (tokenData.organizationId && currentOrganization) {
-            console.log(`JWT organization ID: ${tokenData.organizationId}`);
-            console.log(`Current organization ID: ${currentOrganization.id || currentOrganization._id}`);
-          }
-        } catch (e) {
-          console.error('Error decoding JWT token:', e);
-        }
-        
-        // Determine the URL based on user's role and organization context
-        let url = `${apiUrl}/api/transcripts`;
-        
-        // If not a master admin or not in master org context, filter by current organization
-        // Make sure we're using the correct organization ID format
-        if (!(isMasterAdmin && isMasterOrganizationSelected()) && currentOrganization) {
-          // The organizationId may be in either the 'id' or '_id' property
-          const orgId = currentOrganization.id || currentOrganization._id;
-          if (orgId) {
-            console.log(`Adding organization filter: ${orgId}`);
-            url = `${apiUrl}/api/transcripts?organizationId=${orgId}`;
+        if (tokenData.organizationId) {
+          console.log(`JWT organization ID: ${tokenData.organizationId}`);
+          if (currentOrganization) {
+            console.log(`Local organization ID: ${currentOrganization.id || currentOrganization._id}`);
           } else {
-            console.warn('No organization ID found for filtering');
+            console.log('No local organization context available');
           }
         }
-        
-        console.log('Fetching transcripts from:', url);
-        
+      } catch (e) {
+        console.error('Error decoding JWT token:', e);
+      }
+      
+      // Try direct API call first - no filter, let the server handle it
+      console.log('Making direct API call without filters first');
+      let url = `${apiUrl}/api/transcripts`;
+      console.log('API URL:', url);
+      
+      try {
+        console.log('Fetching from:', url);
         const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -137,96 +183,110 @@ function TranscriptHistory() {
         console.log('Response status:', response.status);
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('API error response:', errorData);
-          throw new Error(`Failed to fetch transcripts: ${response.status} ${errorData.message || response.statusText}`);
+          const errorText = await response.text();
+          console.error('API error response text:', errorText);
+          throw new Error(`Failed to fetch transcripts: ${response.status} ${response.statusText}`);
         }
         
         const data = await response.json();
-        console.log('API Response data:', data); // Log entire response data
+        console.log('API Response data type:', typeof data);
+        console.log('API Response data keys:', Object.keys(data));
+        console.log('API Response data sample:', data);
         
-        // Check if the API returns data in the new format (with pagination)
-        // The new controller returns { transcripts: [...], pagination: {...} }
+        // Handle both pagination and direct array formats
         const transcriptData = data.transcripts || data;
         console.log(`Extracted transcript data:`, transcriptData);
         console.log(`Transcript data is array: ${Array.isArray(transcriptData)}`);
         console.log(`Number of transcripts: ${Array.isArray(transcriptData) ? transcriptData.length : 'N/A'}`);
         
-        // If we have no transcripts and we were using a filter, try without filter
-        if (Array.isArray(transcriptData) && transcriptData.length === 0 && url.includes('organizationId')) {
-          console.log('No transcripts found with organizationId filter, trying without filter...');
+        if (Array.isArray(transcriptData)) {
+          setTranscripts(transcriptData);
+          setFilteredTranscripts(transcriptData);
           
-          // Try again with base URL without filter
-          const fallbackUrl = `${apiUrl}/api/transcripts`;
-          console.log('Trying fallback URL:', fallbackUrl);
+          // Extract unique organization names if master admin
+          if (isMasterAdmin && transcriptData.length > 0) {
+            const uniqueOrganizations = [...new Set(transcriptData
+              .filter(t => t.organizationId && t.organizationId.name)
+              .map(t => t.organizationId.name)
+            )];
+            console.log('Extracted organization filters:', uniqueOrganizations);
+            setOrganizations(uniqueOrganizations);
+          }
           
-          const fallbackResponse = await fetch(fallbackUrl, {
-            headers: {
-              'Authorization': `Bearer ${token}`
+          setLoading(false);
+          return; // Exit early since we have data
+        }
+      } catch (err) {
+        console.error('Error in direct API call:', err);
+        // Continue to try other approaches
+      }
+      
+      // If the direct call didn't work or returned no results, try with organization filter
+      if (currentOrganization) {
+        // The organizationId may be in either the 'id' or '_id' property
+        const orgId = currentOrganization.id || currentOrganization._id;
+        if (orgId) {
+          console.log(`Trying with organization filter: ${orgId}`);
+          url = `${apiUrl}/api/transcripts?organizationId=${orgId}`;
+          
+          try {
+            console.log('Fetching from:', url);
+            const response = await fetch(url, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            console.log('Response status:', response.status);
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('API error response text with org filter:', errorText);
+              throw new Error(`Failed to fetch transcripts with organization filter: ${response.status} ${response.statusText}`);
             }
-          });
-          
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            console.log('Fallback API Response data:', fallbackData);
             
-            const fallbackTranscriptData = fallbackData.transcripts || fallbackData;
-            console.log(`Fallback transcripts found: ${Array.isArray(fallbackTranscriptData) ? fallbackTranscriptData.length : 'N/A'}`);
+            const data = await response.json();
+            console.log('Organization filter API Response:', data);
             
-            if (Array.isArray(fallbackTranscriptData) && fallbackTranscriptData.length > 0) {
-              console.log('Using fallback transcript data instead');
-              setTranscripts(fallbackTranscriptData);
-              setFilteredTranscripts(fallbackTranscriptData);
+            // Handle both pagination and direct array formats
+            const transcriptData = data.transcripts || data;
+            
+            if (Array.isArray(transcriptData)) {
+              setTranscripts(transcriptData);
+              setFilteredTranscripts(transcriptData);
               
               // Extract unique organization names if master admin
-              if (isMasterAdmin && isMasterOrganizationSelected()) {
-                const uniqueOrganizations = [...new Set(fallbackTranscriptData
+              if (isMasterAdmin && transcriptData.length > 0) {
+                const uniqueOrganizations = [...new Set(transcriptData
                   .filter(t => t.organizationId && t.organizationId.name)
                   .map(t => t.organizationId.name)
                 )];
-                console.log('Extracted organization filters from fallback:', uniqueOrganizations);
                 setOrganizations(uniqueOrganizations);
               }
               
-              return; // Exit early since we have data now
+              setLoading(false);
+              return; // Exit early
             }
-          } else {
-            console.error('Fallback request also failed');
+          } catch (err) {
+            console.error('Error in API call with organization filter:', err);
+            // Fall through to the next approach
           }
         }
-        
-        setTranscripts(transcriptData);
-        setFilteredTranscripts(transcriptData);
-        
-        // Extract unique organization names - only if master admin in master org
-        if (isMasterAdmin && isMasterOrganizationSelected() && transcriptData.length > 0) {
-          const uniqueOrganizations = [...new Set(transcriptData
-            .filter(t => t.organizationId && t.organizationId.name)
-            .map(t => t.organizationId.name)
-          )];
-          console.log('Extracted organization filters:', uniqueOrganizations);
-          setOrganizations(uniqueOrganizations);
-        } else {
-          setOrganizations([]);
-          setFilterOrganization(''); // Clear any organization filter
-        }
-      } catch (err) {
-        console.error('Error in fetchTranscripts:', err);
-        setError(`Error loading transcript history: ${err.message}`);
-      } finally {
-        setLoading(false);
       }
-    };
-
-    // Only fetch if we have loaded the user and organization context
-    if (currentUser && currentOrganization) {
-      console.log('User and organization context ready, fetching transcripts...');
-      fetchTranscripts();
-    } else {
-      console.log('Waiting for user and organization context...');
+      
+      // If we got here, both approaches failed or returned no results
+      console.log('All transcript fetch attempts completed with no results');
+      setTranscripts([]);
+      setFilteredTranscripts([]);
+      setOrganizations([]);
+      
+    } catch (err) {
+      console.error('Error in fetchTranscripts:', err);
+      setError(`Error loading transcript history: ${err.message}`);
+    } finally {
       setLoading(false);
     }
-  }, [currentUser, currentOrganization, isMasterAdmin]);
+  };
   
   // Filter transcripts when filterOrganization changes
   useEffect(() => {
@@ -267,16 +327,12 @@ function TranscriptHistory() {
     );
   }
 
-  if (error) {
-    return <div className="error-message">{error}</div>;
-  }
-
   return (
     <div className="history-container">
       <h2>Transcript History</h2>
       
       {/* Only show organization filter for master admins in master org context */}
-      {isMasterAdmin && isMasterOrganizationSelected() && organizations.length > 0 && (
+      {isMasterAdmin && organizations.length > 0 && (
         <div className="filter-controls">
           <div className="filter-group">
             <label htmlFor="organizationFilter">Filter by Organization:</label>
@@ -294,8 +350,20 @@ function TranscriptHistory() {
         </div>
       )}
       
-      {filteredTranscripts.length === 0 ? (
-        <p>No transcript analysis history found.</p>
+      {error && (
+        <div className="error-message">{error}</div>
+      )}
+      
+      {!error && filteredTranscripts.length === 0 ? (
+        <div>
+          <p>No transcript analysis history found.</p>
+          <button 
+            className="refresh-button"
+            onClick={fetchTranscripts}
+          >
+            Refresh Transcripts
+          </button>
+        </div>
       ) : (
         <div className="transcript-list">
           {filteredTranscripts.map(transcript => (
@@ -322,7 +390,7 @@ function TranscriptHistory() {
                   {getCallTypeLabel(transcript.callType)}
                 </span>
                 {/* Only show organization badge if master admin in master org context */}
-                {isMasterAdmin && isMasterOrganizationSelected() && transcript.organizationId && (
+                {isMasterAdmin && transcript.organizationId && (
                   <span className="organization-badge">
                     Org: {transcript.organizationId.name}
                   </span>
