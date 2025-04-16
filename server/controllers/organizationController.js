@@ -517,4 +517,91 @@ const generateApiKeyForCurrentUser = async (req, res) => {
     console.error('Error generating API key:', error);
     return res.status(500).json({ message: 'Failed to generate API key: ' + error.message });
   }
+};
+
+// Get API key for organization from query parameter
+exports.getApiKeyByQuery = async (req, res) => {
+  try {
+    console.log('getApiKeyByQuery called with request query:', req.query);
+    console.log('Context: overrideOrganizationId =', req.overrideOrganizationId, 'overrideOrganizationName =', req.overrideOrganizationName);
+    console.log('Context headers:', JSON.stringify(req.headers, null, 2));
+    
+    // Priority for organization ID: 
+    // 1. Query parameter (explicit organizationId in URL) - highest priority
+    // 2. Context override (Only Blooms mode) - second priority
+    // 3. JWT token (user's organization) - lowest priority
+    let organizationId;
+    
+    if (req.query.organizationId) {
+      // 1. Use query parameter if available (highest priority)
+      console.log(`Using explicit organizationId from query parameter: ${req.query.organizationId}`);
+      organizationId = req.query.organizationId;
+    } else if (req.overrideOrganizationId) {
+      // 2. Use context override if available (second priority)
+      console.log(`Using organization context override: ${req.overrideOrganizationName} (${req.overrideOrganizationId})`);
+      organizationId = req.overrideOrganizationId;
+    } else if (req.user && req.user.organizationId) {
+      // 3. Fallback to user's organization from JWT
+      console.log(`Falling back to user's organization ID from JWT: ${req.user.organizationId}`);
+      organizationId = req.user.organizationId;
+    }
+    
+    if (!organizationId) {
+      console.error('No organization ID provided in query, context or JWT');
+      return res.status(400).json({ message: 'Organization ID is required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+      console.error('Invalid organization ID format:', organizationId);
+      return res.status(400).json({ message: 'Invalid organization ID format' });
+    }
+
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+    console.log('Looking for API key with organizationId (via query):', orgObjectId.toString());
+    
+    // Check if organization exists
+    const organization = await Organization.findById(orgObjectId);
+    if (!organization) {
+      console.error(`Organization not found with ID: ${organizationId}`);
+      return res.status(404).json({ message: 'Organization not found' });
+    }
+
+    // Find the most recently created active API key
+    const apiKey = await ApiKey.findOne({
+      organizationId: orgObjectId,
+      isActive: true
+    }).sort({ createdAt: -1 }).lean();
+    
+    console.log('API key found for organization (via query):', apiKey ? 'Yes' : 'No');
+    
+    if (!apiKey) {
+      console.log(`No active API key found for organization: ${organizationId}`);
+      return res.status(404).json({ 
+        message: 'No active API key found', 
+        organizationId: organizationId,
+        needsGeneration: true 
+      });
+    }
+
+    // Return the API key info
+    const response = {
+      id: apiKey._id,
+      name: apiKey.name,
+      prefix: apiKey.prefix,
+      key: `${apiKey.prefix}_${apiKey.key}`, // Return full key format
+      createdAt: apiKey.createdAt,
+      lastUsed: apiKey.lastUsed,
+      organization: {
+        id: organization._id,
+        name: organization.name
+      }
+    };
+    
+    console.log('Returning organization API key info (via query):', { ...response, key: `${apiKey.prefix}_******` });
+    res.json(response);
+  } catch (error) {
+    console.error(`Error getting API key via query:`, error);
+    console.error(error.stack);
+    res.status(500).json({ message: 'Failed to retrieve organization API key: ' + error.message });
+  }
 }; 

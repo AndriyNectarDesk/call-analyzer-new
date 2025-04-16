@@ -15,6 +15,10 @@ router.post('/', authenticateJWT, isMasterAdmin, organizationController.createOr
 router.get('/api-key', authenticateJWT, handleOrganizationContext, tenantIsolation, organizationController.getCurrentApiKey);
 router.post('/api-key', authenticateJWT, isOrgAdmin, tenantIsolation, organizationController.generateApiKey);
 
+// New route for getting an organization's API key via query parameter
+// This is used in Only Blooms mode to avoid path parameter conflicts
+router.get('/api-key-by-query', authenticateJWT, handleOrganizationContext, organizationController.getApiKeyByQuery);
+
 // Organization specific routes (require authentication)
 router.get('/:id', authenticateJWT, belongsToOrganization, tenantIsolation, organizationController.getOrganization);
 router.put('/:id', authenticateJWT, isOrgAdmin, belongsToOrganization, tenantIsolation, organizationController.updateOrganization);

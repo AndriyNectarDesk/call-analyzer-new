@@ -141,21 +141,32 @@ function ApiPage() {
         setCurrentOrganization(targetOrg);
         
         // Fetch API key passing the organization context
-        // Use a direct organizationId parameter in addition to headers when in Only Blooms mode
-        let apiEndpoint = `${baseApiUrl}/api/organizations/${targetOrg._id}/api-key?nocache=${timestamp}`;
+        // For Only Blooms mode, use a completely different endpoint to avoid path parameters
+        let apiEndpoint;
+        let requestHeaders = { ...headers }; // Clone the headers
+
         if (isOnlyBlooms) {
-          apiEndpoint += `&organizationId=${targetOrg._id}`;
-          console.log('Adding explicit organizationId parameter for Only Blooms mode:', apiEndpoint);
+          // Use generic endpoint with query parameter
+          apiEndpoint = `${baseApiUrl}/api/organizations/api-key-by-query?organizationId=${targetOrg._id}&nocache=${timestamp}`;
+          console.log('Using special endpoint for Only Blooms mode:', apiEndpoint);
+          
+          // Ensure the headers have the organization context
+          requestHeaders['X-Only-Blooms'] = 'true';
+          requestHeaders['X-Organization-Name'] = 'Blooms';
+        } else {
+          // Regular endpoint with ID in path
+          apiEndpoint = `${baseApiUrl}/api/organizations/${targetOrg._id}/api-key?nocache=${timestamp}`;
         }
+        
+        console.log('Making API key request to:', apiEndpoint);
+        console.log('With headers:', requestHeaders);
         
         const apiKeyResponse = await axios.get(
           apiEndpoint, 
-          { 
-            headers: headers // Ensure we use the same headers object with the context
-          }
+          { headers: requestHeaders }
         );
         
-        console.log('Headers sent for API key request:', headers);
+        console.log('Headers sent for API key request:', requestHeaders);
         
         if (apiKeyResponse.data && apiKeyResponse.data.key) {
           const orgName = apiKeyResponse.data.organization?.name || targetOrg.name;
