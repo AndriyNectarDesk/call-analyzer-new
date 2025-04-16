@@ -1,605 +1,135 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import './TranscriptHistory.css';
+import Cookies from 'js-cookie';
 import axios from 'axios';
-import './TranscriptHistory.css'; // Reuse existing CSS
 
 function TranscriptHistory() {
-  // State management
   const [transcripts, setTranscripts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [user, setUser] = useState(null);
-  const [organization, setOrganization] = useState(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [filterOrganization, setFilterOrganization] = useState('');
   const [filteredTranscripts, setFilteredTranscripts] = useState([]);
   const [organizations, setOrganizations] = useState([]);
-
-  // Initialize component on mount
-  useEffect(() => {
-    initializeComponent();
-  }, []);
-
-  // Fetch data when page changes
-  useEffect(() => {
-    if (user && organization) {
-      fetchTranscripts();
-    }
-  }, [page, user, organization]);
-
-  // Filter transcripts when filter changes
-  useEffect(() => {
-    if (!filterOrganization) {
-      setFilteredTranscripts(transcripts);
-    } else {
-      setFilteredTranscripts(
-        transcripts.filter(t => t.organizationId && t.organizationId.name === filterOrganization)
-      );
-    }
-  }, [filterOrganization, transcripts]);
-
-  // Initialize component with authentication
-  const initializeComponent = async () => {
-    try {
-      setLoading(true);
-      const authToken = localStorage.getItem('auth_token');
-      
-      console.log('Authentication token exists:', !!authToken);
-      
-      if (!authToken) {
-        redirectToLogin('No authentication token found');
-        return;
-      }
-      
-      // Decode token to check expiration
-      try {
-        const payload = parseJwt(authToken);
-        const tokenExp = payload.exp * 1000;
-        const currentTime = Date.now();
-        
-        console.log('Token expiration:', new Date(tokenExp).toLocaleString());
-        console.log('Current time:', new Date(currentTime).toLocaleString());
-        console.log('Token valid for:', Math.round((tokenExp - currentTime) / 60000), 'minutes');
-        
-        if (currentTime > tokenExp) {
-          console.error('Authentication token expired');
-          redirectToLogin('Authentication token expired');
-          return;
-        }
-        
-        console.log('JWT token payload:', payload);
-        
-        // Set user from token payload
-        setUser({
-          id: payload.userId || payload.id,
-          email: payload.email,
-          isMasterAdmin: payload.isMasterAdmin || false,
-          role: payload.role || 'user',
-          organizationId: payload.organizationId
-        });
-        
-        console.log('User set from token:', payload.email, 'isMasterAdmin:', payload.isMasterAdmin);
-      } catch (err) {
-        console.error('Error parsing token:', err);
-        redirectToLogin('Invalid authentication token');
-        return;
-      }
-      
-      // Get organization from localStorage or fallback to API
-      const orgData = localStorage.getItem('selectedOrganization');
-      console.log('Organization data exists in localStorage:', !!orgData);
-      
-      if (orgData) {
-        try {
-          const parsedOrg = JSON.parse(orgData);
-          console.log('Parsed organization data:', parsedOrg);
-          
-          setOrganization({
-            _id: parsedOrg._id || parsedOrg.id,
-            id: parsedOrg.id || parsedOrg._id,
-            name: parsedOrg.name,
-            code: parsedOrg.code
-          });
-          
-          console.log('Organization set from localStorage:', parsedOrg.name);
-        } catch (err) {
-          console.error('Error parsing organization data:', err);
-          await fetchOrganizationFromAPI(authToken);
-        }
-      } else {
-        console.log('No organization in localStorage, fetching from API...');
-        await fetchOrganizationFromAPI(authToken);
-      }
-      
-      // Attempt to fetch transcripts right away
-      await fetchTranscripts();
-    } catch (err) {
-      console.error('Error initializing component:', err);
-      setError('Failed to initialize. Please try refreshing the page.');
-    } finally {
-      setLoading(false);
-    }
+  const [filterOrganization, setFilterOrganization] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentOrganization, setCurrentOrganization] = useState(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
+  
+  // Check if user is master admin
+  const isMasterAdmin = currentUser?.isMasterAdmin || false;
+  console.log('====== MASTER ADMIN CHECK ======');
+  console.log('Is user a master admin?', isMasterAdmin);
+  console.log('Current user:', currentUser);
+  
+  // Debug render function
+  const renderDebug = () => {
+    console.log('====== RENDER DEBUG ======');
+    console.log('Master admin (render time):', isMasterAdmin);
+    console.log('Organizations length (render time):', organizations.length);
+    console.log('Organizations data (render time):', organizations);
+    return null;
   };
   
-  // Helper to parse JWT with more robust error handling
-  const parseJwt = (token) => {
-    try {
-      // Handle tokens that might have Bearer prefix
-      if (token.startsWith('Bearer ')) {
-        token = token.slice(7);
-      }
-      
-      // Split the token and get the payload part
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        console.error('Invalid JWT format: Expected 3 parts but got', parts.length);
-        throw new Error('Invalid token format - not a valid JWT');
-      }
-      
-      const base64Url = parts[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      
-      // Add padding if needed
-      const padding = '='.repeat((4 - base64.length % 4) % 4);
-      const padded = base64 + padding;
-      
+  // Get the current user from local storage on mount
+  useEffect(() => {
+    fetchUserContext();
+    
+    async function fetchUserContext() {
       try {
-        // First try the standard browser atob method
-        const rawPayload = atob(padded);
-        const jsonPayload = decodeURIComponent(
-          Array.from(rawPayload).map(c => 
-            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-          ).join('')
-        );
+        console.log('====== DEBUGGING USER CONTEXT ======');
+        const userId = localStorage.getItem('user_id');
+        console.log('User ID from localStorage:', userId);
         
-        return JSON.parse(jsonPayload);
-      } catch (innerErr) {
-        // Fallback to Buffer if available (Node.js environment)
-        console.error('atob failed, trying fallback:', innerErr);
-        if (typeof Buffer !== 'undefined') {
-          const buff = Buffer.from(padded, 'base64');
-          return JSON.parse(buff.toString('utf8'));
-        }
-        throw innerErr;
-      }
-    } catch (err) {
-      console.error('Error parsing JWT:', err);
-      throw new Error('Invalid token format: ' + err.message);
-    }
-  };
-  
-  // Fetch organization from API 
-  const fetchOrganizationFromAPI = async (token) => {
-    try {
-      console.log('Fetching organization from API...');
-      const response = await axios.get('/api/auth/me', {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        }
-      });
-      
-      console.log('API response for organization:', response.data);
-      
-      if (response.data && response.data.user && response.data.user.organization) {
-        const org = response.data.user.organization;
-        setOrganization({
-          _id: org._id || org.id,
-          id: org.id || org._id,
-          name: org.name,
-          code: org.code
-        });
+        const userData = localStorage.getItem('user_data');
+        console.log('User data exists in localStorage:', !!userData);
         
-        // Save to localStorage
-        localStorage.setItem('selectedOrganization', JSON.stringify(org));
-        console.log('Organization saved to localStorage:', org.name);
-      } else if (response.data && response.data.organization) {
-        const org = response.data.organization;
-        setOrganization({
-          _id: org._id || org.id,
-          id: org.id || org._id,
-          name: org.name,
-          code: org.code
-        });
-        
-        // Save to localStorage
-        localStorage.setItem('selectedOrganization', JSON.stringify(org));
-        console.log('Organization saved to localStorage:', org.name);
-      } else {
-        console.error('No organization data in API response:', response.data);
-        throw new Error('No organization data returned from API');
-      }
-    } catch (err) {
-      console.error('Error fetching organization:', err);
-      if (err.response) {
-        console.error('Response status:', err.response.status);
-        console.error('Response data:', err.response.data);
-      }
-      setError('Failed to fetch organization data. Please try logging in again.');
-    }
-  };
-
-  // Redirect to login
-  const redirectToLogin = (reason) => {
-    console.warn(`Redirecting to login: ${reason}`);
-    // Clear potentially invalid data
-    localStorage.removeItem('auth_token');
-    
-    // Set error to inform user
-    setError(`Authentication error: ${reason}. Please log in again.`);
-    
-    // Redirect after a short delay
-    setTimeout(() => {
-      window.location.href = '/login';
-    }, 1500);
-  };
-
-  // Add a fallback method to try direct API request without going through checkIfMasterOrganization logic
-  const fetchTranscriptsWithFallback = async () => {
-    try {
-      console.log('Attempting to fetch transcripts with fallback method...');
-      const authToken = localStorage.getItem('auth_token');
-      
-      if (!authToken) {
-        setError('Authentication token is missing. Please log in again.');
-        return;
-      }
-      
-      // Get API base URL
-      const apiBaseUrl = getApiBaseUrl();
-      console.log('Using API base URL for fallback:', apiBaseUrl);
-      
-      // Direct API call without complex filters
-      const url = `${apiBaseUrl}/api/transcripts?page=1&limit=10`;
-      
-      console.log('Fallback fetch URL:', url);
-      
-      // Add debug output
-      try {
-        // Try to get user ID from token
-        const payload = parseJwt(authToken);
-        console.log('JWT Payload for fallback request:', payload);
-        
-        if (payload.exp) {
-          const expTime = new Date(payload.exp * 1000);
-          const now = new Date();
-          console.log('Token expiration time:', expTime.toLocaleString());
-          console.log('Current time:', now.toLocaleString());
-          console.log('Token valid for:', Math.round((expTime - now) / 60000), 'minutes');
-        }
-      } catch (err) {
-        console.error('Could not parse token for debug output:', err);
-      }
-      
-      // Make the request with retries
-      const makeApiCall = async () => {
-        const result = await axios.get(url, {
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Accept': 'application/json'
-          },
-          timeout: 15000 // 15 second timeout for fallback
-        });
-        console.log('Fallback API response status:', result.status);
-        return result;
-      };
-      
-      console.log('Making fallback API call with retry...');
-      const response = await retryWithBackoff(makeApiCall);
-      
-      console.log('Fallback API response:', response.data);
-      
-      // Try various response format parsers
-      const parsedData = parseAnyResponseFormat(response.data);
-      console.log('Parsed transcript data from fallback:', parsedData);
-      
-      if (parsedData.items.length > 0) {
-        setTranscripts(parsedData.items);
-        setFilteredTranscripts(parsedData.items);
-        setTotalPages(parsedData.totalPages);
-        setError(null); // Clear any previous errors
-        
-        // If we're in a master context, extract orgs for filtering
-        const isMasterOrg = checkIfMasterOrganization();
-        if (isMasterOrg) {
-          const orgNames = [...new Set(
-            parsedData.items
-              .filter(t => t.organizationId && t.organizationId.name)
-              .map(t => t.organizationId.name)
-          )];
-          setOrganizations(orgNames);
-          console.log('Extracted organization names for filtering:', orgNames);
-        }
-      } else {
-        console.error('No transcript data found even with fallback');
-        setError('Unable to retrieve transcript data. The server response contains no valid transcript entries.');
-      }
-    } catch (err) {
-      console.error('Fallback method also failed:', err);
-      
-      if (err.response) {
-        setError(`Fallback API call failed with status ${err.response.status}: ${err.response.statusText}`);
-        console.error('Fallback response data:', err.response.data);
-      } else if (err.request) {
-        setError('No response received from server during fallback request. The server may be offline.');
-      } else {
-        setError('All methods to fetch data failed. Please try logging out and logging in again.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Add a method to check the API server status
-  const checkApiStatus = async () => {
-    try {
-      console.log('Checking API server status...');
-      
-      // Make a simple request to check if the API is responding
-      const response = await axios.get('/api/health', {
-        timeout: 5000 // 5 second timeout
-      });
-      
-      console.log('API health check response:', response.data);
-      
-      if (response.status === 200) {
-        return true;
-      }
-      
-      return false;
-    } catch (err) {
-      console.error('API health check failed:', err);
-      return false;
-    }
-  };
-
-  // Add a method to retry the API call with exponential backoff
-  const retryWithBackoff = async (apiCallFn, maxRetries = 3) => {
-    let retries = 0;
-    let lastError;
-    
-    while (retries < maxRetries) {
-      try {
-        const delay = Math.pow(2, retries) * 1000; // Exponential backoff: 1s, 2s, 4s
-        
-        if (retries > 0) {
-          console.log(`Retry attempt ${retries}/${maxRetries} after ${delay}ms delay...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-        
-        return await apiCallFn();
-      } catch (err) {
-        lastError = err;
-        retries++;
-        console.log(`API call failed (attempt ${retries}/${maxRetries}):`, err.message);
-      }
-    }
-    
-    console.error(`All ${maxRetries} retry attempts failed. Last error:`, lastError);
-    throw lastError;
-  };
-
-  // Add a function to attempt to parse any response format
-  const parseAnyResponseFormat = (responseData) => {
-    console.log('Attempting to parse any response format:', responseData);
-    
-    // Case 1: Standard format with transcripts array
-    if (responseData.transcripts && Array.isArray(responseData.transcripts)) {
-      console.log('Found standard format with transcripts array');
-      return {
-        items: responseData.transcripts,
-        totalPages: responseData.totalPages || responseData.pagination?.pages || 1
-      };
-    }
-    
-    // Case 2: Alternative format with data array
-    if (responseData.data && Array.isArray(responseData.data)) {
-      console.log('Found alternative format with data array');
-      return {
-        items: responseData.data,
-        totalPages: responseData.totalPages || responseData.meta?.totalPages || 1
-      };
-    }
-    
-    // Case 3: Direct array of transcripts
-    if (Array.isArray(responseData)) {
-      console.log('Found direct array format');
-      return {
-        items: responseData,
-        totalPages: 1
-      };
-    }
-    
-    // Case 4: Nested format (object containing transcripts or records object)
-    if (responseData.records && Array.isArray(responseData.records)) {
-      console.log('Found nested format with records array');
-      return {
-        items: responseData.records,
-        totalPages: responseData.totalPages || responseData.pagination?.total || 1
-      };
-    }
-    
-    // Case 5: Response contains a results array
-    if (responseData.results && Array.isArray(responseData.results)) {
-      console.log('Found format with results array');
-      return {
-        items: responseData.results,
-        totalPages: responseData.totalPages || responseData.pagination?.pages || 1
-      };
-    }
-    
-    // Case 6: Deeply nested structure - try to find arrays that might be transcript lists
-    for (const key in responseData) {
-      if (typeof responseData[key] === 'object' && responseData[key] !== null) {
-        // Check if this object has an array we can use
-        for (const nestedKey in responseData[key]) {
-          if (Array.isArray(responseData[key][nestedKey])) {
-            console.log(`Found possible transcript array in nested structure: ${key}.${nestedKey}`);
-            return {
-              items: responseData[key][nestedKey],
-              totalPages: 1
-            };
+        if (userData) {
+          try {
+            const parsedUser = JSON.parse(userData);
+            console.log('Parsed user data:', parsedUser);
+            setCurrentUser(parsedUser);
+          } catch (e) {
+            console.error('Error parsing user data:', e);
           }
         }
-      }
-    }
-    
-    // Log the complete response structure for debugging
-    console.error('Unable to find transcript data in response structure:', JSON.stringify(responseData, null, 2));
-    
-    // If all else fails, return empty data
-    return {
-      items: [],
-      totalPages: 1
-    };
-  };
-
-  // Main function to fetch transcripts with enhanced response handling
-  const fetchTranscripts = async () => {
-    setLoading(true);
-    try {
-      const authToken = localStorage.getItem('auth_token');
-      
-      if (!authToken) {
-        redirectToLogin('Missing authentication token');
-        return;
-      }
-      
-      // Check if API is responsive first
-      const apiIsUp = await checkApiStatus();
-      if (!apiIsUp) {
-        setError('API server may be down or unreachable. Please try again later.');
-        setLoading(false);
-        return;
-      }
-      
-      // Check if Master Organization
-      const isMasterOrg = checkIfMasterOrganization();
-      console.log('Is master organization check:', isMasterOrg);
-      
-      // Get API base URL
-      const apiBaseUrl = getApiBaseUrl();
-      console.log('Using API base URL:', apiBaseUrl);
-      
-      // Construct URL
-      let url = `${apiBaseUrl}/api/transcripts?page=${page}&limit=10`;
-      
-      // Add organization filter based on master org status
-      if (!isMasterOrg && organization && organization._id) {
-        url += `&organizationId=${organization._id}`;
-        console.log('Adding organization filter:', organization._id, organization.name);
-      } else if (isMasterOrg) {
-        console.log('Using master org context - not filtering by organization');
-        url += '&isMasterOrg=true';
-      }
-      
-      // Set up headers
-      const headers = {
-        'Authorization': `Bearer ${authToken}`,
-        'Accept': 'application/json'
-      };
-      
-      // Make the request with retry mechanism
-      console.log('Fetching transcripts:', url);
-      console.log('Request headers:', headers);
-      
-      const makeApiCall = async () => {
-        return await axios.get(url, { 
-          headers,
-          timeout: 10000 // 10 second timeout
-        });
-      };
-      
-      const response = await retryWithBackoff(makeApiCall);
-      
-      // Verify content type
-      const contentType = response.headers['content-type'];
-      console.log('Response content type:', contentType);
-      
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('Received non-JSON response:', contentType);
-        console.log('Response data:', response.data);
-        throw new Error('Server returned non-JSON response');
-      }
-      
-      // Process response data with the enhanced parser
-      console.log('API response (raw):', response.data);
-      
-      // Try to parse any response format
-      const parsedData = parseAnyResponseFormat(response.data);
-      console.log('Parsed transcript data:', parsedData);
-      
-      if (parsedData.items.length > 0) {
-        setTranscripts(parsedData.items);
-        setFilteredTranscripts(parsedData.items);
-        setTotalPages(parsedData.totalPages);
         
-        // Extract unique organization names for filtering if we're in master context
-        if (isMasterOrg) {
-          const orgNames = [...new Set(
-            parsedData.items
-              .filter(t => t.organizationId && t.organizationId.name)
-              .map(t => t.organizationId.name)
-          )];
-          setOrganizations(orgNames);
-          console.log('Extracted organization names for filtering:', orgNames);
-        }
-      } else {
-        console.warn('No transcripts found in response');
-        setTranscripts([]);
-        setFilteredTranscripts([]);
-      }
-    } catch (err) {
-      console.error('Error fetching transcripts:', err);
-      
-      // Dump the full error object in console for debugging
-      console.error('Full error object:', err);
-      
-      // Handle specific error types
-      if (err.response) {
-        console.error('Error response status:', err.response.status);
-        console.error('Error response data:', err.response.data);
+        const orgData = localStorage.getItem('selectedOrganization');
+        console.log('Organization data exists in localStorage:', !!orgData);
         
-        if (err.response.status === 401 || err.response.status === 403) {
-          // Try to refresh the token or login again
-          console.log('Authentication error, attempting fallback...');
-          await fetchTranscriptsWithFallback();
+        if (orgData) {
+          try {
+            const parsedOrg = JSON.parse(orgData);
+            console.log('Loaded organization data from localStorage:', parsedOrg);
+            
+            // Ensure the organization object has the expected format
+            const formattedOrg = {
+              ...parsedOrg,
+              _id: parsedOrg._id || parsedOrg.id,
+              id: parsedOrg.id || parsedOrg._id
+            };
+            
+            console.log('Formatted organization data:', formattedOrg);
+            setCurrentOrganization(formattedOrg);
+          } catch (e) {
+            console.error('Error parsing organization data:', e);
+          }
         } else {
-          setError(`API error: ${err.response.status} ${err.response.statusText}`);
+          console.warn('No selected organization found in localStorage');
+          
+          // Try to get org ID from the auth token as fallback
+          try {
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+              const base64Url = token.split('.')[1];
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+              }).join(''));
+              
+              const tokenData = JSON.parse(jsonPayload);
+              console.log('JWT token payload for org fallback:', tokenData);
+              
+              if (tokenData.organizationId) {
+                console.log('Using organization ID from JWT token as fallback:', tokenData.organizationId);
+                // Create minimal org object with the ID from the token
+                setCurrentOrganization({
+                  _id: tokenData.organizationId,
+                  id: tokenData.organizationId,
+                  name: 'Organization from JWT'
+                });
+              }
+            }
+          } catch (e) {
+            console.error('Error using JWT for organization fallback:', e);
+          }
         }
-      } else if (err.request) {
-        console.error('No response received:', err.request);
-        setError('No response received from server. Please check your connection.');
-      } else if (err.message.includes('non-JSON')) {
-        console.log('Non-JSON response, attempting fallback...');
-        await fetchTranscriptsWithFallback();
-      } else if (err.message.includes('Unexpected API response format')) {
-        console.log('Unexpected format, attempting fallback...');
-        await fetchTranscriptsWithFallback();
-      } else {
-        setError(err.message || 'Failed to fetch transcripts');
+        
+        // Important: Trigger transcript fetch even if we couldn't fully resolve the context
+        console.log('User context fetch complete - will proceed even if incomplete');
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching user context:', err);
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
     }
-  };
-
+  }, []);
+  
   // Check if the current organization is the master organization
   const checkIfMasterOrganization = () => {
     console.log('====== MASTER ORG CHECK ======');
     
-    if (!organization) {
+    if (!currentOrganization) {
       console.log('No current organization selected');
       return false;
     }
     
-    console.log('Checking if master org selected:', organization);
+    console.log('Checking if master org selected:', currentOrganization);
     
     // Get the organization name and code in lowercase for comparison
-    const orgName = organization.name ? organization.name.toLowerCase() : '';
-    const orgCode = organization.code ? organization.code.toLowerCase() : '';
-    const orgId = organization._id || organization.id || '';
+    const orgName = currentOrganization.name ? currentOrganization.name.toLowerCase() : '';
+    const orgCode = currentOrganization.code ? currentOrganization.code.toLowerCase() : '';
+    const orgId = currentOrganization._id || currentOrganization.id || '';
     
     console.log('Organization details - Name:', orgName, 'Code:', orgCode, 'ID:', orgId);
     
@@ -611,30 +141,98 @@ function TranscriptHistory() {
     const knownMasterOrgIds = ['64d5ece33f7443afa6b684d2', '67f6a38454aeb791d5665e59', '67f6a38454aeb791d5665e58'];
     const isMasterById = knownMasterOrgIds.includes(orgId);
     
-    // Check if user is master admin
-    const isMasterAdmin = user && user.isMasterAdmin === true;
-    
-    const result = isMasterByCode || isMasterByName || isMasterById || isMasterAdmin;
+    const result = isMasterByCode || isMasterByName || isMasterById;
     console.log('Is master organization?', result);
-    console.log('Checks: By code:', isMasterByCode, '| By name:', isMasterByName, '| By ID:', isMasterById, '| Is master admin:', isMasterAdmin);
+    console.log('Checks: By code:', isMasterByCode, '| By name:', isMasterByName, '| By ID:', isMasterById);
     
     return result;
   };
-
-  // Handle refresh button
-  const handleRefresh = () => {
-    window.location.reload();
+  
+  // Fetch transcripts when component mounts (don't wait for user/org context to be perfect)
+  useEffect(() => {
+    // Use a timeout to ensure this runs after the context effect
+    const timer = setTimeout(() => {
+      console.log('Initiating transcript fetch after delay');
+      fetchTranscripts();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Also fetch when user or organization context changes
+  useEffect(() => {
+    if (currentUser || currentOrganization) {
+      console.log('Context changed, fetching transcripts again');
+      fetchTranscripts();
+    }
+  }, [currentUser, currentOrganization]);
+  
+  // The main transcript fetching function
+  const fetchTranscripts = async () => {
+    setLoading(true);
+    try {
+      // Get organization ID from JWT or localStorage
+      let orgId;
+      const token = Cookies.get('token');
+      
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          console.log('JWT token payload:', payload);
+          orgId = payload.organizationId;
+          console.log('Organization ID from JWT:', orgId);
+        } catch (err) {
+          console.error('Error decoding JWT:', err);
+        }
+      }
+      
+      // Fallback to localStorage if JWT parsing fails
+      if (!orgId) {
+        orgId = localStorage.getItem('organizationId');
+        console.log('Organization ID from localStorage:', orgId);
+      }
+      
+      let url = `/api/transcripts?page=${page}&limit=10`;
+      console.log('Fetching transcripts URL:', url);
+      
+      const response = await axios.get(url);
+      console.log('API response data:', response.data);
+      
+      // Handle both older and newer pagination formats
+      if (response.data.transcripts && Array.isArray(response.data.transcripts)) {
+        setTranscripts(response.data.transcripts);
+        setTotalPages(response.data.totalPages || 1);
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        setTranscripts(response.data.data);
+        setTotalPages(response.data.totalPages || response.data.meta?.totalPages || 1);
+      } else {
+        console.error('Unexpected API response format:', response.data);
+        setTranscripts([]);
+        setTotalPages(1);
+      }
+    } catch (error) {
+      console.error('Error fetching transcripts:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'An error occurred while fetching transcripts';
+      setError(errorMessage);
+      setTranscripts([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
   };
+  
+  // Filter transcripts when filterOrganization changes
+  useEffect(() => {
+    if (!filterOrganization) {
+      setFilteredTranscripts(transcripts);
+    } else {
+      setFilteredTranscripts(transcripts.filter(
+        t => t.organizationId && t.organizationId.name === filterOrganization
+      ));
+    }
+  }, [filterOrganization, transcripts]);
 
-  // Handle logout button
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_data');
-    localStorage.removeItem('selectedOrganization');
-    window.location.href = '/login';
-  };
-
-  // Get human-readable call type label
+  // Get a human-readable call type
   const getCallTypeLabel = (type) => {
     switch(type) {
       case 'flower': return 'Flower Shop';
@@ -644,7 +242,7 @@ function TranscriptHistory() {
     }
   };
   
-  // Get badge class for call type
+  // Get a badge color based on call type
   const getCallTypeBadgeClass = (type) => {
     switch(type) {
       case 'flower': return 'badge-flower';
@@ -653,27 +251,6 @@ function TranscriptHistory() {
     }
   };
 
-  // Get the API base URL
-  const getApiBaseUrl = () => {
-    // Check for environment variables first
-    if (process.env.REACT_APP_API_URL) {
-      return process.env.REACT_APP_API_URL;
-    }
-    
-    // Otherwise, derive from current URL
-    const protocol = window.location.protocol;
-    const hostname = window.location.hostname;
-    
-    // If running locally, use a standard port for API
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return `${protocol}//${hostname}:3001`;
-    }
-    
-    // For production, assume API is on the same host
-    return `${protocol}//${hostname}`;
-  };
-
-  // Loading state
   if (loading) {
     return (
       <div className="loading-container">
@@ -683,13 +260,13 @@ function TranscriptHistory() {
     );
   }
 
-  // Render component
   return (
     <div className="history-container">
       <h2>Transcript History</h2>
+      {renderDebug()}
       
-      {/* Organization filter for master organization */}
-      {checkIfMasterOrganization() && organizations.length > 0 && (
+      {/* Organization filter for master org context */}
+      {checkIfMasterOrganization() && organizations.length > 0 ? (
         <div className="filter-controls">
           <div className="filter-group">
             <label htmlFor="organizationFilter"><strong>Filter by Organization:</strong></label>
@@ -706,40 +283,19 @@ function TranscriptHistory() {
             </select>
           </div>
         </div>
+      ) : (
+        // Only show debug message if we're in master context but have no organizations
+        checkIfMasterOrganization() && organizations.length === 0 ? (
+          <div className="debug-message" style={{margin: '10px 0', fontSize: '0.9rem', color: '#555'}}>
+            Filter not shown: No organizations found
+          </div>
+        ) : null
       )}
       
-      {/* Error message */}
       {error && (
-        <div className="error-message">
-          <p>{error}</p>
-          <div className="error-details">
-            <strong>Debug Information:</strong>
-            <ul>
-              <li>User authenticated: {user ? 'Yes' : 'No'}</li>
-              <li>Organization loaded: {organization ? 'Yes' : 'No'}</li>
-              <li>Master admin: {user && user.isMasterAdmin ? 'Yes' : 'No'}</li>
-              <li>Organization name: {organization ? organization.name : 'None'}</li>
-              <li>Time: {new Date().toLocaleString()}</li>
-            </ul>
-          </div>
-          <div className="error-actions">
-            <button className="refresh-button" onClick={fetchTranscripts}>
-              Retry Fetch
-            </button>
-            <button className="alternative-button" onClick={fetchTranscriptsWithFallback}>
-              Try Alternative Method
-            </button>
-            <button className="refresh-button" onClick={handleRefresh}>
-              Refresh Page
-            </button>
-            <button className="logout-button" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        </div>
+        <div className="error-message">{error}</div>
       )}
       
-      {/* Empty state */}
       {!error && filteredTranscripts.length === 0 ? (
         <div>
           <p>No transcript analysis history found.</p>
@@ -751,7 +307,6 @@ function TranscriptHistory() {
           </button>
         </div>
       ) : (
-        /* Transcript list */
         <div className="transcript-list">
           {filteredTranscripts.map(transcript => (
             <div key={transcript._id} className="transcript-card">
@@ -766,8 +321,8 @@ function TranscriptHistory() {
                   ID: {transcript._id}
                 </span>
                 <span className={`source-badge ${
-                  transcript.source === 'api' ? 'badge-api' : 
-                  transcript.source === 'audio' ? 'badge-audio' : 
+                  transcript.source === 'api' ? 'badge-auto' : 
+                  transcript.source === 'audio' ? 'badge-nectar' : 
                   transcript.source === 'nectar-desk-webhook' ? 'badge-nectar-desk' : 
                   'badge-auto'
                 }`}>
@@ -781,7 +336,7 @@ function TranscriptHistory() {
                 <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
                   {getCallTypeLabel(transcript.callType)}
                 </span>
-                {/* Organization badge */}
+                {/* Always show organization badge when transcript has organization info */}
                 {transcript.organizationId && transcript.organizationId.name && (
                   <span className="organization-badge">
                     Org: {transcript.organizationId.name}
@@ -818,15 +373,15 @@ function TranscriptHistory() {
         </div>
       )}
       
-      {/* Pagination */}
-      {filteredTranscripts.length > 0 && (
-        <div className="history-footer">
-          {filterOrganization && (
-            <button className="clear-filter-button" onClick={() => setFilterOrganization('')}>
-              Clear Filter
-            </button>
-          )}
-          
+      <div className="history-footer">
+        {filterOrganization && (
+          <button className="clear-filter-button" onClick={() => setFilterOrganization('')}>
+            Clear Filter
+          </button>
+        )}
+        
+        {/* Pagination controls */}
+        {transcripts.length > 0 && (
           <div className="pagination-controls">
             <button 
               className="pagination-button" 
@@ -858,8 +413,8 @@ function TranscriptHistory() {
               Next
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
