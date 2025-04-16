@@ -388,6 +388,10 @@ function TranscriptHistory() {
 
   return (
     <div className="history-container">
+      <div className="notification-banner">
+        <p>We've built a new and improved History page with better performance and reliability.</p>
+        <Link to="/history-new" className="try-new-button">Try the new History page</Link>
+      </div>
       <h2>Transcript History</h2>
       {renderDebug()}
       
