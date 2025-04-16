@@ -89,14 +89,14 @@ exports.createOrganization = async (req, res) => {
 // Update organization
 exports.updateOrganization = async (req, res) => {
   try {
-    const { name, description, contactEmail } = req.body;
+    const { name, code, description, contactEmail, active } = req.body;
     
     // Check if name is being changed and if it conflicts
     if (name) {
       const existingOrg = await Organization.findOne({ 
         name, 
         _id: { $ne: req.params.id },
-        isActive: true 
+        active: true 
       });
       
       if (existingOrg) {
@@ -104,17 +104,19 @@ exports.updateOrganization = async (req, res) => {
       }
     }
     
+    // Build the update object with only the fields that were provided
+    const updateFields = { updatedAt: Date.now() };
+    if (name) updateFields.name = name;
+    if (description) updateFields.description = description;
+    if (contactEmail) updateFields.contactEmail = contactEmail;
+    if (active !== undefined) updateFields.active = active;
+    if (req.user.id) updateFields.updatedBy = req.user.id;
+    
+    console.log('Updating organization with fields:', updateFields);
+    
     const updatedOrganization = await Organization.findByIdAndUpdate(
       req.params.id,
-      { 
-        $set: { 
-          name: name || undefined,
-          description: description || undefined,
-          contactEmail: contactEmail || undefined,
-          updatedAt: Date.now(),
-          updatedBy: req.user.id
-        }
-      },
+      { $set: updateFields },
       { new: true, runValidators: true }
     ).select('-apiKeys.secret');
     
@@ -125,7 +127,7 @@ exports.updateOrganization = async (req, res) => {
     res.json(updatedOrganization);
   } catch (error) {
     console.error('Error updating organization:', error);
-    res.status(500).json({ message: 'Failed to update organization' });
+    res.status(500).json({ message: error.message || 'Failed to update organization' });
   }
 };
 
@@ -136,7 +138,7 @@ exports.deactivateOrganization = async (req, res) => {
       req.params.id,
       { 
         $set: { 
-          isActive: false,
+          active: false,
           deactivatedAt: Date.now(),
           deactivatedBy: req.user.id
         }

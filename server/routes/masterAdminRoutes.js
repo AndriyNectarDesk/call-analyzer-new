@@ -11,6 +11,7 @@ router.use(authenticateJWT, isMasterAdmin);
 router.get('/organizations', masterAdminController.getAllOrganizations);
 router.post('/organizations', organizationController.createOrganization);
 router.get('/organizations/:id', masterAdminController.getOrganizationDetails);
+router.put('/organizations/:id', organizationController.updateOrganization);
 router.put('/organizations/:id/subscription', masterAdminController.updateOrganizationSubscription);
 router.put('/organizations/:id/features', masterAdminController.updateOrganizationFeatures);
 router.put('/organizations/:id/status', masterAdminController.updateOrganizationStatus);
