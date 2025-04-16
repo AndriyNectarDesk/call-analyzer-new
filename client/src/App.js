@@ -22,6 +22,7 @@ import UserEditPage from './pages/UserEditPage';
 import OrganizationDetails from './components/OrganizationDetails';
 import MasterAdminDashboard from './components/MasterAdminDashboard';
 import Settings from './components/Settings';
+import TranscriptsHistoryPage from './pages/TranscriptsHistoryPage';
 
 // Create a wrapper component for App that provides the router context
 function AppWrapper() {
@@ -876,6 +877,9 @@ function AppContent() {
                       <Link to="/history">History</Link>
                     </li>
                     <li>
+                      <Link to="/transcripts-history">Call Transcripts</Link>
+                    </li>
+                    <li>
                       <Link to="/call-types">Call Types</Link>
                     </li>
                     <li>
@@ -972,6 +976,12 @@ function AppContent() {
             <Route path="/history" element={
               <ProtectedRoute>
                 <TranscriptHistory />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/transcripts-history" element={
+              <ProtectedRoute>
+                <TranscriptsHistoryPage />
               </ProtectedRoute>
             } />
             
