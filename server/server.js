@@ -1361,11 +1361,7 @@ initEmailService().catch(err => {
   console.error('Error during email service initialization:', err);
 });
 
-// API middleware - apply to all /api routes
-app.use('/api', verifyToken); 
-app.use('/api', organizationContextMiddleware);
-
-// Create API routes
+// Create API routes first - before the catch-all middleware
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/organizations', require('./routes/organizationRoutes'));
@@ -1373,11 +1369,16 @@ app.use('/api/transcripts', require('./routes/transcriptRoutes'));
 app.use('/api/call-types', require('./routes/callTypeRoutes'));
 app.use('/api/master-admin', require('./routes/masterAdminRoutes'));
 
+// API middleware - apply to routes that haven't been matched yet
+app.use('/api', verifyToken); 
+app.use('/api', organizationContextMiddleware);
+
 // Serve static files from the React app build directory
 app.use(express.static(path.join(__dirname, '../client/build')));
 
-// Handle React routing, return all requests to React app
+// Handle React routing - this should be the last route
 app.get('*', function(req, res) {
+  // Send the React app's index.html for any unmatched routes
   res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
 });
 
