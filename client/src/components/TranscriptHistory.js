@@ -105,10 +105,13 @@ function TranscriptHistory() {
     console.log('Checking if master org selected. Org code:', currentOrganization.code);
     console.log('Organization details:', currentOrganization);
     
-    // Check for various possible identifiers of the master organization
-    return currentOrganization.code === 'master-org' || 
-           currentOrganization.name === 'Master Organization' ||
-           currentOrganization._id === '123456789012345678901234'; // Update with actual ID if known
+    // More thorough check for master organization
+    return (
+      currentOrganization.code === 'master-org' || 
+      currentOrganization.name === 'Master Organization' ||
+      currentOrganization.name?.toLowerCase().includes('master') ||
+      currentOrganization._id === '123456789012345678901234'
+    );
   };
   
   // Fetch transcripts when component mounts (don't wait for user/org context to be perfect)
@@ -173,9 +176,9 @@ function TranscriptHistory() {
         console.error('Error decoding JWT token:', e);
       }
       
-      // If user is master admin AND in master organization, fetch all transcripts
-      if (isMasterAdmin && isMasterOrganizationSelected()) {
-        console.log('User is master admin in master org context, fetching all transcripts');
+      // If user is master admin, always fetch all transcripts to allow filtering
+      if (isMasterAdmin) {
+        console.log('User is master admin, fetching all transcripts');
         
         let url = `${apiUrl}/api/transcripts`;
         console.log('Master admin API URL:', url);
@@ -208,7 +211,7 @@ function TranscriptHistory() {
             setTranscripts(transcriptData);
             setFilteredTranscripts(transcriptData);
             
-            // Extract unique organization names
+            // Extract unique organization names for master admins
             const uniqueOrganizations = [...new Set(transcriptData
               .filter(t => t.organizationId && t.organizationId.name)
               .map(t => t.organizationId.name)
@@ -224,8 +227,7 @@ function TranscriptHistory() {
           // Continue to try other approaches
         }
       } else {
-        // For non-master-admins or when a specific organization is selected,
-        // fetch only for the current organization
+        // For regular users, use the organization-specific logic
         if (currentOrganization) {
           const orgId = currentOrganization.id || currentOrganization._id;
           if (orgId) {
@@ -383,15 +385,16 @@ function TranscriptHistory() {
     <div className="history-container">
       <h2>Transcript History</h2>
       
-      {/* Show organization filter whenever we have organizations and user is master admin */}
+      {/* Always show organization filter for master admins when organizations are available */}
       {isMasterAdmin && organizations.length > 0 && (
         <div className="filter-controls">
           <div className="filter-group">
-            <label htmlFor="organizationFilter">Filter by Organization:</label>
+            <label htmlFor="organizationFilter"><strong>Filter by Organization:</strong></label>
             <select 
               id="organizationFilter" 
               value={filterOrganization} 
               onChange={(e) => setFilterOrganization(e.target.value)}
+              className="organization-filter"
             >
               <option value="">All Organizations</option>
               {organizations.map(org => (
@@ -441,8 +444,8 @@ function TranscriptHistory() {
                 <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
                   {getCallTypeLabel(transcript.callType)}
                 </span>
-                {/* Always show organization badge when master admin is logged in */}
-                {isMasterAdmin && transcript.organizationId && transcript.organizationId.name && (
+                {/* Always show organization badge when transcript has organization info */}
+                {transcript.organizationId && transcript.organizationId.name && (
                   <span className="organization-badge">
                     Org: {transcript.organizationId.name}
                   </span>

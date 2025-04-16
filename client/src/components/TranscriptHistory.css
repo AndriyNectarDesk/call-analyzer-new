@@ -10,6 +10,10 @@
   margin-bottom: 20px;
   display: flex;
   gap: 15px;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
 }
 
 .filter-group {
@@ -19,9 +23,16 @@
 }
 
 .filter-group select {
-  padding: 8px;
+  padding: 8px 12px;
   border-radius: 4px;
   border: 1px solid #ccc;
+  min-width: 200px;
+  font-size: 1rem;
+}
+
+.organization-filter {
+  background-color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .loading-container {
@@ -168,6 +179,7 @@
   font-size: 0.8rem;
   white-space: nowrap;
   font-weight: 500;
+  border: 1px solid #ce93d8;
 }
 
 .nectar-desk-badge {
