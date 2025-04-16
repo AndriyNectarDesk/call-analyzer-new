@@ -23,3 +23,62 @@ server/models/transcript.js
 server/models/user.js
 server/routes/organizationRoutes.js
 server/server.js
+[1mdiff --git a/client/src/App.js b/client/src/App.js[m
+[1mindex 34f606c..0c780af 100644[m
+[1m--- a/client/src/App.js[m
+[1m+++ b/client/src/App.js[m
+[36m@@ -124,6 +124,25 @@[m [mfunction App() {[m
+     fetchCallTypes();[m
+   }, [currentOrganization]);[m
+ [m
+[32m+[m[32m  // Load saved organization from localStorage[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    if (userOrganizations.length > 0) {[m
+[32m+[m[32m      try {[m
+[32m+[m[32m        const savedOrg = localStorage.getItem('selectedOrganization');[m
+[32m+[m[32m        if (savedOrg) {[m
+[32m+[m[32m          const parsedOrg = JSON.parse(savedOrg);[m
+[32m+[m[32m          // Find the full organization object from our userOrganizations[m
+[32m+[m[32m          const matchingOrg = userOrganizations.find(org => org._id === parsedOrg.id);[m
+[32m+[m[32m          if (matchingOrg) {[m
+[32m+[m[32m            setCurrentOrganization(matchingOrg);[m
+[32m+[m[32m          }[m
+[32m+[m[32m        }[m
+[32m+[m[32m      } catch (e) {[m
+[32m+[m[32m        console.error('Error loading saved organization:', e);[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }, [userOrganizations]);[m
+[32m+[m
+   const handleLogin = async (email, password) => {[m
+     try {[m
+       const apiUrl = process.env.REACT_APP_API_URL || '';[m
+[36m@@ -185,6 +204,7 @@[m [mfunction App() {[m
+ [m
+   const handleLogout = () => {[m
+     localStorage.removeItem('auth_token');[m
+[32m+[m[32m    localStorage.removeItem('selectedOrganization');[m
+     setIsAuthenticated(false);[m
+     setCurrentUser(null);[m
+     setCurrentOrganization(null);[m
+[36m@@ -193,6 +213,20 @@[m [mfunction App() {[m
+ [m
+   const handleSwitchOrganization = (org) => {[m
+     setCurrentOrganization(org);[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Store the selected organization in localStorage for persistence[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      localStorage.setItem('selectedOrganization', JSON.stringify({[m
+[32m+[m[32m        id: org._id,[m
+[32m+[m[32m        name: org.name,[m
+[32m+[m[32m        code: org.code[m
+[32m+[m[32m      }));[m
+[32m+[m[32m    } catch (e) {[m
+[32m+[m[32m      console.error('Error saving organization to localStorage:', e);[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Navigate to the organization's page[m
+[32m+[m[32m    window.location.href = `/organizations/${org._id}/users`;[m
+   };[m
+ [m
+   const toggleDarkMode = () => {[m
