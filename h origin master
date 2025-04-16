@@ -1,5 +1,5 @@
-[33mcommit ee58377191f80280424a21aaa8363c97257e9c03[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+[33mcommit 261abb527cb4e911adf9e976e567b1ff5619e8b6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
 Author: andriy <pocmarketing@gmail.com>
-Date:   Tue Apr 15 20:45:35 2025 -0400
+Date:   Wed Apr 16 17:54:57 2025 -0400
 
-    Fix organization switching functionality and add organization persistence
+    Add TranscriptsHistory page with organization filtering capability
