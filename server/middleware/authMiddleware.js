@@ -343,4 +343,9 @@ exports.handleOrganizationContext = async (req, res, next) => {
     console.error('Error in handleOrganizationContext middleware:', error);
     next(error);
   }
-}; 
+};
+
+// Add verifyToken as an alias for authenticateJWT for backward compatibility
+exports.verifyToken = exports.authenticateJWT;
+
+// Add requireMasterAdmin as an alias for isMasterAdmin for backward compatibility 
