@@ -468,6 +468,33 @@ app.post('/api/analyze', async (req, res, next) => {
         return res.status(500).json({ error: 'Error verifying user organization' });
       }
     }
+
+    // Check if "Only Blooms" mode is active
+    const onlyBloomsHeader = req.headers['x-only-blooms'];
+    if (onlyBloomsHeader === 'true') {
+      console.log('Only Blooms mode detected in headers');
+      
+      // Find the Blooms organization
+      try {
+        const Organization = require('./models/organization');
+        const bloomsOrg = await Organization.findOne({
+          $or: [
+            { name: { $regex: 'Blooms', $options: 'i' } },
+            { code: { $regex: 'blooms', $options: 'i' } }
+          ]
+        });
+        
+        if (bloomsOrg) {
+          console.log(`Overriding organizationId with Blooms organization: ${bloomsOrg._id}`);
+          organizationId = bloomsOrg._id;
+        }
+      } catch (err) {
+        console.error('Error finding Blooms organization:', err);
+        // Continue with original organizationId
+      }
+    }
+    
+    console.log(`Processing analyze request for organizationId: ${organizationId}`);
     
     // Call Claude API with the async createPrompt
     const prompt = await createPrompt(transcript, callType);
@@ -529,7 +556,9 @@ app.post('/api/analyze', async (req, res, next) => {
       createdBy: userId
     });
 
+    console.log(`Saving transcript with organizationId: ${organizationId}`);
     await newTranscript.save();
+    console.log(`Transcript saved with ID: ${newTranscript._id} for organization: ${organizationId}`);
 
     // Update organization transcript count
     await Organization.findByIdAndUpdate(
@@ -541,7 +570,8 @@ app.post('/api/analyze', async (req, res, next) => {
       success: true,
       transcript: transcript,
       analysis: jsonData,
-      id: newTranscript._id
+      id: newTranscript._id,
+      organizationId: organizationId // Include in response for debugging
     });
   } catch (error) {
     next(error); // Pass to the error handling middleware
@@ -998,7 +1028,34 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
         return res.status(500).json({ error: 'Error verifying user organization' });
       }
     }
+
+    // Check if "Only Blooms" mode is active
+    const onlyBloomsHeader = req.headers['x-only-blooms'];
+    if (onlyBloomsHeader === 'true') {
+      console.log('Only Blooms mode detected in headers');
+      
+      // Find the Blooms organization
+      try {
+        const Organization = require('./models/organization');
+        const bloomsOrg = await Organization.findOne({
+          $or: [
+            { name: { $regex: 'Blooms', $options: 'i' } },
+            { code: { $regex: 'blooms', $options: 'i' } }
+          ]
+        });
+        
+        if (bloomsOrg) {
+          console.log(`Overriding organizationId with Blooms organization: ${bloomsOrg._id}`);
+          organizationId = bloomsOrg._id;
+        }
+      } catch (err) {
+        console.error('Error finding Blooms organization:', err);
+        // Continue with original organizationId
+      }
+    }
     
+    console.log(`Processing transcribe request for organizationId: ${organizationId}`);
+
     // Handle audio URL if provided instead of file upload
     if (req.body.audioUrl) {
       console.log(`Processing audio from URL: ${req.body.audioUrl}`);

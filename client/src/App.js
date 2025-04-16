@@ -143,6 +143,54 @@ function App() {
     }
   }, [userOrganizations]);
 
+  // Listen for "onlyBlooms" setting changes
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'onlyBlooms') {
+        // When Only Blooms setting changes, make sure we update the current organization
+        const onlyBloomsActive = e.newValue === 'true';
+        if (onlyBloomsActive && userOrganizations.length > 0) {
+          // Find the Only Blooms organization
+          const bloomsOrg = userOrganizations.find(org => org.name.includes('Blooms') || org.code.includes('blooms'));
+          if (bloomsOrg) {
+            console.log('Only Blooms mode activated, switching to organization:', bloomsOrg.name);
+            setCurrentOrganization(bloomsOrg);
+            
+            // Also update localStorage
+            localStorage.setItem('selectedOrganization', JSON.stringify({
+              id: bloomsOrg._id,
+              name: bloomsOrg.name,
+              code: bloomsOrg.code
+            }));
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check on mount
+    const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
+    if (onlyBloomsActive && userOrganizations.length > 0) {
+      const bloomsOrg = userOrganizations.find(org => org.name.includes('Blooms') || org.code.includes('blooms'));
+      if (bloomsOrg && (!currentOrganization || currentOrganization._id !== bloomsOrg._id)) {
+        console.log('Only Blooms mode active, setting organization to:', bloomsOrg.name);
+        setCurrentOrganization(bloomsOrg);
+        
+        // Update localStorage
+        localStorage.setItem('selectedOrganization', JSON.stringify({
+          id: bloomsOrg._id,
+          name: bloomsOrg.name,
+          code: bloomsOrg.code
+        }));
+      }
+    }
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [userOrganizations, currentOrganization]);
+
   const handleLogin = async (email, password) => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || '';
@@ -251,12 +299,43 @@ function App() {
 
     try {
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      
+      // Check if "Only Blooms" is active
+      const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
+      
+      // Make sure we have the correct organization set if Only Blooms is active
+      if (onlyBloomsActive && userOrganizations.length > 0) {
+        const bloomsOrg = userOrganizations.find(org => org.name.includes('Blooms') || org.code.includes('blooms'));
+        if (bloomsOrg && (!currentOrganization || currentOrganization._id !== bloomsOrg._id)) {
+          console.log('Only Blooms mode active but wrong organization selected. Setting to:', bloomsOrg.name);
+          setCurrentOrganization(bloomsOrg);
+          
+          // Update localStorage
+          localStorage.setItem('selectedOrganization', JSON.stringify({
+            id: bloomsOrg._id,
+            name: bloomsOrg.name,
+            code: bloomsOrg.code
+          }));
+        }
+      }
+      
+      console.log('Analyzing transcript for organization:', currentOrganization?.name, currentOrganization?._id);
+      
+      // Set up headers
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
+      };
+      
+      // Add Only Blooms header if active
+      if (onlyBloomsActive) {
+        headers['X-Only-Blooms'] = 'true';
+        console.log('Adding X-Only-Blooms header for API request');
+      }
+      
       const response = await fetch(apiUrl + '/api/analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
-        },
+        headers: headers,
         body: JSON.stringify({
           transcript: transcript,
           callType: callType,
@@ -295,14 +374,44 @@ function App() {
       const apiUrl = process.env.REACT_APP_API_URL || '';
       const fallbackUrl = 'http://localhost:3001';  // Fallback for local development
       
+      // Check if "Only Blooms" is active
+      const onlyBloomsActive = localStorage.getItem('onlyBlooms') === 'true';
+      
+      // Make sure we have the correct organization set if Only Blooms is active
+      if (onlyBloomsActive && userOrganizations.length > 0) {
+        const bloomsOrg = userOrganizations.find(org => org.name.includes('Blooms') || org.code.includes('blooms'));
+        if (bloomsOrg && (!currentOrganization || currentOrganization._id !== bloomsOrg._id)) {
+          console.log('Only Blooms mode active but wrong organization selected. Setting to:', bloomsOrg.name);
+          setCurrentOrganization(bloomsOrg);
+          
+          // Update localStorage
+          localStorage.setItem('selectedOrganization', JSON.stringify({
+            id: bloomsOrg._id,
+            name: bloomsOrg.name,
+            code: bloomsOrg.code
+          }));
+        }
+      }
+      
+      console.log('Transcribing audio for organization:', currentOrganization?.name, currentOrganization?._id);
+      
       // Add call type to the FormData
       formData.append('callType', callType);
       
+      // Set up headers
+      const headers = {
+        'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
+      };
+      
+      // Add Only Blooms header if active
+      if (onlyBloomsActive) {
+        headers['X-Only-Blooms'] = 'true';
+        console.log('Adding X-Only-Blooms header for API request');
+      }
+      
       const response = await fetch(apiUrl + '/api/transcribe' || fallbackUrl + '/api/transcribe', {
         method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
-        },
+        headers: headers,
         body: formData
       });
 
