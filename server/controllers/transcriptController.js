@@ -25,9 +25,28 @@ exports.getAllTranscripts = async (req, res) => {
     // If user is master admin and no specific organization filter is applied,
     // allow viewing all transcripts, otherwise enforce organization isolation
     const isMasterAdmin = req.user && req.user.isMasterAdmin;
-    const isMasterOrg = req.overrideOrganizationName && 
-      (req.overrideOrganizationName.toLowerCase().includes('master') || 
-       req.overrideOrganizationName.toLowerCase() === 'nectardesk');
+    
+    // Check if this is the master organization
+    let isMasterOrg = false;
+    
+    if (organizationId) {
+      // Look up the organization to see if it's marked as the master organization
+      try {
+        const organization = await Organization.findById(organizationId);
+        if (organization && organization.isMaster === true) {
+          isMasterOrg = true;
+          console.log('Found master organization with ID:', organizationId);
+        } else if (req.overrideOrganizationName && 
+            (req.overrideOrganizationName.toLowerCase().includes('master') || 
+            req.overrideOrganizationName.toLowerCase() === 'nectardesk')) {
+          // Backward compatibility check
+          isMasterOrg = true;
+          console.log('Name-based master organization detected:', req.overrideOrganizationName);
+        }
+      } catch (err) {
+        console.error('Error checking if organization is master:', err);
+      }
+    }
     
     console.log('User is master admin:', isMasterAdmin);
     console.log('Is master organization context:', isMasterOrg);
@@ -40,7 +59,7 @@ exports.getAllTranscripts = async (req, res) => {
     let query = {};
     
     // Only allow viewing all transcripts if:
-    // They are in the master organization context
+    // They are in the master organization context (regardless of admin status)
     if (isMasterOrg) {
       console.log('Master organization context - showing all transcripts');
       // Empty query means "all transcripts"
@@ -81,7 +100,7 @@ exports.getAllTranscripts = async (req, res) => {
     const transcripts = await Transcript.find(query)
       .select('-rawTranscript') // Don't return full transcript in listing
       .populate('createdBy', 'firstName lastName email')
-      .populate('organizationId', 'name code')
+      .populate('organizationId', 'name code isMaster')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);

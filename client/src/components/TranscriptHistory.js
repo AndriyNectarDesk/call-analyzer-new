@@ -18,6 +18,8 @@ function TranscriptHistory() {
   
   // Check if user is master admin
   const isMasterAdmin = currentUser?.isMasterAdmin || false;
+  // Check if current organization is master organization
+  const isMasterOrg = currentOrganization?.isMaster || false;
   
   // Get the current user from local storage on mount
   useEffect(() => {
@@ -50,6 +52,37 @@ function TranscriptHistory() {
             };
             
             setCurrentOrganization(formattedOrg);
+            
+            // If organization is not identified as master yet, fetch its details
+            if (formattedOrg._id && formattedOrg.isMaster === undefined) {
+              try {
+                const token = localStorage.getItem('auth_token');
+                if (token) {
+                  const response = await axios.get(`/api/organizations/${formattedOrg._id}`, {
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  
+                  if (response.data && response.data.isMaster) {
+                    // Update the current organization with the isMaster flag
+                    setCurrentOrganization(prev => ({
+                      ...prev,
+                      isMaster: response.data.isMaster
+                    }));
+                    
+                    // Update localStorage with isMaster flag
+                    const updatedOrg = {
+                      ...formattedOrg,
+                      isMaster: response.data.isMaster
+                    };
+                    localStorage.setItem('selectedOrganization', JSON.stringify(updatedOrg));
+                  }
+                }
+              } catch (err) {
+                console.error('Error fetching organization details:', err);
+              }
+            }
           } catch (e) {
             console.error('Error parsing organization data:', e);
           }
@@ -73,6 +106,21 @@ function TranscriptHistory() {
                   id: tokenData.organizationId,
                   name: 'Your Organization'
                 });
+                
+                // Try to fetch organization details including isMaster status
+                try {
+                  const response = await axios.get(`/api/organizations/${tokenData.organizationId}`, {
+                    headers: {
+                      'Authorization': `Bearer ${token}`
+                    }
+                  });
+                  
+                  if (response.data) {
+                    setCurrentOrganization(response.data);
+                  }
+                } catch (err) {
+                  console.error('Error fetching organization details from token:', err);
+                }
               }
             }
           } catch (e) {
@@ -88,6 +136,34 @@ function TranscriptHistory() {
       }
     }
   }, []);
+  
+  // Fetch available organizations for filtering if user is in the master organization
+  useEffect(() => {
+    if (isMasterOrg) {
+      fetchOrganizations();
+    }
+  }, [isMasterOrg, currentOrganization]);
+  
+  // Fetch organizations for master admin users
+  const fetchOrganizations = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      
+      const response = await axios.get('/api/master-admin/organizations', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data && Array.isArray(response.data)) {
+        setOrganizations(response.data);
+        console.log('Fetched organizations for filtering:', response.data.length);
+      }
+    } catch (error) {
+      console.error('Error fetching organizations:', error);
+    }
+  };
   
   // Fetch transcripts when page changes or when user/organization context changes
   useEffect(() => {
@@ -121,16 +197,35 @@ function TranscriptHistory() {
         url += `&organization=${encodeURIComponent(filterOrganization)}`;
       }
       
-      const response = await axios.get(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      // Add organization context headers
+      const headers = {
+        'Authorization': `Bearer ${token}`
+      };
+      
+      if (currentOrganization) {
+        // Set the organization context header
+        headers['X-Organization-Id'] = currentOrganization._id || currentOrganization.id;
+        
+        // Add organization name if available
+        if (currentOrganization.name) {
+          headers['X-Organization-Name'] = currentOrganization.name;
         }
-      });
+        
+        // For debugging - add isMaster flag if present
+        if (currentOrganization.isMaster) {
+          headers['X-Organization-Is-Master'] = 'true';
+        }
+      }
+      
+      console.log('Fetching transcripts with headers:', headers);
+      console.log('Current organization:', currentOrganization);
+      
+      const response = await axios.get(url, { headers });
       
       // Handle different API response formats
       if (response.data.transcripts && Array.isArray(response.data.transcripts)) {
         setTranscripts(response.data.transcripts);
-        setTotalPages(response.data.totalPages || 1);
+        setTotalPages(response.data.pagination?.pages || 1);
       } else if (response.data.data && Array.isArray(response.data.data)) {
         setTranscripts(response.data.data);
         setTotalPages(response.data.totalPages || response.data.meta?.totalPages || 1);
@@ -141,6 +236,15 @@ function TranscriptHistory() {
         console.error('Unexpected API response format:', response.data);
         setTranscripts([]);
         setTotalPages(1);
+      }
+      
+      // Update filtered transcripts based on current filter
+      if (!filterOrganization) {
+        setFilteredTranscripts(transcripts);
+      } else {
+        setFilteredTranscripts(transcripts.filter(
+          t => t.organizationId && t.organizationId.name === filterOrganization
+        ));
       }
     } catch (error) {
       console.error('Error fetching transcripts:', error);
@@ -161,17 +265,6 @@ function TranscriptHistory() {
     }
   };
   
-  // Filter transcripts when filterOrganization changes
-  useEffect(() => {
-    if (!filterOrganization) {
-      setFilteredTranscripts(transcripts);
-    } else {
-      setFilteredTranscripts(transcripts.filter(
-        t => t.organizationId && t.organizationId.name === filterOrganization
-      ));
-    }
-  }, [filterOrganization, transcripts]);
-
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -216,6 +309,12 @@ function TranscriptHistory() {
     fetchTranscripts();
   };
   
+  // Handle changing organization filter
+  const handleOrganizationChange = (e) => {
+    setFilterOrganization(e.target.value);
+    setPage(1); // Reset to first page when changing filters
+  };
+  
   // Handle pagination
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -248,13 +347,13 @@ function TranscriptHistory() {
           <button type="submit" className="search-button">Search</button>
         </form>
         
-        {organizations.length > 0 && (
+        {organizations.length > 0 && isMasterOrg && (
           <div className="filter-control">
             <label htmlFor="org-filter">Filter by Organization:</label>
             <select
               id="org-filter"
               value={filterOrganization}
-              onChange={(e) => setFilterOrganization(e.target.value)}
+              onChange={handleOrganizationChange}
               className="org-filter-select"
             >
               <option value="">All Organizations</option>
@@ -298,7 +397,7 @@ function TranscriptHistory() {
                   </div>
                   
                   <div className="transcript-summary">
-                    {truncateText(transcript.text)}
+                    {truncateText(transcript.text || transcript.rawTranscript)}
                   </div>
                   
                   <div className="transcript-footer">
@@ -317,6 +416,9 @@ function TranscriptHistory() {
                           <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
                         </svg>
                         {transcript.organizationId.name}
+                        {transcript.organizationId.isMaster && 
+                          <span className="master-badge">Master</span>
+                        }
                       </span>
                     )}
                     
@@ -347,11 +449,7 @@ function TranscriptHistory() {
               >
                 Previous
               </button>
-              
-              <span className="page-indicator">
-                Page {page} of {totalPages}
-              </span>
-              
+              <span className="pagination-info">Page {page} of {totalPages}</span>
               <button 
                 onClick={() => handlePageChange(page + 1)} 
                 disabled={page === totalPages}
