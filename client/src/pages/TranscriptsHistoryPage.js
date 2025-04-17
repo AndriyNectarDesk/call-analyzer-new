@@ -30,10 +30,6 @@ const TranscriptsHistoryPage = () => {
   // Base URL for the API
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://call-analyzer-api.onrender.com';
   
-  // Debug info
-  const [debugMode, setDebugMode] = useState(true);
-  const [debugInfo, setDebugInfo] = useState({});
-  
   // Initial fetching of user and organizations
   useEffect(() => {
     const fetchUserAndOrganizations = async () => {
@@ -56,15 +52,6 @@ const TranscriptsHistoryPage = () => {
             const parsedUser = JSON.parse(userData);
             console.log('User data loaded from localStorage:', parsedUser.email);
             setCurrentUser(parsedUser);
-            
-            setDebugInfo(prev => ({
-              ...prev,
-              userData: {
-                id: parsedUser._id,
-                email: parsedUser.email,
-                orgId: parsedUser.organizationId
-              }
-            }));
           } catch (e) {
             console.error('Error parsing user data:', e);
           }
@@ -88,20 +75,10 @@ const TranscriptsHistoryPage = () => {
         
         if (!orgsResponse.data || !Array.isArray(orgsResponse.data) || orgsResponse.data.length === 0) {
           console.warn('No organizations found');
-          setDebugInfo(prev => ({
-            ...prev,
-            orgsResponse: 'No organizations found in response'
-          }));
         } else {
           console.log(`Found ${orgsResponse.data.length} organizations`);
           setOrganizations(orgsResponse.data);
           setUserOrganizations(orgsResponse.data);
-          
-          setDebugInfo(prev => ({
-            ...prev,
-            orgsFound: orgsResponse.data.length,
-            firstOrgName: orgsResponse.data[0]?.name
-          }));
         }
         
         // Try to get organization from localStorage
@@ -132,15 +109,6 @@ const TranscriptsHistoryPage = () => {
               // No orgs from API, use the saved one
               selectedOrg = parsedOrg;
             }
-            
-            setDebugInfo(prev => ({
-              ...prev,
-              savedOrg: {
-                id: parsedOrg.id,
-                name: parsedOrg.name
-              },
-              matchFound: !!selectedOrg
-            }));
           } catch (e) {
             console.error('Error parsing saved organization:', e);
           }
@@ -181,12 +149,6 @@ const TranscriptsHistoryPage = () => {
         console.error('Error in fetchUserAndOrganizations:', err);
         setError(`Error loading data: ${err.message}`);
         setLoading(false);
-        
-        setDebugInfo(prev => ({
-          ...prev,
-          error: err.message,
-          stack: err.stack
-        }));
       }
     };
     
@@ -457,89 +419,9 @@ const TranscriptsHistoryPage = () => {
     );
   };
 
-  // Toggle debug mode
-  const toggleDebugMode = () => {
-    setDebugMode(!debugMode);
-  };
-
   return (
     <div className="transcript-history-container">
       <h1>Call Transcripts History</h1>
-      
-      {/* Debug Panel - only visible in debug mode */}
-      {debugMode && (
-        <div style={{ 
-          padding: '10px', 
-          margin: '10px 0', 
-          border: '1px solid #ccc', 
-          borderRadius: '5px',
-          backgroundColor: '#f8f8f8' 
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h3 style={{ margin: 0 }}>Debug Information</h3>
-            <button 
-              onClick={toggleDebugMode} 
-              style={{ padding: '5px 10px', background: '#ddd', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-            >
-              Hide Debug
-            </button>
-          </div>
-
-          <div>
-            <h4>User Data:</h4>
-            <pre style={{ background: '#eee', padding: '5px', overflow: 'auto', maxHeight: '100px' }}>
-              {JSON.stringify(currentUser, null, 2)}
-            </pre>
-            
-            <h4>Current Organization:</h4>
-            <pre style={{ background: '#eee', padding: '5px', overflow: 'auto', maxHeight: '100px' }}>
-              {JSON.stringify(currentOrganization, null, 2)}
-            </pre>
-            
-            <h4>Available Organizations:</h4>
-            <p>{organizations.length} organizations found</p>
-            
-            {organizations.length > 0 && (
-              <div>
-                <p><strong>Select Organization:</strong></p>
-                <select 
-                  onChange={(e) => handleSwitchOrganization(organizations.find(org => org._id === e.target.value))}
-                  style={{ padding: '5px', marginBottom: '10px', width: '100%' }}
-                  value={currentOrganization?._id || ''}
-                >
-                  <option value="">Select an organization</option>
-                  {organizations.map(org => (
-                    <option key={org._id} value={org._id}>{org.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            
-            <h4>Debug Data:</h4>
-            <pre style={{ background: '#eee', padding: '5px', overflow: 'auto', maxHeight: '200px' }}>
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          </div>
-        </div>
-      )}
-      
-      {/* Simple debug toggle button when debug is hidden */}
-      {!debugMode && (
-        <button 
-          onClick={toggleDebugMode} 
-          style={{ 
-            padding: '2px 5px', 
-            background: '#eee', 
-            border: 'none', 
-            borderRadius: '3px', 
-            cursor: 'pointer',
-            fontSize: '12px',
-            marginBottom: '10px' 
-          }}
-        >
-          Debug
-        </button>
-      )}
       
       <div className="history-controls">
         <form onSubmit={handleSearch} className="search-form">
