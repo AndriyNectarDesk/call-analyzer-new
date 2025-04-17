@@ -86,21 +86,21 @@ const TranscriptsHistoryPage = () => {
           { headers }
         );
         
-        if (!orgsResponse.data || !orgsResponse.data.organizations || orgsResponse.data.organizations.length === 0) {
+        if (!orgsResponse.data || !Array.isArray(orgsResponse.data) || orgsResponse.data.length === 0) {
           console.warn('No organizations found');
           setDebugInfo(prev => ({
             ...prev,
             orgsResponse: 'No organizations found in response'
           }));
         } else {
-          console.log(`Found ${orgsResponse.data.organizations.length} organizations`);
-          setOrganizations(orgsResponse.data.organizations);
-          setUserOrganizations(orgsResponse.data.organizations);
+          console.log(`Found ${orgsResponse.data.length} organizations`);
+          setOrganizations(orgsResponse.data);
+          setUserOrganizations(orgsResponse.data);
           
           setDebugInfo(prev => ({
             ...prev,
-            orgsFound: orgsResponse.data.organizations.length,
-            firstOrgName: orgsResponse.data.organizations[0]?.name
+            orgsFound: orgsResponse.data.length,
+            firstOrgName: orgsResponse.data[0]?.name
           }));
         }
         
@@ -114,10 +114,10 @@ const TranscriptsHistoryPage = () => {
             console.log('Found saved organization in localStorage:', parsedOrg);
             
             // If we have organizations from API, find the matching one
-            if (orgsResponse.data && orgsResponse.data.organizations && orgsResponse.data.organizations.length > 0) {
+            if (orgsResponse.data && Array.isArray(orgsResponse.data) && orgsResponse.data.length > 0) {
               // Look for matching organization by ID
-              const matchedOrg = orgsResponse.data.organizations.find(
-                org => org._id === (parsedOrg._id || parsedOrg.id)
+              const matchedOrg = orgsResponse.data.find(
+                org => org._id === parsedOrg.id
               );
               
               if (matchedOrg) {
@@ -136,7 +136,7 @@ const TranscriptsHistoryPage = () => {
             setDebugInfo(prev => ({
               ...prev,
               savedOrg: {
-                id: parsedOrg._id || parsedOrg.id,
+                id: parsedOrg.id,
                 name: parsedOrg.name
               },
               matchFound: !!selectedOrg
@@ -147,8 +147,8 @@ const TranscriptsHistoryPage = () => {
         }
         
         // If no saved org was found or parsed, use the first available organization
-        if (!selectedOrg && orgsResponse.data && orgsResponse.data.organizations && orgsResponse.data.organizations.length > 0) {
-          selectedOrg = orgsResponse.data.organizations[0];
+        if (!selectedOrg && orgsResponse.data && Array.isArray(orgsResponse.data) && orgsResponse.data.length > 0) {
+          selectedOrg = orgsResponse.data[0];
           console.log('Using first available organization:', selectedOrg.name);
           
           // Save it to localStorage for future use
