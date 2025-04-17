@@ -47,9 +47,10 @@ const TranscriptsHistoryPage = () => {
         
         // Get user data from localStorage
         const userData = localStorage.getItem('user_data');
+        let parsedUser = null;
         if (userData) {
           try {
-            const parsedUser = JSON.parse(userData);
+            parsedUser = JSON.parse(userData);
             console.log('User data loaded from localStorage:', parsedUser.email);
             setCurrentUser(parsedUser);
           } catch (e) {
@@ -73,12 +74,21 @@ const TranscriptsHistoryPage = () => {
           { headers }
         );
         
+        let accessibleOrgs = [];
         if (!orgsResponse.data || !Array.isArray(orgsResponse.data) || orgsResponse.data.length === 0) {
           console.warn('No organizations found');
         } else {
           console.log(`Found ${orgsResponse.data.length} organizations`);
-          setOrganizations(orgsResponse.data);
-          setUserOrganizations(orgsResponse.data);
+          // Filter organizations based on user access
+          accessibleOrgs = parsedUser?.isMasterAdmin 
+            ? orgsResponse.data 
+            : orgsResponse.data.filter(org => 
+                parsedUser?.organizations?.includes(org._id) || 
+                org._id === parsedUser?.organizationId
+              );
+          
+          setOrganizations(accessibleOrgs);
+          setUserOrganizations(accessibleOrgs);
         }
         
         // Try to get organization from localStorage
@@ -91,9 +101,9 @@ const TranscriptsHistoryPage = () => {
             console.log('Found saved organization in localStorage:', parsedOrg);
             
             // If we have organizations from API, find the matching one
-            if (orgsResponse.data && Array.isArray(orgsResponse.data) && orgsResponse.data.length > 0) {
+            if (accessibleOrgs && Array.isArray(accessibleOrgs) && accessibleOrgs.length > 0) {
               // Look for matching organization by ID
-              const matchedOrg = orgsResponse.data.find(
+              const matchedOrg = accessibleOrgs.find(
                 org => org._id === parsedOrg.id
               );
               
@@ -115,8 +125,8 @@ const TranscriptsHistoryPage = () => {
         }
         
         // If no saved org was found or parsed, use the first available organization
-        if (!selectedOrg && orgsResponse.data && Array.isArray(orgsResponse.data) && orgsResponse.data.length > 0) {
-          selectedOrg = orgsResponse.data[0];
+        if (!selectedOrg && accessibleOrgs && Array.isArray(accessibleOrgs) && accessibleOrgs.length > 0) {
+          selectedOrg = accessibleOrgs[0];
           console.log('Using first available organization:', selectedOrg.name);
           
           // Save it to localStorage for future use
@@ -201,9 +211,22 @@ const TranscriptsHistoryPage = () => {
       
       let url = `${API_BASE_URL}/api/transcripts?page=${currentPage}&limit=${itemsPerPage}`;
       
+      // Create headers configuration
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-organization-id': orgId,
+          'x-organization-name': organization.name || 'Unknown',
+          'x-organization-is-master': (organization.isMaster || currentUser?.isMasterAdmin) ? 'true' : 'false'
+        }
+      };
+      
       // Add organization filter for master org if a specific organization is selected
+      // Note: We keep this for backward compatibility, but the x-organization-id header will take precedence
       if ((organization.isMaster || currentUser?.isMasterAdmin) && selectedOrg !== 'all') {
         url += `&organizationId=${selectedOrg}`;
+        // Also update the header to prioritize this selection
+        config.headers['x-organization-id'] = selectedOrg;
       }
       
       // Add date filters if provided
@@ -216,17 +239,6 @@ const TranscriptsHistoryPage = () => {
       }
 
       console.log('Requesting transcripts from URL:', url);
-      
-      // Add explicit headers to ensure auth and org context are passed
-      const config = {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-organization-id': orgId,
-          'x-organization-name': organization.name || 'Unknown',
-          'x-organization-is-master': (organization.isMaster || currentUser?.isMasterAdmin) ? 'true' : 'false'
-        }
-      };
-      
       console.log('Request config:', JSON.stringify(config));
       
       const response = await axios.get(url, config);
@@ -309,6 +321,18 @@ const TranscriptsHistoryPage = () => {
       setFilteredTranscripts(filtered);
     }
   }, [searchTerm, transcripts]);
+  
+  // Helper method to determine if user can filter by organizations
+  const canFilterByOrganizations = () => {
+    return (
+      // Master admins can filter by all organizations
+      currentUser?.isMasterAdmin || 
+      // Users with access to multiple organizations can filter
+      (Array.isArray(currentUser?.organizations) && currentUser.organizations.length > 0) ||
+      // Organization admins might be able to filter by sub-organizations
+      currentUser?.isAdmin
+    );
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
