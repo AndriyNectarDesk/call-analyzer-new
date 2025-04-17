@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../axiosConfig';
 
 export const AuthContext = createContext();
 
@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
     loadUserFromStorage();
   }, []);
 
-  const loadUserFromStorage = () => {
+  const loadUserFromStorage = async () => {
     try {
       console.log('Loading user from storage...');
       // Try to load user data from localStorage
@@ -40,12 +40,13 @@ export const AuthProvider = ({ children }) => {
 
       // Basic validation of token format
       if (token && token.split('.').length === 3) {
-        setUser(user);
-        setOrganization(org);
+        // Set user and org from storage first
+        if (user) setUser(user);
+        if (org) setOrganization(org);
         setIsAuthenticated(true);
         
-        // Additionally, validate token with the server if needed
-        validateTokenWithServer(token);
+        // Then try to fetch fresh data from server
+        await fetchCurrentUser(token);
       } else {
         console.log('Invalid token format, logging out');
         logout(); // Clear invalid token
@@ -59,39 +60,59 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const validateTokenWithServer = async (token) => {
+  const fetchCurrentUser = async (token) => {
     try {
-      // Optional: Make a lightweight call to validate the token
-      const response = await axios.get('/api/auth/validate', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      console.log('Fetching current user from server...');
+      const response = await axiosInstance.get('/api/auth/me');
       
-      // If token is valid, ensure we have latest user/org data
-      if (response.data?.valid) {
-        if (response.data.user) {
-          setUser(response.data.user);
-          localStorage.setItem('user_data', JSON.stringify(response.data.user));
-        }
+      if (response.data && response.data._id) {
+        console.log('User data received from server:', response.data.email);
+        setUser(response.data);
+        localStorage.setItem('user_data', JSON.stringify(response.data));
         
-        if (response.data.organization) {
-          setOrganization(response.data.organization);
-          localStorage.setItem('selectedOrganization', JSON.stringify(response.data.organization));
-        }
+        // Also fetch organization info
+        await fetchOrganizationInfo(response.data.organizationId);
+        return true;
       } else {
-        logout(); // Token is invalid according to server
+        console.warn('Invalid user data received from server');
+        return false;
       }
     } catch (err) {
-      // Token validation failed, but we'll still try to use stored data
-      console.warn('Token validation failed, using cached data:', err);
+      console.error('Error fetching current user:', err);
+      // Don't logout if this fails, just use cached data
+      return false;
+    }
+  };
+  
+  const fetchOrganizationInfo = async (orgId) => {
+    try {
+      if (!orgId) {
+        console.warn('No organization ID available');
+        return false;
+      }
+      
+      console.log('Fetching organization info for ID:', orgId);
+      const response = await axiosInstance.get(`/api/organizations/${orgId}`);
+      
+      if (response.data && response.data._id) {
+        console.log('Organization data received from server:', response.data.name);
+        setOrganization(response.data);
+        localStorage.setItem('selectedOrganization', JSON.stringify(response.data));
+        return true;
+      } else {
+        console.warn('Invalid organization data received from server');
+        return false;
+      }
+    } catch (err) {
+      console.error('Error fetching organization info:', err);
+      return false;
     }
   };
 
   const login = async (email, password) => {
     setError(null);
     try {
-      const response = await axios.post('/api/auth/login', { email, password });
+      const response = await axiosInstance.post('/api/auth/login', { email, password });
       
       if (response.data?.token) {
         localStorage.setItem('auth_token', response.data.token);
@@ -130,14 +151,9 @@ export const AuthProvider = ({ children }) => {
 
   const switchOrganization = async (orgId) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) return false;
+      if (!orgId) return false;
       
-      const response = await axios.get(`/api/organizations/${orgId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await axiosInstance.get(`/api/organizations/${orgId}`);
       
       if (response.data) {
         setOrganization(response.data);
@@ -161,7 +177,8 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated,
         login,
         logout,
-        switchOrganization
+        switchOrganization,
+        refreshUser: () => fetchCurrentUser(localStorage.getItem('auth_token'))
       }}
     >
       {children}

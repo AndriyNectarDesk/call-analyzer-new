@@ -10,8 +10,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://call-analyzer-api
 
 const TranscriptsHistoryPage = () => {
   const authContext = useContext(AuthContext);
-  const user = authContext?.user;
-  const organization = authContext?.organization;
+  const { user, organization, loading: authLoading, refreshUser } = authContext;
   const [transcripts, setTranscripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,6 +35,16 @@ const TranscriptsHistoryPage = () => {
       setLoading(false);
     }
   }, []);
+  
+  // If auth is loaded but user/org is missing, try to refresh user data
+  useEffect(() => {
+    if (!authLoading && (!user || !organization) && refreshUser) {
+      console.log('Attempting to refresh user data...');
+      refreshUser().then(success => {
+        console.log('User refresh result:', success);
+      });
+    }
+  }, [authLoading, user, organization, refreshUser]);
 
   useEffect(() => {
     // Only fetch transcripts when auth data is available
@@ -48,12 +57,12 @@ const TranscriptsHistoryPage = () => {
     } else {
       console.log('Waiting for user and organization data', { user, organization });
       // If auth context is not loading but we still don't have user/org data, show an error
-      if (!authContext.loading && (!user || !organization)) {
+      if (!authLoading && (!user || !organization)) {
         setError('Could not load user or organization data. Please try refreshing the page.');
         setLoading(false);
       }
     }
-  }, [user, organization, currentPage, selectedOrg, dateRange, authContext.loading]);
+  }, [user, organization, currentPage, selectedOrg, dateRange, authLoading]);
 
   const fetchOrganizations = async () => {
     try {
