@@ -1352,15 +1352,6 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
   }
 });
 
-// Register the error handling middleware
-app.use(handleApiError);
-
-// Initialize email service
-const initEmailService = require('./init-email-service');
-initEmailService().catch(err => {
-  console.error('Error during email service initialization:', err);
-});
-
 // Add API routes BEFORE applying API middleware 
 // This prevents route conflicts and path-to-regexp errors
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -1370,175 +1361,8 @@ app.use('/api/transcripts', require('./routes/transcriptRoutes'));
 app.use('/api/call-types', require('./routes/callTypeRoutes'));
 app.use('/api/master-admin', require('./routes/masterAdminRoutes'));
 
-// Apply API middleware to remaining unmatched /api routes
-app.use('/api', verifyToken); 
-app.use('/api', organizationContextMiddleware);
-
-// Serve static files from the React app build directory
-app.use(express.static(path.join(__dirname, '../client/build')));
-
-// Add better error handling for static file serving
-app.use((req, res, next) => {
-  // Skip API routes - only handle frontend routes
-  if (req.path.startsWith('/api')) {
-    return next();
-  }
-
-  // Log request for debugging
-  console.log(`Serving static file for path: ${req.path}`);
-  
-  try {
-    // Try to send the index.html file for all client-side routes
-    // This supports React Router's client-side routing
-    const indexPath = path.join(__dirname, '../client/build/index.html');
-    
-    // Check if the file exists
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      // Log the error and potential paths for debugging
-      console.error(`Static file not found: ${indexPath}`);
-      console.error(`Current directory: ${__dirname}`);
-      console.error(`Attempted to serve: ${path.resolve(indexPath)}`);
-      
-      // List available directories for debugging
-      try {
-        const parentDir = path.join(__dirname, '..');
-        console.error(`Parent directory contents: ${fs.readdirSync(parentDir).join(', ')}`);
-        
-        if (fs.existsSync(path.join(parentDir, 'client'))) {
-          console.error(`Client directory contents: ${fs.readdirSync(path.join(parentDir, 'client')).join(', ')}`);
-        }
-      } catch (e) {
-        console.error(`Error listing directories: ${e.message}`);
-      }
-      
-      res.status(404).send('Client application not found. Please check server logs for details.');
-    }
-  } catch (err) {
-    console.error(`Error serving static file: ${err.message}`);
-    next(err);
-  }
-});
-
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  
-  // Initial API key check
-  checkApiKeyStatus().then(isValid => {
-    if (!isValid) {
-      console.warn('Server starting with invalid Claude API key. Transcript analysis will not work.');
-    }
-  });
-  
-  // Ensure Master Organization exists and all Master Admins are assigned to it
-  const masterAdminController = require('./controllers/masterAdminController');
-  masterAdminController.ensureMasterOrganization()
-    .then(masterOrg => {
-      console.log('Master Organization check complete:', masterOrg.name);
-    })
-    .catch(err => {
-      console.error('Error ensuring Master Organization:', err);
-    });
-  
-  // Set up periodic API key check (every 6 hours)
-  const SIX_HOURS = 6 * 60 * 60 * 1000;
-  setInterval(async () => {
-    console.log('Performing scheduled Claude API key health check');
-    const isValid = await checkApiKeyStatus();
-    if (!isValid) {
-      sendNotification(
-        'SCHEDULED_KEY_CHECK_FAILED', 
-        'Scheduled Claude API key check failed. The key may be expired or invalid.'
-      );
-    }
-  }, SIX_HOURS);
-});
-
-// Helper to sanitize and fix common JSON parsing issues
-const sanitizeJson = (jsonString) => {
-  try {
-    // First attempt to parse the JSON directly
-    return JSON.parse(jsonString);
-  } catch (initialError) {
-    console.log('Initial JSON parse failed, attempting to sanitize...', initialError.message);
-    
-    try {
-      // Try to fix common issues in the JSON
-      let sanitized = jsonString;
-      
-      // Try to extract just the JSON part if there's text before or after
-      const betterJsonMatch = jsonString.match(/(\{[\s\S]*\})/);
-      if (betterJsonMatch && betterJsonMatch[0]) {
-        console.log('Extracted cleaner JSON object');
-        sanitized = betterJsonMatch[0];
-      }
-      
-      // Replace any special unicode quotes with standard quotes
-      sanitized = sanitized.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
-      
-      // Ensure property names are properly quoted
-      sanitized = sanitized.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
-      
-      // Fix trailing commas in arrays and objects
-      sanitized = sanitized.replace(/,\s*([\]}])/g, '$1');
-      
-      // Ensure string values are properly quoted
-      sanitized = sanitized.replace(/:(\s*)([^",\{\}\[\]]+)(\s*)(,|}|])/g, ':"$2"$3$4');
-      
-      // Fix escaped quotes in string values
-      sanitized = sanitized.replace(/\\"/g, '"').replace(/"{2,}/g, '"');
-      
-      // Fix empty arrays to proper format
-      sanitized = sanitized.replace(/:\s*\[\s*\]/g, ':[]');
-      
-      // Fix empty objects to proper format
-      sanitized = sanitized.replace(/:\s*\{\s*\}/g, ':{}');
-      
-      // Fix missing values
-      sanitized = sanitized.replace(/:\s*,/g, ':"",');
-      sanitized = sanitized.replace(/:\s*\}/g, ':""}');
-      
-      // Remove any non-printable characters
-      sanitized = sanitized.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
-      
-      // Attempt to parse the sanitized JSON
-      console.log('Sanitized JSON, attempting to parse again...');
-      
-      // If parsing still fails, try a fallback method to construct valid JSON
-      try {
-        return JSON.parse(sanitized);
-      } catch (sanitizeError) {
-        console.error('Sanitized JSON parsing failed:', sanitizeError.message);
-        console.log('Attempting more aggressive fixes...');
-        
-        // If all else fails, try to build a minimal valid object with default structure
-        return {
-          callSummary: {
-            agentName: "Unknown",
-            customerName: "Unknown"
-          },
-          agentPerformance: {
-            strengths: ["No data available"],
-            areasForImprovement: ["No data available"]
-          },
-          improvementSuggestions: ["No suggestions available due to parsing error"],
-          scorecard: {
-            customerService: 0,
-            productKnowledge: 0,
-            processEfficiency: 0,
-            problemSolving: 0,
-            overallScore: 0
-          }
-        };
-      }
-    } catch (sanitizeError) {
-      console.error('Failed to sanitize and parse JSON:', sanitizeError);
-      throw new Error(`Failed to parse JSON: ${initialError.message}`);
-    }
-  }
-};
+// Add webhook endpoints BEFORE authentication middleware
+// to allow incoming webhooks without authentication
 
 // Add webhook endpoint with original path for backward compatibility
 app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => {
@@ -1840,6 +1664,185 @@ app.post('/api/webhooks/nectar-desk-org/:orgId', async (req, res, next) => {
     });
   }
 });
+
+// Apply API middleware to remaining unmatched /api routes
+app.use('/api', verifyToken); 
+app.use('/api', organizationContextMiddleware);
+
+// Serve static files from the React app build directory
+app.use(express.static(path.join(__dirname, '../client/build')));
+
+// Add better error handling for static file serving
+app.use((req, res, next) => {
+  // Skip API routes - only handle frontend routes
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+
+  // Log request for debugging
+  console.log(`Serving static file for path: ${req.path}`);
+  
+  try {
+    // Try to send the index.html file for all client-side routes
+    // This supports React Router's client-side routing
+    const indexPath = path.join(__dirname, '../client/build/index.html');
+    
+    // Check if the file exists
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      // Log the error and potential paths for debugging
+      console.error(`Static file not found: ${indexPath}`);
+      console.error(`Current directory: ${__dirname}`);
+      console.error(`Attempted to serve: ${path.resolve(indexPath)}`);
+      
+      // List available directories for debugging
+      try {
+        const parentDir = path.join(__dirname, '..');
+        console.error(`Parent directory contents: ${fs.readdirSync(parentDir).join(', ')}`);
+        
+        if (fs.existsSync(path.join(parentDir, 'client'))) {
+          console.error(`Client directory contents: ${fs.readdirSync(path.join(parentDir, 'client')).join(', ')}`);
+        }
+      } catch (e) {
+        console.error(`Error listing directories: ${e.message}`);
+      }
+      
+      res.status(404).send('Client application not found. Please check server logs for details.');
+    }
+  } catch (err) {
+    console.error(`Error serving static file: ${err.message}`);
+    next(err);
+  }
+});
+
+// Register the error handling middleware
+app.use(handleApiError);
+
+// Initialize email service
+const initEmailService = require('./init-email-service');
+initEmailService().catch(err => {
+  console.error('Error during email service initialization:', err);
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  
+  // Initial API key check
+  checkApiKeyStatus().then(isValid => {
+    if (!isValid) {
+      console.warn('Server starting with invalid Claude API key. Transcript analysis will not work.');
+    }
+  });
+  
+  // Ensure Master Organization exists and all Master Admins are assigned to it
+  const masterAdminController = require('./controllers/masterAdminController');
+  masterAdminController.ensureMasterOrganization()
+    .then(masterOrg => {
+      console.log('Master Organization check complete:', masterOrg.name);
+    })
+    .catch(err => {
+      console.error('Error ensuring Master Organization:', err);
+    });
+  
+  // Set up periodic API key check (every 6 hours)
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  setInterval(async () => {
+    console.log('Performing scheduled Claude API key health check');
+    const isValid = await checkApiKeyStatus();
+    if (!isValid) {
+      sendNotification(
+        'SCHEDULED_KEY_CHECK_FAILED', 
+        'Scheduled Claude API key check failed. The key may be expired or invalid.'
+      );
+    }
+  }, SIX_HOURS);
+});
+
+// Helper to sanitize and fix common JSON parsing issues
+const sanitizeJson = (jsonString) => {
+  try {
+    // First attempt to parse the JSON directly
+    return JSON.parse(jsonString);
+  } catch (initialError) {
+    console.log('Initial JSON parse failed, attempting to sanitize...', initialError.message);
+    
+    try {
+      // Try to fix common issues in the JSON
+      let sanitized = jsonString;
+      
+      // Try to extract just the JSON part if there's text before or after
+      const betterJsonMatch = jsonString.match(/(\{[\s\S]*\})/);
+      if (betterJsonMatch && betterJsonMatch[0]) {
+        console.log('Extracted cleaner JSON object');
+        sanitized = betterJsonMatch[0];
+      }
+      
+      // Replace any special unicode quotes with standard quotes
+      sanitized = sanitized.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+      
+      // Ensure property names are properly quoted
+      sanitized = sanitized.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
+      
+      // Fix trailing commas in arrays and objects
+      sanitized = sanitized.replace(/,\s*([\]}])/g, '$1');
+      
+      // Ensure string values are properly quoted
+      sanitized = sanitized.replace(/:(\s*)([^",\{\}\[\]]+)(\s*)(,|}|])/g, ':"$2"$3$4');
+      
+      // Fix escaped quotes in string values
+      sanitized = sanitized.replace(/\\"/g, '"').replace(/"{2,}/g, '"');
+      
+      // Fix empty arrays to proper format
+      sanitized = sanitized.replace(/:\s*\[\s*\]/g, ':[]');
+      
+      // Fix empty objects to proper format
+      sanitized = sanitized.replace(/:\s*\{\s*\}/g, ':{}');
+      
+      // Fix missing values
+      sanitized = sanitized.replace(/:\s*,/g, ':"",');
+      sanitized = sanitized.replace(/:\s*\}/g, ':""}');
+      
+      // Remove any non-printable characters
+      sanitized = sanitized.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+      
+      // Attempt to parse the sanitized JSON
+      console.log('Sanitized JSON, attempting to parse again...');
+      
+      // If parsing still fails, try a fallback method to construct valid JSON
+      try {
+        return JSON.parse(sanitized);
+      } catch (sanitizeError) {
+        console.error('Sanitized JSON parsing failed:', sanitizeError.message);
+        console.log('Attempting more aggressive fixes...');
+        
+        // If all else fails, try to build a minimal valid object with default structure
+        return {
+          callSummary: {
+            agentName: "Unknown",
+            customerName: "Unknown"
+          },
+          agentPerformance: {
+            strengths: ["No data available"],
+            areasForImprovement: ["No data available"]
+          },
+          improvementSuggestions: ["No suggestions available due to parsing error"],
+          scorecard: {
+            customerService: 0,
+            productKnowledge: 0,
+            processEfficiency: 0,
+            problemSolving: 0,
+            overallScore: 0
+          }
+        };
+      }
+    } catch (sanitizeError) {
+      console.error('Failed to sanitize and parse JSON:', sanitizeError);
+      throw new Error(`Failed to parse JSON: ${initialError.message}`);
+    }
+  }
+};
 
 // Helper function to process NectarDesk recordings in the background
 async function processWebhookRecording(audioUrl, metadata, organizationId) {
