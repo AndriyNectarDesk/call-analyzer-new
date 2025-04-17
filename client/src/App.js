@@ -987,7 +987,7 @@ function AppContent() {
               </ProtectedRoute>
             } />
             
-            <Route path="/transcript/:id" element={
+            <Route path="/transcripts/:id" element={
               <ProtectedRoute>
                 <TranscriptDetail />
               </ProtectedRoute>
