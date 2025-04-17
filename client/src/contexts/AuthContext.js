@@ -16,10 +16,15 @@ export const AuthProvider = ({ children }) => {
 
   const loadUserFromStorage = () => {
     try {
+      console.log('Loading user from storage...');
       // Try to load user data from localStorage
       const token = localStorage.getItem('auth_token');
       const userData = localStorage.getItem('user_data');
       const orgData = localStorage.getItem('selectedOrganization');
+
+      console.log('Token exists:', !!token);
+      console.log('User data exists:', !!userData);
+      console.log('Organization data exists:', !!orgData);
 
       if (!token) {
         setLoading(false);
@@ -30,6 +35,9 @@ export const AuthProvider = ({ children }) => {
       const user = userData ? JSON.parse(userData) : null;
       const org = orgData ? JSON.parse(orgData) : null;
 
+      console.log('Parsed user:', user ? { email: user.email, id: user._id } : 'No user data');
+      console.log('Parsed organization:', org ? { name: org.name, id: org._id } : 'No org data');
+
       // Basic validation of token format
       if (token && token.split('.').length === 3) {
         setUser(user);
@@ -39,6 +47,7 @@ export const AuthProvider = ({ children }) => {
         // Additionally, validate token with the server if needed
         validateTokenWithServer(token);
       } else {
+        console.log('Invalid token format, logging out');
         logout(); // Clear invalid token
       }
     } catch (err) {

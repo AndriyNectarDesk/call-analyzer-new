@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
-import axios from 'axios';
+import axios from '../axiosConfig';
 import { ClockIcon, BuildingOfficeIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import '../components/TranscriptHistory.css';
@@ -54,6 +54,8 @@ const TranscriptsHistoryPage = () => {
         return;
       }
 
+      console.log('Fetching transcripts for user:', user?.email, 'organization:', organization?.name);
+
       let url = `/api/transcripts?page=${currentPage}&limit=${itemsPerPage}`;
       
       // Add organization filter for master org if a specific organization is selected
@@ -70,7 +72,10 @@ const TranscriptsHistoryPage = () => {
         url += `&endDate=${dateRange.endDate}`;
       }
 
+      console.log('Requesting URL:', url);
+      
       const response = await axios.get(url);
+      console.log('API Response:', response.data);
 
       if (!response.data) {
         throw new Error('Invalid response format: missing data property');
@@ -83,6 +88,7 @@ const TranscriptsHistoryPage = () => {
         throw new Error('Invalid response format: transcripts is not an array');
       }
 
+      console.log(`Received ${fetchedTranscripts.length} transcripts`);
       setTranscripts(fetchedTranscripts);
       setFilteredTranscripts(fetchedTranscripts);
       
@@ -97,6 +103,7 @@ const TranscriptsHistoryPage = () => {
       let errorMessage = 'Failed to load transcripts';
       
       if (err.response) {
+        console.error('Error response:', err.response.status, err.response.data);
         if (err.response.status === 401) {
           errorMessage = 'Authentication error: Please log in again';
         } else if (err.response.status === 403) {
@@ -107,6 +114,7 @@ const TranscriptsHistoryPage = () => {
           errorMessage = `Error: ${err.response.data.message || 'Unknown error'}`;
         }
       } else if (err.request) {
+        console.error('Request error - no response received');
         errorMessage = 'Network error: Please check your connection';
       }
       
