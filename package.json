@@ -1,21 +1,26 @@
 {
-  "name": "call-analyzer",
+  "name": "nectardesk-call-analyzer",
   "version": "1.0.0",
+  "description": "Call Analytics System for NectarDesk",
+  "main": "server/server.js",
   "scripts": {
-    "start": "cd server && node server.js",
-    "install-server": "cd server && npm install",
-    "install-client": "cd client && npm install",
-    "build-client": "cd client && npm run build",
-    "postinstall": "npm run install-server && npm run install-client",
-    "build": "npm run build-client",
-    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm start\""
+    "start": "node server/server.js",
+    "server": "nodemon server/server.js",
+    "client": "cd client && npm start",
+    "build:client": "cd client && npm run build",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "check-transcripts": "cd server && node check-transcripts.js",
+    "create-test-transcript": "cd server && node create-test-transcript.js"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "call-analyzer": "file:",
-    "concurrently": "^8.2.2",
-    "crypto": "^1.0.1",
-    "js-cookie": "^3.0.5",
-    "jsonwebtoken": "^9.0.2"
+    "dotenv": "^16.0.1",
+    "nectardesk-call-analyzer": "file:"
+  },
+  "devDependencies": {
+    "concurrently": "^7.2.2",
+    "nodemon": "^2.0.16"
   }
 }

@@ -5,6 +5,9 @@ import { ClockIcon, BuildingOfficeIcon, ArrowRightIcon } from '@heroicons/react/
 import { Link } from 'react-router-dom';
 import '../components/TranscriptHistory.css';
 
+// Define the API base URL as a fallback if the axios instance doesn't have it
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://call-analyzer-api.onrender.com';
+
 const TranscriptsHistoryPage = () => {
   const authContext = useContext(AuthContext);
   const user = authContext?.user;
@@ -24,19 +27,41 @@ const TranscriptsHistoryPage = () => {
     startDate: '',
     endDate: ''
   });
+  
+  // Add a check for auth on load
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      setError('Authentication required. Please log in.');
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchTranscripts();
-    if (organization?.isMaster) {
-      fetchOrganizations();
+    // Only fetch transcripts when auth data is available
+    if (user && organization) {
+      console.log('Auth data available, fetching transcripts');
+      fetchTranscripts();
+      if (organization?.isMaster) {
+        fetchOrganizations();
+      }
+    } else {
+      console.log('Waiting for user and organization data', { user, organization });
+      // If auth context is not loading but we still don't have user/org data, show an error
+      if (!authContext.loading && (!user || !organization)) {
+        setError('Could not load user or organization data. Please try refreshing the page.');
+        setLoading(false);
+      }
     }
-  }, [user, organization, currentPage, selectedOrg, dateRange]);
+  }, [user, organization, currentPage, selectedOrg, dateRange, authContext.loading]);
 
   const fetchOrganizations = async () => {
     try {
-      const response = await axios.get('/api/organizations');
+      console.log('Fetching organizations from:', `${API_BASE_URL}/api/master-admin/organizations`);
+      const response = await axios.get('/api/master-admin/organizations');
       if (response.data && Array.isArray(response.data.organizations)) {
         setOrganizations(response.data.organizations);
+        console.log('Organizations loaded:', response.data.organizations.length);
       }
     } catch (err) {
       console.error('Error fetching organizations:', err);
@@ -55,6 +80,15 @@ const TranscriptsHistoryPage = () => {
       }
 
       console.log('Fetching transcripts for user:', user?.email, 'organization:', organization?.name);
+      
+      // Debug auth token
+      const token = localStorage.getItem('auth_token');
+      console.log('Auth token exists:', !!token);
+      if (!token) {
+        setError('No authentication token found. Please log in again.');
+        setLoading(false);
+        return;
+      }
 
       let url = `/api/transcripts?page=${currentPage}&limit=${itemsPerPage}`;
       
@@ -72,9 +106,21 @@ const TranscriptsHistoryPage = () => {
         url += `&endDate=${dateRange.endDate}`;
       }
 
-      console.log('Requesting URL:', url);
+      console.log('Requesting URL:', `${API_BASE_URL}${url}`);
       
-      const response = await axios.get(url);
+      // Add explicit headers to ensure auth and org context are passed
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-organization-id': organization._id,
+          'x-organization-name': organization.name,
+          'x-organization-is-master': organization.isMaster ? 'true' : 'false'
+        }
+      };
+      
+      console.log('Request config:', JSON.stringify(config));
+      
+      const response = await axios.get(url, config);
       console.log('API Response:', response.data);
 
       if (!response.data) {
