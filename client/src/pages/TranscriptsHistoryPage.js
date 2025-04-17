@@ -1,23 +1,16 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../contexts/AuthContext';
-import axios from '../axiosConfig';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { ClockIcon, BuildingOfficeIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import '../components/TranscriptHistory.css';
 
-// Define the API base URL as a fallback if the axios instance doesn't have it
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://call-analyzer-api.onrender.com';
-
 const TranscriptsHistoryPage = () => {
-  const authContext = useContext(AuthContext);
-  const { 
-    user, 
-    organization, 
-    loading: authLoading, 
-    refreshUser, 
-    refreshOrganization 
-  } = authContext;
+  // Organization handling
+  const [currentOrganization, setCurrentOrganization] = useState(null);
+  const [userOrganizations, setUserOrganizations] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   
+  // Transcripts state
   const [transcripts, setTranscripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,113 +27,137 @@ const TranscriptsHistoryPage = () => {
     endDate: ''
   });
   
-  // Add a check for auth on load
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-      setError('Authentication required. Please log in.');
-      setLoading(false);
-    }
-  }, []);
+  // Base URL for the API
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://call-analyzer-api.onrender.com';
   
-  // Try to refresh organization data if it's missing
+  // Fetch user data and available organizations on component mount
   useEffect(() => {
-    if (!authLoading && !organization) {
-      console.log('Organization data is missing, attempting to refresh...');
-      
-      // First check if we have organization data in local storage
-      const orgData = localStorage.getItem('selectedOrganization');
-      if (orgData) {
-        try {
-          const org = JSON.parse(orgData);
-          if (org && org._id && refreshOrganization) {
-            refreshOrganization(org._id).then(success => {
-              if (success) {
-                console.log('Successfully refreshed organization data');
-              } else {
-                console.warn('Failed to refresh organization data');
-              }
-            });
-          }
-        } catch (err) {
-          console.error('Error parsing organization data from storage:', err);
+    const fetchUserAndOrganizations = async () => {
+      try {
+        console.log('Fetching user and organizations data...');
+        
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          setError('Authentication token not found. Please log in again.');
+          setLoading(false);
+          return;
         }
-      } else if (user && user.organizationId && refreshOrganization) {
-        // If no org in storage but user has organization ID, try to fetch it
-        refreshOrganization(user.organizationId).then(success => {
-          console.log('Organization refresh from user data result:', success);
-        });
-      }
-    }
-  }, [authLoading, organization, user, refreshOrganization]);
-  
-  // If organization is loaded but user is missing, try to refresh user data
-  useEffect(() => {
-    if (!authLoading && organization && !user && refreshUser) {
-      console.log('User data is missing but we have organization, attempting to refresh user...');
-      refreshUser().then(success => {
-        console.log('User refresh result:', success);
-      });
-    }
-  }, [authLoading, user, organization, refreshUser]);
-
-  useEffect(() => {
-    // Only fetch transcripts when organization is available (user is optional)
-    if (organization) {
-      console.log('Organization data available, fetching transcripts');
-      fetchTranscripts();
-      if (organization?.isMaster) {
-        fetchOrganizations();
-      }
-    } else {
-      console.log('Waiting for organization data', { organization });
-      // If auth context is not loading but we still don't have organization data, show an error
-      if (!authLoading && !organization) {
-        setError('Could not load organization data. Please try refreshing the page.');
+        
+        // Fetch user data from local storage first
+        const userData = localStorage.getItem('user_data');
+        if (userData) {
+          try {
+            const parsedUser = JSON.parse(userData);
+            setCurrentUser(parsedUser);
+            console.log('User data loaded from local storage:', parsedUser.email);
+          } catch (e) {
+            console.error('Error parsing user data:', e);
+          }
+        }
+        
+        // Setup request headers
+        const headers = {
+          'Authorization': `Bearer ${token}`
+        };
+        
+        // Force a unique timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        
+        // First, fetch all organizations (for master admins)
+        try {
+          const endpoint = `${API_BASE_URL}/api/master-admin/organizations?nocache=${timestamp}`;
+          console.log('Fetching organizations from:', endpoint);
+          
+          const orgsResponse = await axios.get(endpoint, { headers });
+          
+          if (orgsResponse.data && orgsResponse.data.organizations && orgsResponse.data.organizations.length > 0) {
+            console.log('Organizations loaded:', orgsResponse.data.organizations.length);
+            setUserOrganizations(orgsResponse.data.organizations);
+            setOrganizations(orgsResponse.data.organizations);
+          }
+        } catch (orgErr) {
+          console.warn('Error fetching organizations list, might not be a master admin:', orgErr.message);
+        }
+        
+        // Get selected organization from localStorage or use first available
+        const savedOrg = localStorage.getItem('selectedOrganization');
+        let selectedOrg = null;
+        
+        if (savedOrg) {
+          try {
+            const parsedOrg = JSON.parse(savedOrg);
+            console.log('Found saved organization in localStorage:', parsedOrg.name || parsedOrg.id);
+            selectedOrg = parsedOrg;
+          } catch (e) {
+            console.error('Error parsing saved organization:', e);
+          }
+        }
+        
+        // If we have a selected organization, set it as current
+        if (selectedOrg) {
+          console.log('Setting current organization:', selectedOrg.name || selectedOrg._id);
+          setCurrentOrganization(selectedOrg);
+          
+          // Fetch transcripts for the selected organization
+          fetchTranscriptsForOrganization(selectedOrg, token);
+        } else {
+          console.warn('No organization selected, attempting to get from user data');
+          
+          // As a fallback, try to get from user data
+          if (currentUser && currentUser.organizationId) {
+            // We need to fetch the organization details first
+            try {
+              const orgResponse = await axios.get(`${API_BASE_URL}/api/organizations/${currentUser.organizationId}`, { headers });
+              
+              if (orgResponse.data) {
+                console.log('Fetched organization from user data:', orgResponse.data.name);
+                setCurrentOrganization(orgResponse.data);
+                
+                // Save to localStorage for future use
+                localStorage.setItem('selectedOrganization', JSON.stringify(orgResponse.data));
+                
+                // Fetch transcripts for this organization
+                fetchTranscriptsForOrganization(orgResponse.data, token);
+              }
+            } catch (orgErr) {
+              console.error('Error fetching organization details:', orgErr);
+              setError('Could not load organization data. Please try refreshing the page.');
+              setLoading(false);
+            }
+          } else {
+            setError('No organization data available. Please try logging in again.');
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.error('Error in fetchUserAndOrganizations:', err);
+        setError(`Error loading data: ${err.message}`);
         setLoading(false);
       }
-    }
-  }, [user, organization, currentPage, selectedOrg, dateRange, authLoading]);
+    };
+    
+    fetchUserAndOrganizations();
+  }, [API_BASE_URL]);
 
-  const fetchOrganizations = async () => {
-    try {
-      console.log('Fetching organizations from:', `${API_BASE_URL}/api/master-admin/organizations`);
-      const response = await axios.get('/api/master-admin/organizations');
-      if (response.data && Array.isArray(response.data.organizations)) {
-        setOrganizations(response.data.organizations);
-        console.log('Organizations loaded:', response.data.organizations.length);
-      }
-    } catch (err) {
-      console.error('Error fetching organizations:', err);
+  const fetchTranscriptsForOrganization = async (organization, token) => {
+    if (!organization || (!organization._id && !organization.id)) {
+      console.error('Invalid organization provided to fetchTranscriptsForOrganization');
+      setError('Invalid organization data');
+      setLoading(false);
+      return;
     }
-  };
-
-  const fetchTranscripts = async () => {
-    setLoading(true);
-    setError(null);
     
     try {
-      if (!organization) {
-        console.log('Organization not available yet');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Fetching transcripts for organization:', organization?.name);
+      setLoading(true);
+      setError(null);
       
-      // Debug auth token
-      const token = localStorage.getItem('auth_token');
-      console.log('Auth token exists:', !!token);
-      if (!token) {
-        setError('No authentication token found. Please log in again.');
-        setLoading(false);
-        return;
-      }
-
-      let url = `/api/transcripts?page=${currentPage}&limit=${itemsPerPage}`;
+      const orgId = organization._id || organization.id;
+      console.log('Fetching transcripts for organization:', organization.name || orgId);
+      
+      let url = `${API_BASE_URL}/api/transcripts?page=${currentPage}&limit=${itemsPerPage}`;
       
       // Add organization filter for master org if a specific organization is selected
-      if (organization.isMaster && selectedOrg !== 'all') {
+      if ((organization.isMaster || currentUser?.isMasterAdmin) && selectedOrg !== 'all') {
         url += `&organizationId=${selectedOrg}`;
       }
       
@@ -153,16 +170,15 @@ const TranscriptsHistoryPage = () => {
         url += `&endDate=${dateRange.endDate}`;
       }
 
-      console.log('Requesting URL:', `${API_BASE_URL}${url}`);
+      console.log('Requesting transcripts from URL:', url);
       
       // Add explicit headers to ensure auth and org context are passed
-      // Get organization ID directly from the organization object
       const config = {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'x-organization-id': organization._id,
-          'x-organization-name': organization.name,
-          'x-organization-is-master': organization.isMaster ? 'true' : 'false'
+          'x-organization-id': orgId,
+          'x-organization-name': organization.name || 'Unknown',
+          'x-organization-is-master': (organization.isMaster || currentUser?.isMasterAdmin) ? 'true' : 'false'
         }
       };
       
@@ -217,7 +233,18 @@ const TranscriptsHistoryPage = () => {
       setLoading(false);
     }
   };
+  
+  // Update transcripts when current page or filters change
+  useEffect(() => {
+    if (currentOrganization && !loading) {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        fetchTranscriptsForOrganization(currentOrganization, token);
+      }
+    }
+  }, [currentPage, selectedOrg, dateRange]);
 
+  // Filter transcripts based on search term
   useEffect(() => {
     if (searchTerm.trim() === '') {
       setFilteredTranscripts(transcripts);
@@ -297,7 +324,7 @@ const TranscriptsHistoryPage = () => {
       orgName = transcript.organizationId.name;
     } 
     // If organizationId is a string but we're in master org, try to find the name
-    else if (organization?.isMaster && typeof transcript.organizationId === 'string') {
+    else if ((currentOrganization?.isMaster || currentUser?.isMasterAdmin) && typeof transcript.organizationId === 'string') {
       const org = organizations.find(o => o._id === transcript.organizationId);
       if (org) {
         orgName = org.name;
@@ -334,7 +361,7 @@ const TranscriptsHistoryPage = () => {
           <div className="organization">
             <BuildingOfficeIcon width={16} height={16} />
             {orgName || 'Unknown Organization'}
-            {organization?.isMaster && transcript.organizationId?._id === organization._id && (
+            {(currentOrganization?.isMaster || currentUser?.isMasterAdmin) && transcript.organizationId?._id === currentOrganization?._id && (
               <span className="master-badge">Master</span>
             )}
           </div>
@@ -364,7 +391,7 @@ const TranscriptsHistoryPage = () => {
         </form>
         
         <div className="filter-controls">
-          {organization?.isMaster && (
+          {(currentOrganization?.isMaster || currentUser?.isMasterAdmin) && (
             <div className="filter-control">
               <label htmlFor="organization-filter">Organization:</label>
               <select
