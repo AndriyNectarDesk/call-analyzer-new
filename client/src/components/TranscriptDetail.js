@@ -163,7 +163,7 @@ function TranscriptDetail() {
 
         {/* Navigation */}
         <div className="navigation-buttons">
-          <Link to="/history" className="button button-secondary">Back to History</Link>
+          <Link to="/transcripts-history" className="button button-secondary">Back to Call Transcripts</Link>
           <Link to="/" className="button">New Analysis</Link>
         </div>
       </div>
