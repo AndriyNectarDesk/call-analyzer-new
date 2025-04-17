@@ -320,8 +320,17 @@ function AppContent() {
       console.error('Error saving organization to localStorage:', e);
     }
     
-    // Navigate to the organization's page
-    window.location.href = `/organizations/${org._id}/users`;
+    // Navigate to the organization's dashboard instead of users page
+    if (window.location.pathname.includes('/master-admin')) {
+      // If on master admin dashboard, stay there
+      return;
+    } else if (window.location.pathname.includes('/organizations')) {
+      // If already in organizations section, stay on current page
+      return;
+    } else {
+      // Otherwise go to main dashboard
+      window.location.href = `/`;
+    }
   };
 
   const toggleDarkMode = () => {
