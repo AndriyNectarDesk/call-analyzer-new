@@ -345,17 +345,22 @@ exports.tenantIsolation = async (req, res, next) => {
 // Handle organization context for API key and other organization-specific routes
 exports.handleOrganizationContext = async (req, res, next) => {
   try {
-    // If there's an organization ID in the URL params, use that
-    if (req.params.id) {
+    // First check if there's an organization ID in the headers (highest priority)
+    if (req.headers['x-organization-id']) {
+      req.overrideOrganizationId = req.headers['x-organization-id'];
+      console.log(`Setting organization context from header: ${req.overrideOrganizationId}`);
+    }
+    // If there's an organization ID in the URL params, use that (second priority)
+    else if (req.params.id) {
       req.overrideOrganizationId = req.params.id;
       console.log(`Setting organization context from URL param: ${req.overrideOrganizationId}`);
     } 
-    // If there's an organization ID in the query params, use that
+    // If there's an organization ID in the query params, use that (third priority)
     else if (req.query.organizationId) {
       req.overrideOrganizationId = req.query.organizationId;
       console.log(`Setting organization context from query param: ${req.overrideOrganizationId}`);
     }
-    // Otherwise, use the user's organization from JWT
+    // Otherwise, use the user's organization from JWT (lowest priority)
     else if (req.user && req.user.organizationId) {
       req.overrideOrganizationId = req.user.organizationId;
       console.log(`Setting organization context from user JWT: ${req.overrideOrganizationId}`);

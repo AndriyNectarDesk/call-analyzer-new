@@ -1,0 +1,31 @@
+[1mdiff --git a/server/middleware/authMiddleware.js b/server/middleware/authMiddleware.js[m
+[1mindex 0772209..812f412 100644[m
+[1m--- a/server/middleware/authMiddleware.js[m
+[1m+++ b/server/middleware/authMiddleware.js[m
+[36m@@ -345,17 +345,22 @@[m [mexports.tenantIsolation = async (req, res, next) => {[m
+ // Handle organization context for API key and other organization-specific routes[m
+ exports.handleOrganizationContext = async (req, res, next) => {[m
+   try {[m
+[31m-    // If there's an organization ID in the URL params, use that[m
+[31m-    if (req.params.id) {[m
+[32m+[m[32m    // First check if there's an organization ID in the headers (highest priority)[m
+[32m+[m[32m    if (req.headers['x-organization-id']) {[m
+[32m+[m[32m      req.overrideOrganizationId = req.headers['x-organization-id'];[m
+[32m+[m[32m      console.log(`Setting organization context from header: ${req.overrideOrganizationId}`);[m
+[32m+[m[32m    }[m
+[32m+[m[32m    // If there's an organization ID in the URL params, use that (second priority)[m
+[32m+[m[32m    else if (req.params.id) {[m
+       req.overrideOrganizationId = req.params.id;[m
+       console.log(`Setting organization context from URL param: ${req.overrideOrganizationId}`);[m
+     } [m
+[31m-    // If there's an organization ID in the query params, use that[m
+[32m+[m[32m    // If there's an organization ID in the query params, use that (third priority)[m
+     else if (req.query.organizationId) {[m
+       req.overrideOrganizationId = req.query.organizationId;[m
+       console.log(`Setting organization context from query param: ${req.overrideOrganizationId}`);[m
+     }[m
+[31m-    // Otherwise, use the user's organization from JWT[m
+[32m+[m[32m    // Otherwise, use the user's organization from JWT (lowest priority)[m
+     else if (req.user && req.user.organizationId) {[m
+       req.overrideOrganizationId = req.user.organizationId;[m
+       console.log(`Setting organization context from user JWT: ${req.overrideOrganizationId}`);[m
