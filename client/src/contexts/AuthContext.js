@@ -47,6 +47,12 @@ export const AuthProvider = ({ children }) => {
         
         // Then try to fetch fresh data from server
         await fetchCurrentUser(token);
+        
+        // If we have organization in storage but couldn't get user data,
+        // still try to refresh organization data
+        if (!user && org && org._id) {
+          await fetchOrganizationInfo(org._id);
+        }
       } else {
         console.log('Invalid token format, logging out');
         logout(); // Clear invalid token
@@ -70,8 +76,20 @@ export const AuthProvider = ({ children }) => {
         setUser(response.data);
         localStorage.setItem('user_data', JSON.stringify(response.data));
         
-        // Also fetch organization info
-        await fetchOrganizationInfo(response.data.organizationId);
+        // Also fetch organization info if we have an org ID from the user
+        if (response.data.organizationId) {
+          await fetchOrganizationInfo(response.data.organizationId);
+        } else {
+          console.warn('User has no organization ID');
+          // Try to load from localStorage as fallback
+          const orgData = localStorage.getItem('selectedOrganization');
+          if (orgData) {
+            const org = JSON.parse(orgData);
+            if (org && org._id) {
+              await fetchOrganizationInfo(org._id);
+            }
+          }
+        }
         return true;
       } else {
         console.warn('Invalid user data received from server');
@@ -109,6 +127,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Get the user's organizations (for users who might belong to multiple orgs)
+  const fetchUserOrganizations = async () => {
+    try {
+      console.log('Fetching user organizations...');
+      const response = await axiosInstance.get('/api/user/organizations');
+      
+      if (response.data && Array.isArray(response.data)) {
+        console.log('User organizations received:', response.data.length);
+        return response.data;
+      } else {
+        console.warn('Invalid user organizations data received');
+        return [];
+      }
+    } catch (err) {
+      console.error('Error fetching user organizations:', err);
+      return [];
+    }
+  };
+
   const login = async (email, password) => {
     setError(null);
     try {
@@ -125,6 +162,10 @@ export const AuthProvider = ({ children }) => {
         if (response.data.organization) {
           setOrganization(response.data.organization);
           localStorage.setItem('selectedOrganization', JSON.stringify(response.data.organization));
+        } else if (response.data.user?.organizationId) {
+          // If organization wasn't sent directly but user has an org ID,
+          // fetch the organization details
+          await fetchOrganizationInfo(response.data.user.organizationId);
         }
         
         setIsAuthenticated(true);
@@ -178,7 +219,9 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         switchOrganization,
-        refreshUser: () => fetchCurrentUser(localStorage.getItem('auth_token'))
+        refreshUser: () => fetchCurrentUser(localStorage.getItem('auth_token')),
+        refreshOrganization: (orgId) => fetchOrganizationInfo(orgId),
+        fetchUserOrganizations
       }}
     >
       {children}

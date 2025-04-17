@@ -10,7 +10,14 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://call-analyzer-api
 
 const TranscriptsHistoryPage = () => {
   const authContext = useContext(AuthContext);
-  const { user, organization, loading: authLoading, refreshUser } = authContext;
+  const { 
+    user, 
+    organization, 
+    loading: authLoading, 
+    refreshUser, 
+    refreshOrganization 
+  } = authContext;
+  
   const [transcripts, setTranscripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,10 +43,41 @@ const TranscriptsHistoryPage = () => {
     }
   }, []);
   
-  // If auth is loaded but user/org is missing, try to refresh user data
+  // Try to refresh organization data if it's missing
   useEffect(() => {
-    if (!authLoading && (!user || !organization) && refreshUser) {
-      console.log('Attempting to refresh user data...');
+    if (!authLoading && !organization) {
+      console.log('Organization data is missing, attempting to refresh...');
+      
+      // First check if we have organization data in local storage
+      const orgData = localStorage.getItem('selectedOrganization');
+      if (orgData) {
+        try {
+          const org = JSON.parse(orgData);
+          if (org && org._id && refreshOrganization) {
+            refreshOrganization(org._id).then(success => {
+              if (success) {
+                console.log('Successfully refreshed organization data');
+              } else {
+                console.warn('Failed to refresh organization data');
+              }
+            });
+          }
+        } catch (err) {
+          console.error('Error parsing organization data from storage:', err);
+        }
+      } else if (user && user.organizationId && refreshOrganization) {
+        // If no org in storage but user has organization ID, try to fetch it
+        refreshOrganization(user.organizationId).then(success => {
+          console.log('Organization refresh from user data result:', success);
+        });
+      }
+    }
+  }, [authLoading, organization, user, refreshOrganization]);
+  
+  // If organization is loaded but user is missing, try to refresh user data
+  useEffect(() => {
+    if (!authLoading && organization && !user && refreshUser) {
+      console.log('User data is missing but we have organization, attempting to refresh user...');
       refreshUser().then(success => {
         console.log('User refresh result:', success);
       });
@@ -47,18 +85,18 @@ const TranscriptsHistoryPage = () => {
   }, [authLoading, user, organization, refreshUser]);
 
   useEffect(() => {
-    // Only fetch transcripts when auth data is available
-    if (user && organization) {
-      console.log('Auth data available, fetching transcripts');
+    // Only fetch transcripts when organization is available (user is optional)
+    if (organization) {
+      console.log('Organization data available, fetching transcripts');
       fetchTranscripts();
       if (organization?.isMaster) {
         fetchOrganizations();
       }
     } else {
-      console.log('Waiting for user and organization data', { user, organization });
-      // If auth context is not loading but we still don't have user/org data, show an error
-      if (!authLoading && (!user || !organization)) {
-        setError('Could not load user or organization data. Please try refreshing the page.');
+      console.log('Waiting for organization data', { organization });
+      // If auth context is not loading but we still don't have organization data, show an error
+      if (!authLoading && !organization) {
+        setError('Could not load organization data. Please try refreshing the page.');
         setLoading(false);
       }
     }
@@ -82,13 +120,13 @@ const TranscriptsHistoryPage = () => {
     setError(null);
     
     try {
-      if (!user || !organization) {
-        console.log('User or organization not available yet');
+      if (!organization) {
+        console.log('Organization not available yet');
         setLoading(false);
         return;
       }
 
-      console.log('Fetching transcripts for user:', user?.email, 'organization:', organization?.name);
+      console.log('Fetching transcripts for organization:', organization?.name);
       
       // Debug auth token
       const token = localStorage.getItem('auth_token');
@@ -118,6 +156,7 @@ const TranscriptsHistoryPage = () => {
       console.log('Requesting URL:', `${API_BASE_URL}${url}`);
       
       // Add explicit headers to ensure auth and org context are passed
+      // Get organization ID directly from the organization object
       const config = {
         headers: {
           'Authorization': `Bearer ${token}`,
