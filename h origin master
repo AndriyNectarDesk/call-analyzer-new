@@ -1,5 +1,5 @@
-[33mcommit e5305ca6225798b93eb0e61f59f0405cb89e2ed1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+[33mcommit 204022c5dc443c4d6ff690735515b8b6a3974b69[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
 Author: andriy <pocmarketing@gmail.com>
-Date:   Thu Apr 17 12:58:42 2025 -0400
+Date:   Thu Apr 17 16:23:35 2025 -0400
 
-    Remove debug section from Call Transcripts History page
+    Fix organization dropdown redirection issue to keep user on current page
