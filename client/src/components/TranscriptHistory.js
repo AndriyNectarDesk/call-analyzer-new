@@ -6,7 +6,9 @@ import axios from 'axios';
 import './TranscriptHistory.css';
 
 const TranscriptHistory = () => {
-  const { user, organization } = useContext(AuthContext);
+  const authContext = useContext(AuthContext);
+  const user = authContext?.user;
+  const organization = authContext?.organization;
   const [transcripts, setTranscripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

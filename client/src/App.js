@@ -23,12 +23,15 @@ import OrganizationDetails from './components/OrganizationDetails';
 import MasterAdminDashboard from './components/MasterAdminDashboard';
 import Settings from './components/Settings';
 import TranscriptsHistoryPage from './pages/TranscriptsHistoryPage';
+import AuthProvider from './contexts/AuthContext';
 
 // Create a wrapper component for App that provides the router context
 function AppWrapper() {
   return (
     <Router>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </Router>
   );
 }
