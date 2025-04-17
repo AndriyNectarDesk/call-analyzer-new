@@ -30,114 +30,196 @@ const TranscriptsHistoryPage = () => {
   // Base URL for the API
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://call-analyzer-api.onrender.com';
   
-  // Fetch user data and available organizations on component mount
+  // Debug info
+  const [debugMode, setDebugMode] = useState(true);
+  const [debugInfo, setDebugInfo] = useState({});
+  
+  // Initial fetching of user and organizations
   useEffect(() => {
     const fetchUserAndOrganizations = async () => {
       try {
         console.log('Fetching user and organizations data...');
         
+        // Check if token exists
         const token = localStorage.getItem('auth_token');
         if (!token) {
+          console.error('No token found');
           setError('Authentication token not found. Please log in again.');
           setLoading(false);
           return;
         }
         
-        // Fetch user data from local storage first
+        // Get user data from localStorage
         const userData = localStorage.getItem('user_data');
         if (userData) {
           try {
             const parsedUser = JSON.parse(userData);
+            console.log('User data loaded from localStorage:', parsedUser.email);
             setCurrentUser(parsedUser);
-            console.log('User data loaded from local storage:', parsedUser.email);
+            
+            setDebugInfo(prev => ({
+              ...prev,
+              userData: {
+                id: parsedUser._id,
+                email: parsedUser.email,
+                orgId: parsedUser.organizationId
+              }
+            }));
           } catch (e) {
             console.error('Error parsing user data:', e);
           }
         }
         
-        // Setup request headers
+        // Setup headers for authentication
         const headers = {
           'Authorization': `Bearer ${token}`
         };
         
-        // Force a unique timestamp to prevent caching
+        // Add cache-busting parameter
         const timestamp = new Date().getTime();
         
-        // First, fetch all organizations (for master admins)
-        try {
-          const endpoint = `${API_BASE_URL}/api/master-admin/organizations?nocache=${timestamp}`;
-          console.log('Fetching organizations from:', endpoint);
+        // Fetch organizations from the master-admin endpoint
+        console.log(`Fetching organizations from: ${API_BASE_URL}/api/master-admin/organizations?nocache=${timestamp}`);
+        
+        const orgsResponse = await axios.get(
+          `${API_BASE_URL}/api/master-admin/organizations?nocache=${timestamp}`,
+          { headers }
+        );
+        
+        if (!orgsResponse.data || !orgsResponse.data.organizations || orgsResponse.data.organizations.length === 0) {
+          console.warn('No organizations found');
+          setDebugInfo(prev => ({
+            ...prev,
+            orgsResponse: 'No organizations found in response'
+          }));
+        } else {
+          console.log(`Found ${orgsResponse.data.organizations.length} organizations`);
+          setOrganizations(orgsResponse.data.organizations);
+          setUserOrganizations(orgsResponse.data.organizations);
           
-          const orgsResponse = await axios.get(endpoint, { headers });
-          
-          if (orgsResponse.data && orgsResponse.data.organizations && orgsResponse.data.organizations.length > 0) {
-            console.log('Organizations loaded:', orgsResponse.data.organizations.length);
-            setUserOrganizations(orgsResponse.data.organizations);
-            setOrganizations(orgsResponse.data.organizations);
-          }
-        } catch (orgErr) {
-          console.warn('Error fetching organizations list, might not be a master admin:', orgErr.message);
+          setDebugInfo(prev => ({
+            ...prev,
+            orgsFound: orgsResponse.data.organizations.length,
+            firstOrgName: orgsResponse.data.organizations[0]?.name
+          }));
         }
         
-        // Get selected organization from localStorage or use first available
+        // Try to get organization from localStorage
         const savedOrg = localStorage.getItem('selectedOrganization');
         let selectedOrg = null;
         
         if (savedOrg) {
           try {
             const parsedOrg = JSON.parse(savedOrg);
-            console.log('Found saved organization in localStorage:', parsedOrg.name || parsedOrg.id);
-            selectedOrg = parsedOrg;
+            console.log('Found saved organization in localStorage:', parsedOrg);
+            
+            // If we have organizations from API, find the matching one
+            if (orgsResponse.data && orgsResponse.data.organizations && orgsResponse.data.organizations.length > 0) {
+              // Look for matching organization by ID
+              const matchedOrg = orgsResponse.data.organizations.find(
+                org => org._id === (parsedOrg._id || parsedOrg.id)
+              );
+              
+              if (matchedOrg) {
+                console.log('Found matching organization:', matchedOrg.name);
+                selectedOrg = matchedOrg;
+              } else {
+                console.warn('Saved organization not found in API response');
+                // Use the saved one anyway
+                selectedOrg = parsedOrg;
+              }
+            } else {
+              // No orgs from API, use the saved one
+              selectedOrg = parsedOrg;
+            }
+            
+            setDebugInfo(prev => ({
+              ...prev,
+              savedOrg: {
+                id: parsedOrg._id || parsedOrg.id,
+                name: parsedOrg.name
+              },
+              matchFound: !!selectedOrg
+            }));
           } catch (e) {
             console.error('Error parsing saved organization:', e);
           }
         }
         
-        // If we have a selected organization, set it as current
+        // If no saved org was found or parsed, use the first available organization
+        if (!selectedOrg && orgsResponse.data && orgsResponse.data.organizations && orgsResponse.data.organizations.length > 0) {
+          selectedOrg = orgsResponse.data.organizations[0];
+          console.log('Using first available organization:', selectedOrg.name);
+          
+          // Save it to localStorage for future use
+          try {
+            localStorage.setItem('selectedOrganization', JSON.stringify({
+              id: selectedOrg._id,
+              name: selectedOrg.name,
+              code: selectedOrg.code
+            }));
+            
+            console.log('Saved first organization to localStorage');
+          } catch (e) {
+            console.error('Error saving organization to localStorage:', e);
+          }
+        }
+        
+        // If we have a valid organization, set it and fetch transcripts
         if (selectedOrg) {
-          console.log('Setting current organization:', selectedOrg.name || selectedOrg._id);
+          console.log('Setting current organization:', selectedOrg.name);
           setCurrentOrganization(selectedOrg);
           
-          // Fetch transcripts for the selected organization
-          fetchTranscriptsForOrganization(selectedOrg, token);
+          // Now fetch transcripts for this organization
+          await fetchTranscriptsForOrganization(selectedOrg, token);
         } else {
-          console.warn('No organization selected, attempting to get from user data');
-          
-          // As a fallback, try to get from user data
-          if (currentUser && currentUser.organizationId) {
-            // We need to fetch the organization details first
-            try {
-              const orgResponse = await axios.get(`${API_BASE_URL}/api/organizations/${currentUser.organizationId}`, { headers });
-              
-              if (orgResponse.data) {
-                console.log('Fetched organization from user data:', orgResponse.data.name);
-                setCurrentOrganization(orgResponse.data);
-                
-                // Save to localStorage for future use
-                localStorage.setItem('selectedOrganization', JSON.stringify(orgResponse.data));
-                
-                // Fetch transcripts for this organization
-                fetchTranscriptsForOrganization(orgResponse.data, token);
-              }
-            } catch (orgErr) {
-              console.error('Error fetching organization details:', orgErr);
-              setError('Could not load organization data. Please try refreshing the page.');
-              setLoading(false);
-            }
-          } else {
-            setError('No organization data available. Please try logging in again.');
-            setLoading(false);
-          }
+          console.error('No organization available after all attempts');
+          setError('No organization available. Please contact your administrator.');
+          setLoading(false);
         }
       } catch (err) {
         console.error('Error in fetchUserAndOrganizations:', err);
         setError(`Error loading data: ${err.message}`);
         setLoading(false);
+        
+        setDebugInfo(prev => ({
+          ...prev,
+          error: err.message,
+          stack: err.stack
+        }));
       }
     };
     
     fetchUserAndOrganizations();
   }, [API_BASE_URL]);
+  
+  // For changing organization (Master admin feature)
+  const handleSwitchOrganization = (org) => {
+    if (!org || !org._id) return;
+    
+    console.log('Switching to organization:', org.name);
+    setCurrentOrganization(org);
+    setError(null);
+    
+    // Save to localStorage
+    try {
+      localStorage.setItem('selectedOrganization', JSON.stringify({
+        id: org._id,
+        name: org.name,
+        code: org.code
+      }));
+      
+      console.log('Saved organization to localStorage');
+    } catch (e) {
+      console.error('Error saving organization to localStorage:', e);
+    }
+    
+    // Fetch transcripts for the new organization
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      fetchTranscriptsForOrganization(org, token);
+    }
+  };
 
   const fetchTranscriptsForOrganization = async (organization, token) => {
     if (!organization || (!organization._id && !organization.id)) {
@@ -151,6 +233,7 @@ const TranscriptsHistoryPage = () => {
       setLoading(true);
       setError(null);
       
+      // Get organization ID - handle both formats
       const orgId = organization._id || organization.id;
       console.log('Fetching transcripts for organization:', organization.name || orgId);
       
@@ -374,9 +457,89 @@ const TranscriptsHistoryPage = () => {
     );
   };
 
+  // Toggle debug mode
+  const toggleDebugMode = () => {
+    setDebugMode(!debugMode);
+  };
+
   return (
     <div className="transcript-history-container">
       <h1>Call Transcripts History</h1>
+      
+      {/* Debug Panel - only visible in debug mode */}
+      {debugMode && (
+        <div style={{ 
+          padding: '10px', 
+          margin: '10px 0', 
+          border: '1px solid #ccc', 
+          borderRadius: '5px',
+          backgroundColor: '#f8f8f8' 
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <h3 style={{ margin: 0 }}>Debug Information</h3>
+            <button 
+              onClick={toggleDebugMode} 
+              style={{ padding: '5px 10px', background: '#ddd', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+            >
+              Hide Debug
+            </button>
+          </div>
+
+          <div>
+            <h4>User Data:</h4>
+            <pre style={{ background: '#eee', padding: '5px', overflow: 'auto', maxHeight: '100px' }}>
+              {JSON.stringify(currentUser, null, 2)}
+            </pre>
+            
+            <h4>Current Organization:</h4>
+            <pre style={{ background: '#eee', padding: '5px', overflow: 'auto', maxHeight: '100px' }}>
+              {JSON.stringify(currentOrganization, null, 2)}
+            </pre>
+            
+            <h4>Available Organizations:</h4>
+            <p>{organizations.length} organizations found</p>
+            
+            {organizations.length > 0 && (
+              <div>
+                <p><strong>Select Organization:</strong></p>
+                <select 
+                  onChange={(e) => handleSwitchOrganization(organizations.find(org => org._id === e.target.value))}
+                  style={{ padding: '5px', marginBottom: '10px', width: '100%' }}
+                  value={currentOrganization?._id || ''}
+                >
+                  <option value="">Select an organization</option>
+                  {organizations.map(org => (
+                    <option key={org._id} value={org._id}>{org.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            <h4>Debug Data:</h4>
+            <pre style={{ background: '#eee', padding: '5px', overflow: 'auto', maxHeight: '200px' }}>
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
+      
+      {/* Simple debug toggle button when debug is hidden */}
+      {!debugMode && (
+        <button 
+          onClick={toggleDebugMode} 
+          style={{ 
+            padding: '2px 5px', 
+            background: '#eee', 
+            border: 'none', 
+            borderRadius: '3px', 
+            cursor: 'pointer',
+            fontSize: '12px',
+            marginBottom: '10px' 
+          }}
+        >
+          Debug
+        </button>
+      )}
       
       <div className="history-controls">
         <form onSubmit={handleSearch} className="search-form">
