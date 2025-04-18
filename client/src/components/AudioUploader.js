@@ -217,84 +217,82 @@ function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
           onDragLeave={handleDrag}
           onDrop={handleDrop}
         >
-          <div className="upload-instruction">
-            <p>Drag & drop audio file or</p>
-            <div className="upload-buttons">
-              <button 
-                type="button" 
-                className="select-file-btn"
-                onClick={handleButtonClick}
-                disabled={isLoading || recording || showUrlInput}
-              >
-                <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
-                  <path d="M0 0h24v24H0z" fill="none"/>
-                  <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-8h-5zM5 19l3-4 2 3 3-4 4 5H5z" fill="currentColor"/>
-                </svg>
-                Select File
-              </button>
+          <p>Drag & drop audio file or</p>
+          <div className="upload-buttons">
+            <button 
+              type="button" 
+              className="select-file-btn"
+              onClick={handleButtonClick}
+              disabled={isLoading || recording || showUrlInput}
+            >
+              <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
+                <path d="M0 0h24v24H0z" fill="none"/>
+                <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-8h-5zM5 19l3-4 2 3 3-4 4 5H5z" fill="currentColor"/>
+              </svg>
+              Select File
+            </button>
 
-              <button 
-                className="record-button"
-                onClick={startRecording}
-                disabled={isLoading || showUrlInput}
-              >
-                <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
-                  <path d="M0 0h24v24H0z" fill="none"/>
-                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
-                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
-                </svg>
-                Record Audio
-              </button>
-              
-              <button 
-                className="url-button"
-                onClick={toggleUrlInput}
-                disabled={isLoading || recording}
-              >
-                <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
-                  <path d="M0 0h24v24H0z" fill="none"/>
-                  <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" fill="currentColor"/>
-                </svg>
-                Audio URL
-              </button>
-            </div>
+            <button 
+              className="record-button"
+              onClick={startRecording}
+              disabled={isLoading || showUrlInput}
+            >
+              <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
+                <path d="M0 0h24v24H0z" fill="none"/>
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="currentColor"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/>
+              </svg>
+              Record Audio
+            </button>
             
-            {showUrlInput ? (
-              <div className="url-input-container">
-                <input
-                  ref={urlInputRef}
-                  type="url"
-                  className="url-input"
-                  placeholder="Enter audio file URL..."
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  disabled={isLoading || urlLoading}
-                />
-                <div className="url-input-actions">
-                  <button 
-                    className="url-submit"
-                    onClick={handleUrlSubmit}
-                    disabled={isLoading || urlLoading || !urlInput.trim()}
-                  >
-                    {urlLoading ? (
-                      <span className="spinner-small"></span>
-                    ) : (
-                      <>Process URL</>
-                    )}
-                  </button>
-                  <button
-                    className="url-cancel"
-                    onClick={toggleUrlInput}
-                    disabled={isLoading || urlLoading}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <span className="file-format-info">Supports MP3, WAV, M4A files</span>
-            )}
+            <button
+              className="url-button"
+              onClick={toggleUrlInput}
+              disabled={isLoading || recording}
+            >
+              <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18">
+                <path d="M0 0h24v24H0z" fill="none"/>
+                <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" fill="currentColor"/>
+              </svg>
+              Audio URL
+            </button>
           </div>
+          
+          {showUrlInput ? (
+            <div className="url-input-container">
+              <input
+                ref={urlInputRef}
+                type="url"
+                className="url-input"
+                placeholder="Enter audio file URL..."
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                disabled={isLoading || urlLoading}
+              />
+              <div className="url-input-actions">
+                <button 
+                  className="url-submit"
+                  onClick={handleUrlSubmit}
+                  disabled={isLoading || urlLoading || !urlInput.trim()}
+                >
+                  {urlLoading ? (
+                    <span className="spinner-small"></span>
+                  ) : (
+                    <>Process URL</>
+                  )}
+                </button>
+                <button
+                  className="url-cancel"
+                  onClick={toggleUrlInput}
+                  disabled={isLoading || urlLoading}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <span className="file-format-info">Supports MP3, WAV, M4A files</span>
+          )}
           
           <input
             ref={fileInputRef}

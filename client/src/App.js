@@ -765,6 +765,33 @@ function AppContent() {
             </ul>
           </div>
 
+                <div className="scorecard-section">
+                  <h2>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    </svg>
+                    Performance Scorecard
+                  </h2>
+                  <div className="scorecard">
+                    {analysis && analysis.scorecard && Object.entries(analysis.scorecard).map(([key, value]) => (
+                      <div key={key} className="score-item">
+                        <div className="score-label">
+                          {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                        </div>
+                        <div className="score-bar-wrapper">
+                          <div className="score-bar-container">
+                            <div 
+                              className={`score-bar ${value >= 8 ? 'high' : value >= 6 ? 'medium' : 'low'}`}
+                              style={{ width: `${value * 10}%` }}
+                            />
+                          </div>
+                          <span className="score-value">{value}/10</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="recommendation-section">
                   <h2>
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
