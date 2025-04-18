@@ -1,0 +1,284 @@
+/* Call Type Manager Styles */
+.calltype-manager-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.calltype-header {
+  margin-bottom: 20px;
+}
+
+.calltype-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+}
+
+.calltype-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30px;
+}
+
+.calltype-list {
+  flex: 1;
+  min-width: 300px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.calltype-list h3 {
+  font-size: 18px;
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.calltype-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.calltype-item {
+  padding: 16px;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.calltype-info {
+  flex: 1;
+}
+
+.calltype-info h4 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+.calltype-code {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.calltype-description {
+  font-size: 14px;
+  color: #777;
+  margin: 8px 0 0;
+  line-height: 1.4;
+}
+
+.calltype-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-button, .delete-button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.edit-button {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.edit-button:hover {
+  background-color: #e0e0e0;
+}
+
+.delete-button {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.delete-button:hover {
+  background-color: #ffcdd2;
+}
+
+.new-calltype-button {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 8px 16px;
+  background-color: #0071e3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.new-calltype-button:hover {
+  background-color: #0062c4;
+}
+
+.calltype-form {
+  flex: 1;
+  min-width: 300px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.calltype-form h3 {
+  font-size: 18px;
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  color: #444;
+}
+
+.form-group input, 
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #0071e3;
+  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.2);
+}
+
+.form-group small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #777;
+}
+
+.form-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.save-button, 
+.cancel-button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+}
+
+.save-button {
+  background-color: #0071e3;
+  color: white;
+}
+
+.save-button:hover {
+  background-color: #0062c4;
+}
+
+.cancel-button {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.cancel-button:hover {
+  background-color: #e0e0e0;
+}
+
+.summary-fields {
+  margin-top: 8px;
+  border: 1px solid #eee;
+  padding: 12px;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+.summary-field {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.summary-field label {
+  min-width: 80px;
+  margin: 0;
+}
+
+.summary-field input {
+  flex: 1;
+}
+
+.remove-field-button {
+  padding: 4px 8px;
+  background-color: #ffebee;
+  color: #d32f2f;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.remove-field-button:hover {
+  background-color: #ffcdd2;
+}
+
+.add-field-button {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.add-field-button:hover {
+  background-color: #c8e6c9;
+}
+
+.error-message {
+  padding: 12px;
+  background-color: #ffebee;
+  color: #d32f2f;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .calltype-content {
+    flex-direction: column;
+  }
+  
+  .calltype-list, 
+  .calltype-form {
+    width: 100%;
+  }
+} 

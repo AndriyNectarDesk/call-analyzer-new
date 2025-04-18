@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import './CallTypeManager.css';
 
 function CallTypeManager() {
   const [callTypes, setCallTypes] = useState([]);
@@ -291,6 +292,7 @@ function CallTypeManager() {
       <div className="calltype-content">
         <div className="calltype-list">
           <h3>Available Call Types</h3>
+          
           {callTypes.length === 0 ? (
             <p>No call types defined yet.</p>
           ) : (
@@ -331,9 +333,9 @@ function CallTypeManager() {
           </button>
         </div>
         
-        <div className="calltype-form-container">
+        <div className="calltype-form">
           <h3>{isEditing ? 'Edit Call Type' : 'Create New Call Type'}</h3>
-          <form onSubmit={handleSubmit} className="calltype-form">
+          <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label htmlFor="code">Code:</label>
               <input 
