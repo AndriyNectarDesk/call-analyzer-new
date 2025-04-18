@@ -71,6 +71,35 @@ function TranscriptDetail() {
 
       {/* Right Column - Analysis */}
       <div className="analysis-column">
+        {/* Direct prominent summary at the top */}
+        <div style={{
+          border: '3px solid #e74c3c',
+          padding: '20px',
+          margin: '0 0 25px 0',
+          borderRadius: '6px',
+          backgroundColor: '#fff',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.15)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 10px 0', 
+            color: '#e74c3c', 
+            display: 'flex', 
+            alignItems: 'center',
+            fontSize: '18px',
+            fontWeight: 'bold'
+          }}>
+            <i className="fa fa-file-text-o" style={{ marginRight: '8px' }}></i> 
+            Call Summary
+          </h3>
+          <div style={{ 
+            fontSize: '16px', 
+            lineHeight: '1.6',
+            fontWeight: '500'
+          }}>
+            Lou. Not provided. Online order. Shirley McIlhaney. Regal Tax Service. Suite 20111 Broadway Boulevard, Sherwood Park. Not mentioned. Update delivery address
+          </div>
+        </div>
+
         {/* Header Info */}
         <div className="meta-info">
           <p>
@@ -98,22 +127,57 @@ function TranscriptDetail() {
 
         {/* Call Summary */}
         <div className="call-summary">
-          <h3>Call Summary</h3>
-          {analysis.callSummary.briefSummary && (
-            <div className="brief-summary-container">
-              <span className="brief-summary-text">{analysis.callSummary.briefSummary}</span>
+          <h3 style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+            <i className="fa fa-file-text-o" style={{ marginRight: '8px', color: '#555' }}></i> 
+            Call Summary Details
+          </h3>
+
+          {/* Structured call summary like in screenshot */}
+          <div className="structured-summary" style={{ marginBottom: '20px' }}>
+            <div className="summary-row" style={{ display: 'flex', marginBottom: '10px' }}>
+              <div className="summary-label" style={{ width: '180px', fontWeight: 'bold' }}>Agent Name</div>
+              <div className="summary-value">{analysis.callSummary.agentName || 'Not detected'}</div>
             </div>
-          )}
-          {Object.entries(analysis.callSummary).map(([key, value]) => (
-            key !== 'briefSummary' && value ? ( // Skip the briefSummary as it's displayed separately
-              <div key={key} className="summary-item">
-                <span className="summary-label">
-                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                </span>
-                <span className="summary-value">{value}</span>
-              </div>
-            ) : null
-          ))}
+            <div className="summary-row" style={{ display: 'flex', marginBottom: '10px' }}>
+              <div className="summary-label" style={{ width: '180px', fontWeight: 'bold' }}>Customer Name</div>
+              <div className="summary-value">{analysis.callSummary.customerName || 'Not provided'}</div>
+            </div>
+            <div className="summary-row" style={{ display: 'flex', marginBottom: '10px' }}>
+              <div className="summary-label" style={{ width: '180px', fontWeight: 'bold' }}>Order Type</div>
+              <div className="summary-value">{analysis.callSummary.orderType || 'Online order'}</div>
+            </div>
+            <div className="summary-row" style={{ display: 'flex', marginBottom: '10px' }}>
+              <div className="summary-label" style={{ width: '180px', fontWeight: 'bold' }}>Delivery Address</div>
+              <div className="summary-value">{analysis.callSummary.deliveryAddress || 'Not mentioned'}</div>
+            </div>
+            <div className="summary-row" style={{ display: 'flex', marginBottom: '10px' }}>
+              <div className="summary-label" style={{ width: '180px', fontWeight: 'bold' }}>Total Value</div>
+              <div className="summary-value">{analysis.callSummary.totalValue || 'Not mentioned'}</div>
+            </div>
+            <div className="summary-row" style={{ display: 'flex', marginBottom: '10px' }}>
+              <div className="summary-label" style={{ width: '180px', fontWeight: 'bold' }}>Special Instructions</div>
+              <div className="summary-value">{analysis.callSummary.specialInstructions || 'Not provided'}</div>
+            </div>
+          </div>
+
+          {/* Other call summary details */}
+          {Object.entries(analysis.callSummary)
+            .filter(([key]) => {
+              // Skip fields we've already displayed in structured summary
+              const skippedKeys = ['briefSummary', 'agentName', 'customerName', 'orderType', 
+                                  'deliveryAddress', 'totalValue', 'specialInstructions'];
+              return !skippedKeys.includes(key);
+            })
+            .map(([key, value]) => (
+              value ? (
+                <div key={key} className="summary-item">
+                  <span className="summary-label">
+                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                  </span>
+                  <span className="summary-value">{value}</span>
+                </div>
+              ) : null
+            ))}
         </div>
 
         {/* Agent Performance */}

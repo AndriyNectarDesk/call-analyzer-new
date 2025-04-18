@@ -304,10 +304,30 @@ Format your response as valid JSON with the following structure. DO NOT include 
   try {
     const customCallType = await CallType.findOne({ code: callType, active: true });
     if (customCallType) {
+      // Add brief summary to the JSON structure if doesn't exist
+      let jsonStructure = customCallType.jsonStructure || {};
+      let promptTemplate = customCallType.promptTemplate || '';
+      
+      // Make sure the promptTemplate contains a briefSummary field
+      if (!promptTemplate.includes('"briefSummary"')) {
+        // Find the callSummary opening brace position
+        const callSummaryPos = promptTemplate.indexOf('"callSummary"');
+        if (callSummaryPos !== -1) {
+          // Find the opening brace after callSummary
+          const openBracePos = promptTemplate.indexOf('{', callSummaryPos);
+          if (openBracePos !== -1) {
+            // Insert the briefSummary field after the opening brace
+            promptTemplate = promptTemplate.slice(0, openBracePos + 1) + 
+              '\n    "briefSummary": "",' + 
+              promptTemplate.slice(openBracePos + 1);
+          }
+        }
+      }
+      
       return `${basePrompt}
-${customCallType.promptTemplate}
+${promptTemplate}
 
-${customCallType.jsonStructure.instructions || `This is a call center transcript from ${customCallType.name}. Be sure to identify the agent's name at the beginning of the call.`}
+${jsonStructure.instructions || `This is a call center transcript from ${customCallType.name}. Be sure to identify the agent's name at the beginning of the call. Include a one-sentence summary of the entire call in the briefSummary field.`}
 
 Here's the transcript:
 
@@ -323,6 +343,7 @@ ${transcript}`;
     return `${basePrompt}
 {
   "callSummary": {
+    "briefSummary": "",
     "agentName": "",
     "patientName": "",
     "appointmentType": "",
@@ -344,7 +365,7 @@ ${transcript}`;
   }
 }
 
-This is a call center transcript from a hearing aid clinic. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Focus on patient information, appointment scheduling, hearing concerns, and hearing aid details in your analysis.
+This is a call center transcript from a hearing aid clinic. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Provide a one-sentence summary of the entire call in the briefSummary field. Focus on patient information, appointment scheduling, hearing concerns, and hearing aid details in your analysis.
 
 Here's the transcript:
 
@@ -354,6 +375,7 @@ ${transcript}`;
     return `${basePrompt}
 {
   "callSummary": {
+    "briefSummary": "",
     "agentName": "",
     "customerName": "",
     "orderType": "",
@@ -375,7 +397,7 @@ ${transcript}`;
   }
 }
 
-This is a call center transcript from a flower shop. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Focus on order details, delivery information, and flower preferences in your analysis.
+This is a call center transcript from a flower shop. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Provide a one-sentence summary of the entire call in the briefSummary field. Focus on order details, delivery information, and flower preferences in your analysis.
 
 Here's the transcript:
 
@@ -426,91 +448,94 @@ function handleApiError(err, req, res, next) {
 // Update the API routes to use the async version of createPrompt
 app.post('/api/analyze', async (req, res, next) => {
   try {
+    console.log('Analyze API called:', new Date().toISOString());
+    
+    // Extract data from request
     const { transcript, callType } = req.body;
     
-    if (!transcript) {
+    if (!transcript || !transcript.trim()) {
       return res.status(400).json({ error: 'Transcript is required' });
     }
-    
-    // Extract user info from token
+
+    // Get organization ID and user ID
     const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    
-    // Verify and decode the token
-    let decodedToken;
-    try {
-      decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (tokenError) {
-      console.error('Token verification failed:', tokenError);
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    
-    const userId = decodedToken.userId;
     let organizationId = null;
+    let userId = null;
     
-    // Check if organization override is provided in headers - process this with highest priority
-    const orgNameHeader = req.headers['x-organization-name'];
-    
-    let targetOrgName = null;
-    
-    if (orgNameHeader) {
-      // New general approach - any organization can be specified by name
-      targetOrgName = orgNameHeader;
-      console.log(`Organization override detected via X-Organization-Name: ${targetOrgName}`);
-    }
-    
-    // If we have a target organization name, try to find the matching organization
-    if (targetOrgName) {
+    if (token) {
       try {
-        const Organization = require('./models/organization');
-        const targetOrg = await Organization.findOne({
-          $or: [
-            { name: { $regex: targetOrgName, $options: 'i' } },
-            { code: { $regex: targetOrgName, $options: 'i' } }
-          ]
-        });
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.userId;
         
-        if (targetOrg) {
-          console.log(`Found and using organization: ${targetOrg.name} (${targetOrg._id})`);
-          organizationId = targetOrg._id;
+        // Get Organization ID
+        const user = await User.findById(userId);
+        
+        if (!user) {
+          return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // If custom header is provided, use that
+        if (req.headers['x-organization-id']) {
+          organizationId = req.headers['x-organization-id'];
+          console.log('Using organization ID from header:', organizationId);
         } else {
-          console.warn(`Organization override requested but no organization matching '${targetOrgName}' found`);
+          // Otherwise use the user's organization
+          organizationId = user.organizationId;
+          console.log('Using organization ID from user profile:', organizationId);
         }
       } catch (err) {
-        console.error('Error finding organization:', err);
+        console.error('JWT verification failed:', err);
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    } else {
+      return res.status(401).json({ error: 'Authorization token required' });
+    }
+    
+    // Handle Only Blooms special case - backward compatibility
+    if (req.headers['x-only-blooms'] === 'true') {
+      const bloomsOrg = await Organization.findOne({ 
+        $or: [
+          { name: { $regex: /blooms/i } },
+          { code: { $regex: /blooms/i } }
+        ]
+      });
+      
+      if (bloomsOrg) {
+        console.log('Override: Using Blooms organization:', bloomsOrg.name);
+        organizationId = bloomsOrg._id;
       }
     }
     
-    // If no organization was found or specified, fall back to token organization
-    if (!organizationId) {
-      organizationId = decodedToken.organizationId;
+    // Handle organization name header
+    if (req.headers['x-organization-name']) {
+      const orgName = req.headers['x-organization-name'];
       
-      // If organizationId is missing in the token, fetch it from the user record
-      if (!organizationId) {
-        console.log(`organizationId missing in token for user: ${userId}, fetching from database...`);
-        try {
-          const User = require('./models/user');
-          const user = await User.findById(userId);
-          if (user && user.organizationId) {
-            organizationId = user.organizationId;
-            console.log(`Retrieved organizationId ${organizationId} for user ${userId}`);
-          } else {
-            console.error(`User ${userId} has no organization assigned`);
-            return res.status(400).json({ error: 'User has no organization assigned' });
-          }
-        } catch (userLookupError) {
-          console.error('Error fetching user organization:', userLookupError);
-          return res.status(500).json({ error: 'Error verifying user organization' });
+      // Only search by name if it's not an ID format
+      if (!mongoose.Types.ObjectId.isValid(orgName)) {
+        const org = await Organization.findOne({ 
+          name: { $regex: new RegExp(orgName, 'i') }
+        });
+        
+        if (org) {
+          console.log('Override: Using organization by name:', org.name);
+          organizationId = org._id;
         }
-      } else {
-        console.log(`Using user's default organization ID from token: ${organizationId}`);
       }
+    }
+    
+    // Check if organization exists
+    if (mongoose.Types.ObjectId.isValid(organizationId)) {
+      const organization = await Organization.findById(organizationId);
+      if (!organization) {
+        return res.status(404).json({ error: 'Organization not found' });
+      }
+    } else {
+      console.error('Invalid organization ID format:', organizationId);
+      return res.status(400).json({ error: 'Invalid organization ID format' });
     }
     
     console.log(`Processing analyze request for organizationId: ${organizationId}`);
-    
+
     // Call Claude API with the async createPrompt
     const prompt = await createPrompt(transcript, callType);
     
@@ -536,8 +561,11 @@ app.post('/api/analyze', async (req, res, next) => {
       }
     );
     
-    // Extract and parse the JSON response from Claude
+    // Extract the response content
     const assistantMessage = response.data.content[0].text;
+    
+    // Get the raw response for debugging
+    console.log('Claude raw response for analysis:', assistantMessage);
     
     // Extract JSON from response
     let jsonData = null;
@@ -554,6 +582,30 @@ app.post('/api/analyze', async (req, res, next) => {
       throw new Error('Claude response did not contain valid JSON format');
     }
     
+    // Check if we have valid data
+    if (!jsonData) {
+      throw new Error('Failed to extract valid JSON from Claude response');
+    }
+    
+    // Log the structure of the parsed data
+    console.log('Parsed JSON data structure:', Object.keys(jsonData));
+    
+    // Add an extra log to show callSummary fields
+    if (jsonData.callSummary) {
+      console.log('Call Summary fields:', Object.keys(jsonData.callSummary));
+    }
+    
+    // Verify the data has the expected structure
+    if (!jsonData.callSummary) {
+      console.warn('Missing callSummary in analysis data');
+    }
+    if (!jsonData.agentPerformance) {
+      console.warn('Missing agentPerformance in analysis data');
+    }
+    if (!jsonData.scorecard) {
+      console.warn('Missing scorecard in analysis data');
+    }
+
     // Ensure callType is a string, not an array
     let callTypeValue = callType || 'auto';
     if (Array.isArray(callTypeValue)) {
@@ -573,23 +625,23 @@ app.post('/api/analyze', async (req, res, next) => {
 
     console.log(`Saving transcript with organizationId: ${organizationId}`);
     await newTranscript.save();
-    console.log(`Transcript saved with ID: ${newTranscript._id} for organization: ${organizationId}`);
-
+    
     // Update organization transcript count
     await Organization.findByIdAndUpdate(
       organizationId,
       { $inc: { 'usageStats.totalTranscripts': 1 } }
     );
 
+    // Return the analysis
     return res.json({
       success: true,
       transcript: transcript,
       analysis: jsonData,
       id: newTranscript._id,
-      organizationId: organizationId // Include in response for debugging
+      organizationId: organizationId
     });
   } catch (error) {
-    next(error); // Pass to the error handling middleware
+    next(error);
   }
 });
 
