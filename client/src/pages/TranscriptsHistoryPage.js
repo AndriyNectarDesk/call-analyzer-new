@@ -457,7 +457,7 @@ const TranscriptsHistoryPage = () => {
           </div>
         </div>
         
-        {/* Hard-coded call summary section that will always appear */}
+        {/* Call summary section that uses actual transcript data */}
         <div style={{
           border: 'none',
           padding: '10px 15px',
@@ -474,7 +474,7 @@ const TranscriptsHistoryPage = () => {
           </div>
           <span style={{ display: 'block', color: '#333' }}>
             {transcript.analysis?.callSummary?.briefSummary || 
-             'Lou. Not provided. Online order. Shirley McIlhaney. Regal Tax Service. Suite 20111 Broadway Boulevard, Sherwood Park. Not mentioned. Update delivery address'}
+             'No summary available for this call. Click View Details to see more information.'}
           </span>
         </div>
         

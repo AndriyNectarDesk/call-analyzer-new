@@ -96,7 +96,7 @@ function TranscriptDetail() {
             lineHeight: '1.6',
             fontWeight: '500'
           }}>
-            Lou. Not provided. Online order. Shirley McIlhaney. Regal Tax Service. Suite 20111 Broadway Boulevard, Sherwood Park. Not mentioned. Update delivery address
+            {analysis?.callSummary?.briefSummary || 'No summary available for this transcript.'}
           </div>
         </div>
 
