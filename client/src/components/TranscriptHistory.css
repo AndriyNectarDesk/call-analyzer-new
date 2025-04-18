@@ -177,6 +177,31 @@
   text-overflow: ellipsis;
 }
 
+.call-summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+.summary-key {
+  font-weight: 600;
+  color: #444;
+  min-width: 100px;
+}
+
+.summary-value {
+  color: #555;
+  flex: 1;
+  word-break: break-word;
+}
+
 .transcript-footer {
   display: flex;
   align-items: center;

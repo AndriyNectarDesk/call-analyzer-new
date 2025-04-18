@@ -460,7 +460,28 @@ const TranscriptsHistoryPage = () => {
         <div className="transcript-summary">
           {transcript.rawTranscript 
             ? `${transcript.rawTranscript.substring(0, 150)}${transcript.rawTranscript.length > 150 ? '...' : ''}`
-            : 'No transcript content available'}
+            : transcript.analysis && transcript.analysis.callSummary ? (
+                <div className="call-summary-content">
+                  {Object.entries(transcript.analysis.callSummary).map(([key, value], index) => {
+                    // Format the summary key for display (e.g., "customerName" → "Customer Name")
+                    const formattedKey = key.replace(/([A-Z])/g, ' $1')
+                      .replace(/^./, str => str.toUpperCase())
+                      .trim();
+                    
+                    // Only show the first 3 key-value pairs to keep the card compact
+                    if (index < 3 && value && value.toString().trim()) {
+                      return (
+                        <div key={key} className="summary-item">
+                          <span className="summary-key">{formattedKey}:</span>
+                          <span className="summary-value">{value.toString()}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              ) : 'No transcript content available'
+          }
         </div>
         
         <div className="transcript-footer">
