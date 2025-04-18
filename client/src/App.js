@@ -20,6 +20,7 @@ import UserAddPage from './pages/UserAddPage';
 import UserEditPage from './pages/UserEditPage';
 import OrganizationDetails from './components/OrganizationDetails';
 import MasterAdminDashboard from './components/MasterAdminDashboard';
+import MasterAdminMenu from './components/MasterAdminMenu';
 import TranscriptsHistoryPage from './pages/TranscriptsHistoryPage';
 import AuthProvider from './contexts/AuthContext';
 
@@ -922,24 +923,15 @@ function AppContent() {
                     <li>
                       <Link to="/transcripts-history">Call Transcripts</Link>
                     </li>
-                    <li>
-                      <Link to="/call-types">Call Types</Link>
-                    </li>
                     {currentUser && currentUser.role === 'admin' && (
                       <>
                         <li>
                           <Link to="/agents">Agent Analytics</Link>
                         </li>
-                        <li>
-                          <Link to="/api">API</Link>
-                        </li>
                       </>
                     )}
                     {currentUser && currentUser.isMasterAdmin && (
                       <>
-                        <li>
-                          <Link to="/organizations">Organizations</Link>
-                        </li>
                         {currentOrganization && (
                           <li>
                             <Link to={`/organizations/${currentOrganization.id}/users`}>Users</Link>
@@ -959,6 +951,11 @@ function AppContent() {
                     onSelectOrganization={handleSwitchOrganization}
                     isMasterAdmin={currentUser?.isMasterAdmin}
                   />
+                )}
+                
+                {/* Add Master Admin Menu only for master admin users in master organization */}
+                {currentUser?.isMasterAdmin && isMasterOrganizationSelected() && (
+                  <MasterAdminMenu />
                 )}
                 
                 <div className="user-menu">
