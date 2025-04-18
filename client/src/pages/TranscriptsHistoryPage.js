@@ -462,23 +462,35 @@ const TranscriptsHistoryPage = () => {
             ? `${transcript.rawTranscript.substring(0, 150)}${transcript.rawTranscript.length > 150 ? '...' : ''}`
             : transcript.analysis && transcript.analysis.callSummary ? (
                 <div className="call-summary-content">
-                  {Object.entries(transcript.analysis.callSummary).map(([key, value], index) => {
-                    // Format the summary key for display (e.g., "customerName" → "Customer Name")
-                    const formattedKey = key.replace(/([A-Z])/g, ' $1')
-                      .replace(/^./, str => str.toUpperCase())
-                      .trim();
-                    
-                    // Only show the first 3 key-value pairs to keep the card compact
-                    if (index < 3 && value && value.toString().trim()) {
-                      return (
-                        <div key={key} className="summary-item">
-                          <span className="summary-key">{formattedKey}:</span>
-                          <span className="summary-value">{value.toString()}</span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
+                  {/* Show brief summary first if available */}
+                  {transcript.analysis.callSummary.briefSummary && (
+                    <div className="summary-item brief-item">
+                      <span className="summary-value">{transcript.analysis.callSummary.briefSummary}</span>
+                    </div>
+                  )}
+                  
+                  {/* If no brief summary is available, show the first 3 non-brief-summary fields */}
+                  {(!transcript.analysis.callSummary.briefSummary) && 
+                    Object.entries(transcript.analysis.callSummary)
+                      .filter(([key]) => key !== 'briefSummary') // Exclude briefSummary as it would be shown separately
+                      .map(([key, value], index) => {
+                        // Format the summary key for display (e.g., "customerName" → "Customer Name")
+                        const formattedKey = key.replace(/([A-Z])/g, ' $1')
+                          .replace(/^./, str => str.toUpperCase())
+                          .trim();
+                        
+                        // Only show the first 3 key-value pairs to keep the card compact
+                        if (index < 3 && value && value.toString().trim()) {
+                          return (
+                            <div key={key} className="summary-item">
+                              <span className="summary-key">{formattedKey}:</span>
+                              <span className="summary-value">{value.toString()}</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })
+                  }
                 </div>
               ) : 'No transcript content available'
           }

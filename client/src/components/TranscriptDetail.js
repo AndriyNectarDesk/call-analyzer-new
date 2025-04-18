@@ -99,13 +99,20 @@ function TranscriptDetail() {
         {/* Call Summary */}
         <div className="call-summary">
           <h3>Call Summary</h3>
-          {Object.entries(analysis.callSummary).map(([key, value]) => (
-            <div key={key} className="summary-item">
-              <span className="summary-label">
-                {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-              </span>
-              <span className="summary-value">{value}</span>
+          {analysis.callSummary.briefSummary && (
+            <div className="brief-summary-container">
+              <span className="brief-summary-text">{analysis.callSummary.briefSummary}</span>
             </div>
+          )}
+          {Object.entries(analysis.callSummary).map(([key, value]) => (
+            key !== 'briefSummary' && value ? ( // Skip the briefSummary as it's displayed separately
+              <div key={key} className="summary-item">
+                <span className="summary-label">
+                  {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                </span>
+                <span className="summary-value">{value}</span>
+              </div>
+            ) : null
           ))}
         </div>
 

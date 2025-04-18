@@ -684,6 +684,21 @@ a:hover {
   margin-bottom: var(--spacing-xl);
 }
 
+.brief-summary-container {
+  background-color: var(--apple-light-gray);
+  border-left: 4px solid var(--apple-blue);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  border-radius: var(--border-radius-md);
+}
+
+.brief-summary-text {
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--apple-dark-gray);
+}
+
 .summary-item {
   display: grid;
   grid-template-columns: 200px 1fr;

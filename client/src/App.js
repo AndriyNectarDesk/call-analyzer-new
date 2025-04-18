@@ -662,8 +662,17 @@ function AppContent() {
                   </h2>
                   
                   <div className="overview-card">
+                    {analysis && analysis.callSummary && analysis.callSummary.briefSummary && (
+                      <div className="brief-summary">
+                        <strong>Brief Summary:</strong> {analysis.callSummary.briefSummary}
+                      </div>
+                    )}
                     <div className="overview-text">
-                      {analysis && analysis.callSummary ? Object.values(analysis.callSummary).filter(Boolean).join('. ') : 'No summary available'}
+                      {analysis && analysis.callSummary ? Object.entries(analysis.callSummary)
+                        .filter(([key]) => key !== 'briefSummary') // Filter out the brief summary as it's shown separately
+                        .map(([key, value]) => value ? value : null)
+                        .filter(Boolean)
+                        .join('. ') : 'No summary available'}
                     </div>
                   </div>
                   
