@@ -170,10 +170,36 @@ exports.getTranscript = async (req, res) => {
   try {
     const organizationId = req.tenantId || req.user.organizationId;
     
-    const transcript = await Transcript.findOne({
-      _id: req.params.id,
-      organizationId
-    }).populate('createdBy', 'firstName lastName email');
+    // Check if user is a master admin or part of the master organization
+    const isMasterAdmin = req.user && req.user.isMasterAdmin;
+    let isMasterOrg = req.isMasterOrg || false;
+    
+    if (!isMasterOrg && organizationId) {
+      try {
+        const Organization = require('../models/organization');
+        const organization = await Organization.findById(organizationId);
+        
+        if (organization && organization.isMaster === true) {
+          isMasterOrg = true;
+        }
+      } catch (err) {
+        console.error('Error checking if organization is master:', err);
+      }
+    }
+    
+    // Build query based on role
+    let query = { _id: req.params.id };
+    
+    // If not master org/admin, restrict to their organization's transcripts
+    if (!isMasterOrg && !isMasterAdmin) {
+      query.organizationId = organizationId;
+    }
+    
+    console.log('Transcript query:', JSON.stringify(query));
+    
+    const transcript = await Transcript.findOne(query)
+      .populate('createdBy', 'firstName lastName email')
+      .populate('organizationId', 'name code isMaster');
     
     if (!transcript) {
       return res.status(404).json({ message: 'Transcript not found' });
