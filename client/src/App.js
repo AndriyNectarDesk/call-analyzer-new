@@ -1082,7 +1082,7 @@ function AppContent() {
         </main>
         
         <footer className="app-footer">
-          <p>AI Nectar Desk © 2023</p>
+          <p>AI Nectar Desk © {new Date().getFullYear()}</p>
         </footer>
     </div>
   );
