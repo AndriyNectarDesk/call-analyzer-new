@@ -400,6 +400,38 @@ const TranscriptsHistoryPage = () => {
       }
     }
 
+    // Format the source display
+    const sourceDisplay = () => {
+      switch(transcript.source) {
+        case 'api': return 'API';
+        case 'audio': return 'Audio Upload';
+        case 'nectar-desk-webhook': return 'NectarDesk';
+        case 'web': return 'Web UI';
+        default: return transcript.source || 'Unknown';
+      }
+    };
+
+    // Calculate average score from scorecard if available
+    const calculateAvgScore = () => {
+      if (transcript.analysis && transcript.analysis.scorecard) {
+        const scores = Object.values(transcript.analysis.scorecard);
+        if (scores.length > 0) {
+          const sum = scores.reduce((total, score) => total + score, 0);
+          return (sum / scores.length).toFixed(1);
+        }
+      }
+      return null;
+    };
+
+    const avgScore = calculateAvgScore();
+    
+    // Determine score color class based on value
+    const getScoreColorClass = (score) => {
+      if (score >= 8) return 'score-high';
+      if (score >= 6) return 'score-medium';
+      return 'score-low';
+    };
+
     return (
       <div key={transcript._id} className="transcript-card">
         <div className="transcript-header">
@@ -408,11 +440,21 @@ const TranscriptsHistoryPage = () => {
               {transcript.metadata?.title || `Transcript ${transcript._id.substring(0, 8)}`}
             </Link>
           </h3>
-          {transcript.callType && (
-            <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
-              {transcript.callType}
+          <div className="header-badges">
+            {transcript.callType && (
+              <span className={`call-type-badge ${getCallTypeBadgeClass(transcript.callType)}`}>
+                {transcript.callType}
+              </span>
+            )}
+            <span className="source-badge">
+              {sourceDisplay()}
             </span>
-          )}
+            {avgScore && (
+              <span className={`score-badge ${getScoreColorClass(avgScore)}`}>
+                {avgScore}/10
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="transcript-summary">
@@ -422,17 +464,19 @@ const TranscriptsHistoryPage = () => {
         </div>
         
         <div className="transcript-footer">
-          <div className="timestamp">
-            <ClockIcon width={16} height={16} />
-            {formatDate(transcript.createdAt)}
-          </div>
-          
-          <div className="organization">
-            <BuildingOfficeIcon width={16} height={16} />
-            {orgName || 'Unknown Organization'}
-            {(currentOrganization?.isMaster || currentUser?.isMasterAdmin) && transcript.organizationId?._id === currentOrganization?._id && (
-              <span className="master-badge">Master</span>
-            )}
+          <div className="transcript-meta-info">
+            <div className="timestamp">
+              <ClockIcon width={16} height={16} />
+              {formatDate(transcript.createdAt)}
+            </div>
+            
+            <div className="organization">
+              <BuildingOfficeIcon width={16} height={16} />
+              {orgName || 'Unknown Organization'}
+              {(currentOrganization?.isMaster || currentUser?.isMasterAdmin) && transcript.organizationId?._id === currentOrganization?._id && (
+                <span className="master-badge">Master</span>
+              )}
+            </div>
           </div>
           
           <Link to={`/transcripts/${transcript._id}`} className="view-details">
