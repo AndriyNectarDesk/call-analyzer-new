@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import NectarDeskDetails from './NectarDeskDetails';
+import '../styles/NectarDeskDetails.css';
 
 function TranscriptDetail() {
   const { id } = useParams();
@@ -55,13 +57,24 @@ function TranscriptDetail() {
     return <div className="error-message">{error || 'Transcript not found'}</div>;
   }
 
-  const { analysis, rawTranscript, createdAt, source, metadata, callType, organizationId } = transcript;
+  const { analysis, rawTranscript, createdAt, source, metadata, callType, organizationId, callDetails } = transcript;
+  
+  // Check if this is a Nectar Desk call
+  const isNectarDeskCall = source === 'nectar-desk-webhook' || 
+                           source === 'nectar-desk-webhook-generic' || 
+                           source === 'nectar-desk-webhook-new';
 
   return (
     <div className="detail-container">
       {/* Left Column - Transcript */}
       <div className="transcript-column">
         <h2>Call Transcript</h2>
+        
+        {/* Show Nectar Desk details if available */}
+        {isNectarDeskCall && callDetails && (
+          <NectarDeskDetails callDetails={callDetails} />
+        )}
+        
         <div className="transcript-text">
           {rawTranscript.split('\n').map((line, i) => (
             <p key={i}>{line}</p>
@@ -112,7 +125,7 @@ function TranscriptDetail() {
             <strong>Source:</strong> {
               transcript.source === 'api' ? 'API' : 
               transcript.source === 'audio' ? 'Audio Upload' : 
-              transcript.source === 'nectar-desk-webhook' ? 'NectarDesk' : 
+              isNectarDeskCall ? 'NectarDesk' : 
               'Web UI'
             }
           </p>

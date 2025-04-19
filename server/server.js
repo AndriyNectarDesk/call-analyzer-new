@@ -1447,8 +1447,14 @@ app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => 
       type: callDirection,
       duration,
       talkTime,
+      waitingTime,
+      tags,
+      call_type: callStatus,
+      startedDate,
+      endedDate,
       contact,
       agents,
+      number,
       call_recordings
     } = callData;
     
@@ -1458,10 +1464,22 @@ app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => 
       callDirection,
       duration,
       talkTime,
+      waitingTime,
+      tags,
+      call_type: callStatus,
+      startedDate,
+      endedDate,
       contactId: contact?.id,
       contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
+      contactEmail: contact?.email,
+      contactPhone: contact?.phone,
       agentId: agents && agents.length > 0 ? agents[0].id : null,
       agentName: agents && agents.length > 0 ? agents[0].name : 'Unknown',
+      agentAction: agents && agents.length > 0 ? agents[0].action : null,
+      agentType: agents && agents.length > 0 ? agents[0].type : null,
+      numberId: number?.id,
+      phoneNumber: number?.number,
+      phoneAlias: number?.alias,
       source: 'nectar-desk-webhook'
     };
     
@@ -1538,9 +1556,6 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
       });
     }
     
-    // Get call details for logging
-    const callId = callData.id;
-    
     // For legacy endpoint, use the Master Organization
     const Organization = require('./models/organization');
     const masterOrg = await Organization.findOne({ isMaster: true });
@@ -1555,11 +1570,18 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
     
     // Extract call details
     const {
+      id: callId,
       type: callDirection,
       duration,
       talkTime,
+      waitingTime,
+      tags,
+      call_type: callStatus,
+      startedDate,
+      endedDate,
       contact,
       agents,
+      number,
       call_recordings
     } = callData;
     
@@ -1569,10 +1591,22 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
       callDirection,
       duration,
       talkTime,
+      waitingTime,
+      tags,
+      call_type: callStatus,
+      startedDate,
+      endedDate,
       contactId: contact?.id,
       contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
+      contactEmail: contact?.email,
+      contactPhone: contact?.phone,
       agentId: agents && agents.length > 0 ? agents[0].id : null,
       agentName: agents && agents.length > 0 ? agents[0].name : 'Unknown',
+      agentAction: agents && agents.length > 0 ? agents[0].action : null,
+      agentType: agents && agents.length > 0 ? agents[0].type : null,
+      numberId: number?.id,
+      phoneNumber: number?.number,
+      phoneAlias: number?.alias,
       source: 'nectar-desk-webhook-generic'
     };
     
@@ -1641,8 +1675,14 @@ app.post('/api/webhooks/nectar-desk-org/:orgId', async (req, res, next) => {
       type: callDirection,
       duration,
       talkTime,
+      waitingTime,
+      tags,
+      call_type: callStatus,
+      startedDate,
+      endedDate,
       contact,
       agents,
+      number,
       call_recordings
     } = callData;
     
@@ -1652,10 +1692,22 @@ app.post('/api/webhooks/nectar-desk-org/:orgId', async (req, res, next) => {
       callDirection,
       duration,
       talkTime,
+      waitingTime,
+      tags,
+      call_type: callStatus,
+      startedDate,
+      endedDate,
       contactId: contact?.id,
       contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
+      contactEmail: contact?.email,
+      contactPhone: contact?.phone,
       agentId: agents && agents.length > 0 ? agents[0].id : null,
       agentName: agents && agents.length > 0 ? agents[0].name : 'Unknown',
+      agentAction: agents && agents.length > 0 ? agents[0].action : null,
+      agentType: agents && agents.length > 0 ? agents[0].type : null,
+      numberId: number?.id,
+      phoneNumber: number?.number,
+      phoneAlias: number?.alias,
       source: 'nectar-desk-webhook-new'
     };
     
@@ -2019,12 +2071,44 @@ async function processWebhookRecording(audioUrl, metadata, organizationId) {
       throw new Error('Claude response did not contain valid JSON format');
     }
     
+    // Prepare call details from metadata
+    const callDetails = {
+      callId: metadata.callId,
+      callDirection: metadata.callDirection,
+      duration: metadata.duration,
+      talkTime: metadata.talkTime,
+      waitingTime: metadata.waitingTime,
+      startedDate: metadata.startedDate,
+      endedDate: metadata.endedDate,
+      tags: metadata.tags || [],
+      callStatus: metadata.call_type,
+      customer: {
+        id: metadata.contactId,
+        firstName: metadata.contactName ? metadata.contactName.split(' ')[0] : 'Unknown',
+        lastName: metadata.contactName ? metadata.contactName.split(' ').slice(1).join(' ') : '',
+        email: metadata.contactEmail,
+        phone: metadata.contactPhone
+      },
+      agent: {
+        id: metadata.agentId,
+        name: metadata.agentName,
+        action: metadata.agentAction,
+        type: metadata.agentType
+      },
+      number: {
+        id: metadata.numberId,
+        number: metadata.phoneNumber,
+        alias: metadata.phoneAlias
+      }
+    };
+    
     // Save transcript and analysis to database
     const newTranscript = new Transcript({
       rawTranscript: transcript,
       analysis: jsonData,
       source: 'nectar-desk-webhook',
       metadata: metadata,
+      callDetails: callDetails,
       callType: 'flower-shop',
       organizationId: organizationId
     });

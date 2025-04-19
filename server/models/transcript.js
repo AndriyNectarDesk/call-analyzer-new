@@ -35,6 +35,40 @@ const TranscriptSchema = new mongoose.Schema({
     enum: ['web', 'api', 'audio', 'nectar-desk-webhook'],
     default: 'web'
   },
+  // Enhanced call metadata for Nectar Desk
+  callDetails: {
+    callId: String,
+    callDirection: {
+      type: String,
+      enum: ['inbound', 'outbound', null],
+      default: null
+    },
+    duration: Number,
+    talkTime: Number,
+    waitingTime: Number,
+    startedDate: Date,
+    endedDate: Date,
+    tags: [String],
+    callStatus: String,
+    number: {
+      id: String,
+      number: String,
+      alias: String
+    },
+    customer: {
+      id: String,
+      firstName: String,
+      lastName: String,
+      email: String,
+      phone: String
+    },
+    agent: {
+      id: String,
+      name: String,
+      action: String,
+      type: String
+    }
+  },
   metadata: {
     type: Map,
     of: mongoose.Schema.Types.Mixed,
