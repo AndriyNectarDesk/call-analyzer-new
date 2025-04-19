@@ -62,12 +62,7 @@ const TranscriptSchema = new mongoose.Schema({
       email: String,
       phone: String
     },
-    agent: {
-      id: String,
-      name: String,
-      action: String,
-      type: String
-    }
+    agent: mongoose.Schema.Types.Mixed
   },
   metadata: {
     type: Map,

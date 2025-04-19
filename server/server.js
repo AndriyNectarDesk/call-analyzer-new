@@ -1458,6 +1458,9 @@ app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => 
       call_recordings
     } = callData;
     
+    // Debug log for agents data
+    console.log('Agents data received:', JSON.stringify(agents, null, 2));
+    
     // Prepare metadata for analysis
     const metadata = {
       callId,
@@ -1473,15 +1476,34 @@ app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => 
       contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
       contactEmail: contact?.email,
       contactPhone: contact?.phone,
-      agentId: agents && agents.length > 0 ? agents[0].id : null,
-      agentName: agents && agents.length > 0 ? agents[0].name : 'Unknown',
-      agentAction: agents && agents.length > 0 ? agents[0].action : null,
-      agentType: agents && agents.length > 0 ? agents[0].type : null,
       numberId: number?.id,
       phoneNumber: number?.number,
       phoneAlias: number?.alias,
       source: 'nectar-desk-webhook'
     };
+    
+    // Handle agents data - could be an array of objects, single object, or other format
+    if (agents) {
+      if (Array.isArray(agents) && agents.length > 0) {
+        // If it's an array with at least one element, use the first agent
+        metadata.agent = agents[0];
+        // Also keep individual fields for backward compatibility
+        metadata.agentId = agents[0].id;
+        metadata.agentName = agents[0].name;
+        metadata.agentAction = agents[0].action;
+        metadata.agentType = agents[0].type;
+      } else if (typeof agents === 'object') {
+        // If it's a single object
+        metadata.agent = agents;
+        metadata.agentId = agents.id;
+        metadata.agentName = agents.name;
+        metadata.agentAction = agents.action;
+        metadata.agentType = agents.type;
+      } else {
+        // Otherwise just store it as is
+        metadata.agent = agents;
+      }
+    }
     
     // Get the audio URL - remove any http:// or https:// prefix and add https://
     let audioUrl = call_recordings[0];
@@ -1585,6 +1607,9 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
       call_recordings
     } = callData;
     
+    // Debug log for agents data
+    console.log('Agents data received (generic):', JSON.stringify(agents, null, 2));
+    
     // Prepare metadata for analysis
     const metadata = {
       callId,
@@ -1600,15 +1625,34 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
       contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
       contactEmail: contact?.email,
       contactPhone: contact?.phone,
-      agentId: agents && agents.length > 0 ? agents[0].id : null,
-      agentName: agents && agents.length > 0 ? agents[0].name : 'Unknown',
-      agentAction: agents && agents.length > 0 ? agents[0].action : null,
-      agentType: agents && agents.length > 0 ? agents[0].type : null,
       numberId: number?.id,
       phoneNumber: number?.number,
       phoneAlias: number?.alias,
       source: 'nectar-desk-webhook-generic'
     };
+    
+    // Handle agents data - could be an array of objects, single object, or other format
+    if (agents) {
+      if (Array.isArray(agents) && agents.length > 0) {
+        // If it's an array with at least one element, use the first agent
+        metadata.agent = agents[0];
+        // Also keep individual fields for backward compatibility
+        metadata.agentId = agents[0].id;
+        metadata.agentName = agents[0].name;
+        metadata.agentAction = agents[0].action;
+        metadata.agentType = agents[0].type;
+      } else if (typeof agents === 'object') {
+        // If it's a single object
+        metadata.agent = agents;
+        metadata.agentId = agents.id;
+        metadata.agentName = agents.name;
+        metadata.agentAction = agents.action;
+        metadata.agentType = agents.type;
+      } else {
+        // Otherwise just store it as is
+        metadata.agent = agents;
+      }
+    }
     
     // Get the audio URL
     let audioUrl = call_recordings[0];
@@ -1686,6 +1730,9 @@ app.post('/api/webhooks/nectar-desk-org/:orgId', async (req, res, next) => {
       call_recordings
     } = callData;
     
+    // Debug log for agents data
+    console.log('Agents data received (new format):', JSON.stringify(agents, null, 2));
+    
     // Prepare metadata for analysis
     const metadata = {
       callId,
@@ -1701,15 +1748,34 @@ app.post('/api/webhooks/nectar-desk-org/:orgId', async (req, res, next) => {
       contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
       contactEmail: contact?.email,
       contactPhone: contact?.phone,
-      agentId: agents && agents.length > 0 ? agents[0].id : null,
-      agentName: agents && agents.length > 0 ? agents[0].name : 'Unknown',
-      agentAction: agents && agents.length > 0 ? agents[0].action : null,
-      agentType: agents && agents.length > 0 ? agents[0].type : null,
       numberId: number?.id,
       phoneNumber: number?.number,
       phoneAlias: number?.alias,
       source: 'nectar-desk-webhook-new'
     };
+    
+    // Handle agents data - could be an array of objects, single object, or other format
+    if (agents) {
+      if (Array.isArray(agents) && agents.length > 0) {
+        // If it's an array with at least one element, use the first agent
+        metadata.agent = agents[0];
+        // Also keep individual fields for backward compatibility
+        metadata.agentId = agents[0].id;
+        metadata.agentName = agents[0].name;
+        metadata.agentAction = agents[0].action;
+        metadata.agentType = agents[0].type;
+      } else if (typeof agents === 'object') {
+        // If it's a single object
+        metadata.agent = agents;
+        metadata.agentId = agents.id;
+        metadata.agentName = agents.name;
+        metadata.agentAction = agents.action;
+        metadata.agentType = agents.type;
+      } else {
+        // Otherwise just store it as is
+        metadata.agent = agents;
+      }
+    }
     
     // Get the audio URL - remove any http:// or https:// prefix and add https://
     let audioUrl = call_recordings[0];
@@ -2071,7 +2137,7 @@ async function processWebhookRecording(audioUrl, metadata, organizationId) {
       throw new Error('Claude response did not contain valid JSON format');
     }
     
-    // Prepare call details from metadata
+    // Prepare call details from metadata - handle complex data like agent info
     const callDetails = {
       callId: metadata.callId,
       callDirection: metadata.callDirection,
@@ -2089,18 +2155,27 @@ async function processWebhookRecording(audioUrl, metadata, organizationId) {
         email: metadata.contactEmail,
         phone: metadata.contactPhone
       },
-      agent: {
-        id: metadata.agentId,
-        name: metadata.agentName,
-        action: metadata.agentAction,
-        type: metadata.agentType
-      },
       number: {
         id: metadata.numberId,
         number: metadata.phoneNumber,
         alias: metadata.phoneAlias
       }
     };
+
+    // Handle agent data specially - could be an object, array, or primitive
+    // If agent is already available directly in metadata (already as object/array)
+    if (metadata.agent) {
+      callDetails.agent = metadata.agent;
+    } 
+    // Otherwise try to construct it from individual fields if they exist
+    else if (metadata.agentId || metadata.agentName || metadata.agentAction || metadata.agentType) {
+      callDetails.agent = {
+        id: metadata.agentId,
+        name: metadata.agentName,
+        action: metadata.agentAction,
+        type: metadata.agentType
+      };
+    }
     
     // Save transcript and analysis to database
     const newTranscript = new Transcript({

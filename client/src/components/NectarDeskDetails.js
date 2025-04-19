@@ -8,6 +8,72 @@ function NectarDeskDetails({ callDetails }) {
     return null;
   }
 
+  // Helper function to safely display agent data
+  const renderAgentData = (agent) => {
+    if (!agent) return null;
+
+    // If agent is just a primitive value
+    if (typeof agent !== 'object') {
+      return (
+        <div className="detail-row">
+          <div className="detail-label">Agent</div>
+          <div className="detail-value">{String(agent)}</div>
+        </div>
+      );
+    }
+
+    // If agent is an array
+    if (Array.isArray(agent)) {
+      return agent.map((item, index) => (
+        <div key={index} className="detail-row">
+          <div className="detail-label">Agent {index + 1}</div>
+          <div className="detail-value">
+            {typeof item === 'object' ? JSON.stringify(item) : String(item)}
+          </div>
+        </div>
+      ));
+    }
+
+    // If agent is an object with expected properties
+    return (
+      <>
+        <div className="detail-row">
+          <div className="detail-label">Name</div>
+          <div className="detail-value">{agent.name || 'N/A'}</div>
+        </div>
+        {agent.id && (
+          <div className="detail-row">
+            <div className="detail-label">ID</div>
+            <div className="detail-value">{agent.id}</div>
+          </div>
+        )}
+        {agent.action && (
+          <div className="detail-row">
+            <div className="detail-label">Action</div>
+            <div className="detail-value">{agent.action}</div>
+          </div>
+        )}
+        {agent.type && (
+          <div className="detail-row">
+            <div className="detail-label">Type</div>
+            <div className="detail-value">{agent.type}</div>
+          </div>
+        )}
+        {/* Display any additional fields */}
+        {Object.entries(agent)
+          .filter(([key]) => !['name', 'id', 'action', 'type'].includes(key))
+          .map(([key, value]) => (
+            <div key={key} className="detail-row">
+              <div className="detail-label">{key.charAt(0).toUpperCase() + key.slice(1)}</div>
+              <div className="detail-value">
+                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+              </div>
+            </div>
+          ))}
+      </>
+    );
+  };
+
   return (
     <div className="nectar-desk-details">
       <h3 style={{ 
@@ -133,22 +199,7 @@ function NectarDeskDetails({ callDetails }) {
         {callDetails.agent && (
           <div className="call-details-section">
             <h4>Agent Information</h4>
-            <div className="detail-row">
-              <div className="detail-label">Name</div>
-              <div className="detail-value">{callDetails.agent.name || 'N/A'}</div>
-            </div>
-            {callDetails.agent.action && (
-              <div className="detail-row">
-                <div className="detail-label">Action</div>
-                <div className="detail-value">{callDetails.agent.action}</div>
-              </div>
-            )}
-            {callDetails.agent.type && (
-              <div className="detail-row">
-                <div className="detail-label">Type</div>
-                <div className="detail-value">{callDetails.agent.type}</div>
-              </div>
-            )}
+            {renderAgentData(callDetails.agent)}
           </div>
         )}
 
