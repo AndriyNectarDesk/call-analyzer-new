@@ -752,6 +752,27 @@ analyzeAudioUrl();`;
             </div>
           </div>
         </div>
+
+        <div className="endpoint-card deprecated">
+          <h4>Deprecated NectarDesk Webhook Endpoint</h4>
+          <div className="endpoint-details">
+            <div className="warning-banner">
+              <i className="fa fa-exclamation-triangle"></i> This endpoint is deprecated and will be removed in a future update
+            </div>
+            
+            <div className="endpoint-url">
+              <span className="method">POST</span>
+              <span className="url">{baseApiUrl}/api/webhooks/nectar-desk</span>
+            </div>
+            
+            <div className="endpoint-description">
+              <p>This generic webhook endpoint is maintained for backward compatibility but should not be used for new integrations.</p>
+              <div className="info-note">
+                <strong>Important:</strong> Please use the primary endpoint format: <code>{baseApiUrl}/api/webhooks/nectar-desk/:organizationId</code>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       
       <div className="api-advanced-section">

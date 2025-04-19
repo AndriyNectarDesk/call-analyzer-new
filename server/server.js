@@ -1566,7 +1566,7 @@ app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => 
 // Also add back a simple version of the generic endpoint
 app.post('/api/webhooks/nectar-desk', async (req, res) => {
   try {
-    console.log('Received webhook from NectarDesk on generic endpoint');
+    console.log('DEPRECATION WARNING: Received webhook on deprecated generic endpoint - this endpoint will be removed in the future');
     
     const callData = req.body;
     
@@ -1606,6 +1606,9 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
       number,
       call_recordings
     } = callData;
+    
+    // Track usage of this deprecated endpoint
+    trackWebhookUsage('genericEndpoint', callId, masterOrg._id);
     
     // Debug log for agents data
     console.log('Agents data received (generic):', JSON.stringify(agents, null, 2));
@@ -1666,7 +1669,7 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
       message: 'Webhook received and processing started',
       callId,
       organization: masterOrg.name,
-      note: 'Using generic endpoint - consider updating to organization-specific endpoint'
+      note: 'DEPRECATED: This endpoint is deprecated and will be removed. Please update to the organization-specific endpoint: /api/webhooks/nectar-desk/:organizationId'
     });
     
     // Process in background 
@@ -1680,153 +1683,6 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
       
   } catch (error) {
     console.error('Error handling generic webhook:', error);
-    res.status(200).json({ 
-      success: false, 
-      error: 'Error processing webhook',
-      message: error.message
-    });
-  }
-});
-
-// Add the new webhook endpoint format as well
-app.post('/api/webhooks/nectar-desk-org/:orgId', async (req, res, next) => {
-  try {
-    console.log('Received webhook from NectarDesk on new endpoint format');
-    
-    const callData = req.body;
-    const { orgId } = req.params;
-    
-    // Validate the incoming data
-    if (!callData || !callData.id || !callData.call_recordings || callData.call_recordings.length === 0) {
-      return res.status(400).json({ 
-        error: 'Invalid webhook data', 
-        details: 'Missing required fields: id or call_recordings' 
-      });
-    }
-
-    // Validate organizationId
-    if (!orgId || !mongoose.Types.ObjectId.isValid(orgId)) {
-      console.error(`Invalid organization ID in webhook URL: ${orgId}`);
-      return res.status(400).json({ 
-        error: 'Invalid organization ID', 
-        details: 'The URL must include a valid organization ID'
-      });
-    }
-    
-    // Extract call details
-    const {
-      id: callId,
-      type: callDirection,
-      duration,
-      talkTime,
-      waitingTime,
-      tags,
-      call_type: callStatus,
-      startedDate,
-      endedDate,
-      contact,
-      agents,
-      number,
-      call_recordings
-    } = callData;
-    
-    // Debug log for agents data
-    console.log('Agents data received (new format):', JSON.stringify(agents, null, 2));
-    
-    // Prepare metadata for analysis
-    const metadata = {
-      callId,
-      callDirection,
-      duration,
-      talkTime,
-      waitingTime,
-      tags,
-      call_type: callStatus,
-      startedDate,
-      endedDate,
-      contactId: contact?.id,
-      contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
-      contactEmail: contact?.email,
-      contactPhone: contact?.phone,
-      numberId: number?.id,
-      phoneNumber: number?.number,
-      phoneAlias: number?.alias,
-      source: 'nectar-desk-webhook-new'
-    };
-    
-    // Handle agents data - could be an array of objects, single object, or other format
-    if (agents) {
-      if (Array.isArray(agents) && agents.length > 0) {
-        // If it's an array with at least one element, use the first agent
-        metadata.agent = agents[0];
-        // Also keep individual fields for backward compatibility
-        metadata.agentId = agents[0].id;
-        metadata.agentName = agents[0].name;
-        metadata.agentAction = agents[0].action;
-        metadata.agentType = agents[0].type;
-      } else if (typeof agents === 'object') {
-        // If it's a single object
-        metadata.agent = agents;
-        metadata.agentId = agents.id;
-        metadata.agentName = agents.name;
-        metadata.agentAction = agents.action;
-        metadata.agentType = agents.type;
-      } else {
-        // Otherwise just store it as is
-        metadata.agent = agents;
-      }
-    }
-    
-    // Get the audio URL - remove any http:// or https:// prefix and add https://
-    let audioUrl = call_recordings[0];
-    if (!audioUrl.startsWith('http')) {
-      audioUrl = `https://${audioUrl}`;
-    }
-    
-    console.log(`Processing NectarDesk call recording: ${audioUrl} for organization: ${orgId}`);
-    
-    // Find the organization by ID
-    const Organization = require('./models/organization');
-    const organization = await Organization.findById(orgId);
-    
-    if (!organization) {
-      console.error(`Organization not found: ${orgId}`);
-      return res.status(404).json({ 
-        error: 'Organization not found', 
-        details: 'The provided organization ID does not exist in the system' 
-      });
-    }
-
-    // Check if the organization has API access enabled
-    if (!organization.features || !organization.features.apiAccess) {
-      console.error(`Organization ${orgId} does not have API access enabled`);
-      return res.status(403).json({ 
-        error: 'API access not enabled', 
-        details: 'This organization does not have API access enabled'
-      });
-    }
-    
-    // Queue the analysis job - we'll respond to webhook quickly and process in background
-    // Send 200 OK response immediately to acknowledge receipt
-    res.status(200).json({ 
-      success: true, 
-      message: 'Webhook received and processing started',
-      callId,
-      organization: organization.name
-    });
-    
-    // Process in background - don't wait for completion
-    processWebhookRecording(audioUrl, metadata, orgId)
-      .then(result => {
-        console.log(`Successfully processed NectarDesk webhook call ${callId} for organization ${organization.name}`);
-      })
-      .catch(error => {
-        console.error(`Error processing NectarDesk webhook call ${callId} for organization ${organization.name}:`, error);
-      });
-      
-  } catch (error) {
-    console.error('Error handling NectarDesk webhook:', error);
-    // Even on error, return 200 so NectarDesk doesn't retry unnecessarily
     res.status(200).json({ 
       success: false, 
       error: 'Error processing webhook',
@@ -2222,3 +2078,58 @@ async function processWebhookRecording(audioUrl, metadata, organizationId) {
     throw error;
   }
 }
+
+// Webhook usage tracking for deprecation monitoring
+const webhookUsageStats = {
+  genericEndpoint: {
+    lastUsed: null,
+    count: 0,
+    calls: []
+  }
+};
+
+// Helper function to track webhook usage
+const trackWebhookUsage = (endpointType, callId, organizationId) => {
+  const stats = webhookUsageStats[endpointType];
+  const now = new Date();
+  stats.lastUsed = now;
+  stats.count++;
+  
+  // Keep last 20 calls for analysis
+  stats.calls.unshift({
+    timestamp: now,
+    callId,
+    organizationId
+  });
+  
+  if (stats.calls.length > 20) {
+    stats.calls.pop();
+  }
+  
+  // Log webhook usage statistics every 10 calls
+  if (stats.count % 10 === 0) {
+    console.log(`DEPRECATION TRACKING - ${endpointType} endpoint usage statistics:`, {
+      totalCalls: stats.count,
+      lastUsed: stats.lastUsed,
+      recentCalls: stats.calls.length
+    });
+  }
+};
+
+// Add API endpoint to view usage statistics (only available to master admins)
+app.get('/api/admin/webhook-usage-stats', validateApiKey, async (req, res) => {
+  try {
+    // Only accessible to master admins
+    if (!req.user || !req.user.isMasterAdmin) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    res.json({
+      webhookUsageStats,
+      message: 'These statistics help track usage of deprecated endpoints'
+    });
+  } catch (error) {
+    console.error('Error retrieving webhook usage stats:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
