@@ -1455,7 +1455,13 @@ app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => 
       contact,
       agents,
       number,
-      call_recordings
+      call_recordings,
+      // New fields from expanded payload
+      campaign,
+      abandoned,
+      disposition,
+      external_numbers,
+      transfer_details
     } = callData;
     
     // Debug log for agents data
@@ -1476,9 +1482,17 @@ app.post('/api/webhooks/nectar-desk/:organizationId', async (req, res, next) => 
       contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
       contactEmail: contact?.email,
       contactPhone: contact?.phone,
+      contactCreateDate: contact?.createDate,
+      contactAdditionalFields: contact?.additionalFields,
       numberId: number?.id,
       phoneNumber: number?.number,
       phoneAlias: number?.alias,
+      // Add new metadata fields
+      campaign,
+      abandoned,
+      disposition,
+      external_numbers,
+      transfer_details,
       source: 'nectar-desk-webhook'
     };
     
@@ -1604,7 +1618,13 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
       contact,
       agents,
       number,
-      call_recordings
+      call_recordings,
+      // New fields from expanded payload
+      campaign,
+      abandoned,
+      disposition,
+      external_numbers,
+      transfer_details
     } = callData;
     
     // Track usage of this deprecated endpoint
@@ -1628,9 +1648,17 @@ app.post('/api/webhooks/nectar-desk', async (req, res) => {
       contactName: contact ? `${contact.firstName} ${contact.lastName}`.trim() : 'Unknown',
       contactEmail: contact?.email,
       contactPhone: contact?.phone,
+      contactCreateDate: contact?.createDate,
+      contactAdditionalFields: contact?.additionalFields,
       numberId: number?.id,
       phoneNumber: number?.number,
       phoneAlias: number?.alias,
+      // Add new metadata fields
+      campaign,
+      abandoned,
+      disposition,
+      external_numbers,
+      transfer_details,
       source: 'nectar-desk-webhook-generic'
     };
     
@@ -2004,17 +2032,25 @@ async function processWebhookRecording(audioUrl, metadata, organizationId) {
       endedDate: metadata.endedDate,
       tags: metadata.tags || [],
       callStatus: metadata.call_type,
+      // Add new fields
+      campaign: metadata.campaign || '',
+      abandoned: metadata.abandoned || 0,
+      disposition: metadata.disposition ? { code: metadata.disposition.code } : null,
+      external_numbers: metadata.external_numbers || [],
+      transfer_details: metadata.transfer_details || null,
+      number: {
+        id: metadata.numberId,
+        number: metadata.phoneNumber,
+        alias: metadata.phoneAlias
+      },
       customer: {
         id: metadata.contactId,
         firstName: metadata.contactName ? metadata.contactName.split(' ')[0] : 'Unknown',
         lastName: metadata.contactName ? metadata.contactName.split(' ').slice(1).join(' ') : '',
         email: metadata.contactEmail,
-        phone: metadata.contactPhone
-      },
-      number: {
-        id: metadata.numberId,
-        number: metadata.phoneNumber,
-        alias: metadata.phoneAlias
+        phone: metadata.contactPhone,
+        createDate: metadata.contactCreateDate || null,
+        additionalFields: metadata.contactAdditionalFields || null
       }
     };
 

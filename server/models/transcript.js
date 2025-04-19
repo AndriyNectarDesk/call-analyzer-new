@@ -50,6 +50,13 @@ const TranscriptSchema = new mongoose.Schema({
     endedDate: Date,
     tags: [String],
     callStatus: String,
+    campaign: String,
+    abandoned: Number,
+    disposition: {
+      code: String
+    },
+    external_numbers: [String],
+    transfer_details: mongoose.Schema.Types.Mixed,
     number: {
       id: String,
       number: String,
@@ -60,7 +67,9 @@ const TranscriptSchema = new mongoose.Schema({
       firstName: String,
       lastName: String,
       email: String,
-      phone: String
+      phone: String,
+      createDate: Date,
+      additionalFields: mongoose.Schema.Types.Mixed
     },
     agent: mongoose.Schema.Types.Mixed
   },

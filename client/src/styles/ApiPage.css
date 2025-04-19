@@ -1,0 +1,25 @@
+/* Styles for deprecated endpoints */
+.endpoint-card.deprecated {
+  background-color: #fff3f3;
+  border-left: 4px solid #e74c3c;
+  opacity: 0.85;
+}
+
+.endpoint-card.deprecated h4 {
+  color: #e74c3c;
+}
+
+.warning-banner {
+  background-color: #e74c3c;
+  color: white;
+  padding: 8px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+}
+
+.warning-banner i {
+  margin-right: 8px;
+} 

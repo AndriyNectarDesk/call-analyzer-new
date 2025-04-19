@@ -110,6 +110,24 @@ function NectarDeskDetails({ callDetails }) {
             <div className="detail-label">Status</div>
             <div className="detail-value">{callDetails.callStatus || 'N/A'}</div>
           </div>
+          {callDetails.campaign && (
+            <div className="detail-row">
+              <div className="detail-label">Campaign</div>
+              <div className="detail-value">{callDetails.campaign}</div>
+            </div>
+          )}
+          {callDetails.disposition && (
+            <div className="detail-row">
+              <div className="detail-label">Disposition</div>
+              <div className="detail-value">{callDetails.disposition.code || 'N/A'}</div>
+            </div>
+          )}
+          {callDetails.abandoned !== undefined && (
+            <div className="detail-row">
+              <div className="detail-label">Abandoned</div>
+              <div className="detail-value">{callDetails.abandoned ? 'Yes' : 'No'}</div>
+            </div>
+          )}
           <div className="detail-row">
             <div className="detail-label">Duration</div>
             <div className="detail-value">
@@ -192,6 +210,20 @@ function NectarDeskDetails({ callDetails }) {
                 <div className="detail-value">{callDetails.customer.phone}</div>
               </div>
             )}
+            {callDetails.customer.createDate && (
+              <div className="detail-row">
+                <div className="detail-label">Created</div>
+                <div className="detail-value">{new Date(callDetails.customer.createDate).toLocaleString()}</div>
+              </div>
+            )}
+            {callDetails.customer.additionalFields && Object.keys(callDetails.customer.additionalFields).length > 0 && (
+              <div className="detail-row">
+                <div className="detail-label">Additional Fields</div>
+                <div className="detail-value">
+                  <pre>{JSON.stringify(callDetails.customer.additionalFields, null, 2)}</pre>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -211,6 +243,32 @@ function NectarDeskDetails({ callDetails }) {
               {callDetails.tags.map((tag, index) => (
                 <span key={index} className="tag">{tag}</span>
               ))}
+            </div>
+          </div>
+        )}
+        
+        {/* External Numbers */}
+        {callDetails.external_numbers && callDetails.external_numbers.length > 0 && (
+          <div className="call-details-section">
+            <h4>External Numbers</h4>
+            <div className="detail-row">
+              <div className="detail-value">
+                {callDetails.external_numbers.map((num, index) => (
+                  <div key={index}>{num}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Transfer Details */}
+        {callDetails.transfer_details && (
+          <div className="call-details-section">
+            <h4>Transfer Details</h4>
+            <div className="detail-row">
+              <div className="detail-value">
+                <pre>{JSON.stringify(callDetails.transfer_details, null, 2)}</pre>
+              </div>
             </div>
           </div>
         )}
