@@ -48,7 +48,6 @@ function AppContent() {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [userOrganizations, setUserOrganizations] = useState([]);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [showDemoMode, setShowDemoMode] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [isOnlyBloomsMode, setIsOnlyBloomsMode] = useState(localStorage.getItem('onlyBlooms') === 'true');
@@ -214,18 +213,6 @@ function AppContent() {
     checkAuthStatus();
   }, [navigate, location.pathname]);
   
-  // Check dark mode preference
-  useEffect(() => {
-    const darkModePreference = localStorage.getItem('darkMode') === 'true';
-    setIsDarkMode(darkModePreference);
-    
-    if (darkModePreference) {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
-    }
-  }, []);
-  
   // Check for demo mode
   useEffect(() => {
     // Only show and enable demo mode in development or specified environments
@@ -331,13 +318,6 @@ function AppContent() {
       // Otherwise go to main dashboard
       window.location.href = `/`;
     }
-  };
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode);
-    document.body.classList.toggle('dark', newDarkMode);
   };
 
   const toggleDemoMode = () => {
@@ -964,14 +944,6 @@ function AppContent() {
                       <span className="user-name">{currentUser.firstName}</span>
                     </div>
                   )}
-                  
-                  <button
-                    className="icon-button"
-                    title="Toggle Dark Mode"
-                    onClick={toggleDarkMode}
-                  >
-                    {isDarkMode ? '☀️' : '🌙'}
-                  </button>
                   
                   <button
                     className="button button-subtle"

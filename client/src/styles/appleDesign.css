@@ -63,24 +63,6 @@
   --transition-slow: 0.5s ease-out;
 }
 
-/* Dark Mode Theme */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --apple-white: #1d1d1f;
-    --apple-off-white: #2d2d30;
-    --apple-light-gray: #3a3a3c;
-    --apple-mid-gray: #86868b;
-    --apple-dark-gray: #a1a1a6;
-    --apple-black: #f5f5f7;
-    
-    --primary-color: #0a84ff;
-    --border-color: rgba(255, 255, 255, 0.15);
-    --background-primary: var(--apple-white);
-    --background-secondary: var(--apple-off-white);
-    --card-background: var(--apple-off-white);
-  }
-}
-
 /* Base Typography */
 body {
   font-family: var(--font-primary);
@@ -156,10 +138,6 @@ a:hover {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   background-color: rgba(255, 255, 255, 0.8);
-}
-
-.dark .app-header {
-  background-color: rgba(29, 29, 31, 0.8);
 }
 
 .header-content {
