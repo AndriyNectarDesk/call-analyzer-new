@@ -12,7 +12,6 @@ import ResetPassword from './components/ResetPassword';
 import OrganizationsPage from './pages/OrganizationsPage';
 import TranscriptDetail from './components/TranscriptDetail';
 import CallTypeManager from './components/CallTypeManager';
-import AgentAnalytics from './components/AgentAnalytics';
 import ApiPage from './components/ApiPage';
 import UsersPage from './pages/UsersPage';
 import UserAddPage from './pages/UserAddPage';
@@ -861,9 +860,6 @@ function AppContent() {
                     </li>
                     {currentUser && currentUser.role === 'admin' && (
                       <>
-                        <li>
-                          <Link to="/agents">Agent Analytics</Link>
-                        </li>
                       </>
                     )}
                     {currentUser && currentUser.isMasterAdmin && (
@@ -953,12 +949,6 @@ function AppContent() {
             <Route path="/call-types" element={
               <ProtectedRoute>
                 <CallTypeManager />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/agents" element={
-              <ProtectedRoute>
-                <AgentAnalytics />
               </ProtectedRoute>
             } />
             
