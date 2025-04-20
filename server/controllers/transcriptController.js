@@ -5,29 +5,8 @@ const Organization = require('../models/organization');
 // Get all transcripts
 exports.getAllTranscripts = async (req, res) => {
   try {
-    console.log('===== TRANSCRIPT API DEBUG =====');
-    
     // Filter by organization ID from authenticated user or request
     const organizationId = req.tenantId || req.user.organizationId;
-    console.log('Getting transcripts for organization:', organizationId);
-    console.log('Request user:', req.user ? {
-      userId: req.user.userId,
-      organizationId: req.user.organizationId,
-      isMasterAdmin: req.user.isMasterAdmin
-    } : 'No user in request');
-    
-    // Additional debug logging to track the organization context
-    if (req.overrideOrganizationId) {
-      console.log('Organization context override in effect:', 
-        req.overrideOrganizationName, 
-        `(${req.overrideOrganizationId})`
-      );
-    }
-    
-    // Debug the user's organization context from JWT
-    if (req.user && req.user.organizationId) {
-      console.log('User JWT organization context:', req.user.organizationId);
-    }
     
     // If user is master admin and no specific organization filter is applied,
     // allow viewing all transcripts, otherwise enforce organization isolation
@@ -41,29 +20,19 @@ exports.getAllTranscripts = async (req, res) => {
       // Look up the organization to see if it's marked as the master organization
       try {
         const organization = await Organization.findById(organizationId);
-        console.log('Organization lookup result:', organization ? {
-          id: organization._id,
-          name: organization.name,
-          isMaster: organization.isMaster
-        } : 'Organization not found');
         
         if (organization && organization.isMaster === true) {
           isMasterOrg = true;
-          console.log('Found master organization with ID:', organizationId);
         } else if (req.overrideOrganizationName && 
             (req.overrideOrganizationName.toLowerCase().includes('master') || 
             req.overrideOrganizationName.toLowerCase() === 'nectardesk')) {
           // Backward compatibility check
           isMasterOrg = true;
-          console.log('Name-based master organization detected:', req.overrideOrganizationName);
         }
       } catch (err) {
         console.error('Error checking if organization is master:', err);
       }
     }
-    
-    console.log('User is master admin:', isMasterAdmin);
-    console.log('Is master organization context:', isMasterOrg);
     
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
@@ -75,12 +44,10 @@ exports.getAllTranscripts = async (req, res) => {
     // Only allow viewing all transcripts if:
     // They are in the master organization context (regardless of admin status)
     if (isMasterOrg) {
-      console.log('Master organization context - showing all transcripts');
       // Empty query means "all transcripts"
     } else {
       // For regular users or users in a specific org context,
       // strictly filter by the organization ID
-      console.log('Filtering transcripts by organization ID:', organizationId);
       query.organizationId = organizationId;
     }
     
@@ -104,50 +71,63 @@ exports.getAllTranscripts = async (req, res) => {
       query.createdAt = { $lte: new Date(req.query.endDate) };
     }
     
-    console.log('Final transcript query:', JSON.stringify(query));
-    
-    // DEBUG: Check if collection exists and has documents
-    try {
-      const collections = await mongoose.connection.db.listCollections().toArray();
-      const collectionNames = collections.map(c => c.name);
-      console.log('Available collections:', collectionNames);
-      
-      if (collectionNames.includes('transcripts')) {
-        const count = await Transcript.countDocuments({});
-        console.log('Total documents in transcripts collection:', count);
-      } else {
-        console.log('Warning: transcripts collection does not exist in database');
-      }
-    } catch (err) {
-      console.error('Error checking collections:', err);
-    }
-    
     // Get total count for pagination
     const total = await Transcript.countDocuments(query);
-    console.log('Total matching transcripts for query:', total);
+    
+    // Simplified approach - use a basic exclusion projection
+    // This will exclude only the heavy rawTranscript field
+    const projection = { rawTranscript: 0 };
     
     // Get transcripts with pagination
-    const transcripts = await Transcript.find(query)
-      .select('-rawTranscript') // Don't return full transcript in listing
+    const transcripts = await Transcript.find(query, projection)
       .populate('createdBy', 'firstName lastName email')
       .populate('organizationId', 'name code isMaster')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
     
-    console.log('Retrieved transcripts:', transcripts.length);
-    
-    // For debugging - check if transcripts have valid organizationId
-    if (transcripts.length > 0) {
-      const hasMissingOrg = transcripts.some(t => !t.organizationId);
-      if (hasMissingOrg) {
-        console.warn('WARNING: Some transcripts have missing organizationId');
+    // Process each transcript to reduce payload size before sending
+    const processedTranscripts = transcripts.map(transcript => {
+      // Convert Mongoose document to plain object
+      const plainDoc = transcript.toObject ? transcript.toObject() : transcript;
+      
+      // Only keep specific fields that are needed on the history page
+      const result = {
+        _id: plainDoc._id,
+        callType: plainDoc.callType,
+        source: plainDoc.source,
+        createdAt: plainDoc.createdAt,
+        organizationId: plainDoc.organizationId,
+        createdBy: plainDoc.createdBy
+      };
+      
+      // Add minimal summary data if available
+      if (plainDoc.analysis) {
+        result.analysis = {};
+        if (plainDoc.analysis.callSummary) {
+          result.analysis.callSummary = {
+            briefSummary: plainDoc.analysis.callSummary.briefSummary
+          };
+        }
+        if (plainDoc.analysis.scorecard) {
+          result.analysis.scorecard = plainDoc.analysis.scorecard;
+        }
       }
-    }
+      
+      // Add only title from metadata
+      if (plainDoc.metadata && plainDoc.metadata.title) {
+        result.metadata = { title: plainDoc.metadata.title };
+      } else if (plainDoc.metadata && plainDoc.metadata.get && plainDoc.metadata.get('title')) {
+        // Handle Map type metadata
+        result.metadata = { title: plainDoc.metadata.get('title') };
+      }
+      
+      return result;
+    });
     
-    // Log the response data before sending
+    // Send the response with processed transcripts
     const responseData = {
-      transcripts,
+      transcripts: processedTranscripts,
       pagination: {
         total,
         page,
@@ -155,8 +135,6 @@ exports.getAllTranscripts = async (req, res) => {
         pages: Math.ceil(total / limit)
       }
     };
-    
-    console.log('Sending response:', JSON.stringify(responseData, null, 2));
     
     res.json(responseData);
   } catch (error) {
@@ -194,8 +172,6 @@ exports.getTranscript = async (req, res) => {
     if (!isMasterOrg && !isMasterAdmin) {
       query.organizationId = organizationId;
     }
-    
-    console.log('Transcript query:', JSON.stringify(query));
     
     const transcript = await Transcript.findOne(query)
       .populate('createdBy', 'firstName lastName email')

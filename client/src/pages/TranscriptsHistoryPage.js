@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ClockIcon, BuildingOfficeIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, BuildingOfficeIcon, ArrowRightIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import '../components/TranscriptHistory.css';
 
@@ -26,6 +26,9 @@ const TranscriptsHistoryPage = () => {
     startDate: '',
     endDate: ''
   });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+  const [currentlyDeletingId, setCurrentlyDeletingId] = useState(null);
   
   // Base URL for the API
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://call-analyzer-api.onrender.com';
@@ -238,6 +241,9 @@ const TranscriptsHistoryPage = () => {
         url += `&endDate=${dateRange.endDate}`;
       }
 
+      // We've moved field filtering to the server side for reliability
+      // No need to specify fields in the request anymore
+
       console.log('Requesting transcripts from URL:', url);
       console.log('Request config:', JSON.stringify(config));
       
@@ -261,8 +267,8 @@ const TranscriptsHistoryPage = () => {
       
       // Update pagination if available
       if (pagination) {
-        setTotalPages(pagination.pages || 1);
         setTotalCount(pagination.total || 0);
+        recalculatePagination(pagination.total || 0);
       }
     } catch (err) {
       console.error('Error fetching transcripts:', err);
@@ -301,6 +307,17 @@ const TranscriptsHistoryPage = () => {
     }
   }, [currentPage, selectedOrg, dateRange]);
 
+  // Add a dedicated pagination calculation function
+  const recalculatePagination = (total) => {
+    const calculatedPages = Math.ceil(total / itemsPerPage);
+    setTotalPages(calculatedPages || 1);
+    
+    // Ensure current page is not greater than total pages
+    if (currentPage > calculatedPages && calculatedPages > 0) {
+      setCurrentPage(calculatedPages);
+    }
+  };
+
   // Filter transcripts based on search term
   useEffect(() => {
     if (searchTerm.trim() === '') {
@@ -309,7 +326,7 @@ const TranscriptsHistoryPage = () => {
       const lowercasedTerm = searchTerm.toLowerCase();
       const filtered = transcripts.filter(transcript => {
         const searchableText = [
-          transcript.rawTranscript?.substring(0, 200) || '',
+          transcript.analysis?.callSummary?.briefSummary || '',
           transcript.callType || '',
           transcript.source || '',
           transcript.metadata?.title || '',
@@ -384,6 +401,105 @@ const TranscriptsHistoryPage = () => {
     }
   };
 
+  // Function to handle transcript deletion
+  const handleDeleteTranscript = async (transcriptId, e) => {
+    e.preventDefault(); // Prevent navigation
+    e.stopPropagation(); // Prevent event bubbling
+    
+    // Prevent double deletion attempts
+    if (currentlyDeletingId === transcriptId || isDeleting) {
+      console.log('Delete operation already in progress for this transcript');
+      return;
+    }
+    
+    if (window.confirm('Are you sure you want to delete this transcript? This action cannot be undone.')) {
+      try {
+        setIsDeleting(true);
+        setCurrentlyDeletingId(transcriptId);
+        setDeleteError(null);
+        
+        // Get organization ID - handle both formats
+        const orgId = currentOrganization._id || currentOrganization.id;
+        
+        // Get auth token
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          throw new Error('Authentication token not found');
+        }
+        
+        // Setup headers
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'x-organization-id': orgId,
+            'x-organization-name': currentOrganization.name || 'Unknown',
+            'x-organization-is-master': (currentOrganization.isMaster || currentUser?.isMasterAdmin) ? 'true' : 'false'
+          }
+        };
+        
+        try {
+          // Make delete request to API
+          await axios.delete(`${API_BASE_URL}/api/transcripts/${transcriptId}`, config);
+          
+          // Update count and recalculate pagination
+          const newTotal = totalCount - 1;
+          setTotalCount(newTotal);
+          recalculatePagination(newTotal);
+          
+          // Handle pagination logic
+          if (filteredTranscripts.length === 1 && currentPage > 1) {
+            // If this was the last item on the current page and we're not on page 1,
+            // go back one page
+            setCurrentPage(prevPage => prevPage - 1);
+          } else {
+            // Otherwise, refetch the current page to load new items
+            await fetchTranscriptsForOrganization(currentOrganization, token);
+          }
+        } catch (apiError) {
+          console.error('Error deleting transcript:', apiError);
+          
+          // Handle 404 error specifically
+          if (apiError.response && apiError.response.status === 404) {
+            setDeleteError("The transcript was not found. It may have been already deleted. Refreshing transcript list...");
+            
+            // Remove the transcript from the local state to prevent further delete attempts
+            setTranscripts(prevTranscripts => prevTranscripts.filter(t => t._id !== transcriptId));
+            setFilteredTranscripts(prevFiltered => prevFiltered.filter(t => t._id !== transcriptId));
+            
+            // Refresh the list after a short delay
+            setTimeout(() => {
+              fetchTranscriptsForOrganization(currentOrganization, token);
+              setDeleteError(null);
+            }, 2000);
+          } else {
+            // Handle other API errors
+            setDeleteError(`Failed to delete transcript: ${apiError.response?.data?.message || apiError.message}`);
+            
+            // Refresh the list to ensure UI is in sync with server state
+            setTimeout(() => {
+              fetchTranscriptsForOrganization(currentOrganization, token);
+            }, 3000);
+          }
+        }
+      } catch (err) {
+        // Handle any non-API errors
+        console.error('Error in delete handler:', err);
+        setDeleteError(`An unexpected error occurred: ${err.message}`);
+        
+        // Refresh after a delay
+        const token = localStorage.getItem('auth_token');
+        if (token && currentOrganization) {
+          setTimeout(() => {
+            fetchTranscriptsForOrganization(currentOrganization, token);
+          }, 3000);
+        }
+      } finally {
+        setIsDeleting(false);
+        setCurrentlyDeletingId(null);
+      }
+    }
+  };
+
   const renderTranscriptCard = (transcript) => {
     // Ensure we have a proper organization name
     let orgName = '';
@@ -431,9 +547,12 @@ const TranscriptsHistoryPage = () => {
       if (score >= 6) return 'score-medium';
       return 'score-low';
     };
+    
+    // Check if this transcript is currently being deleted
+    const isBeingDeleted = currentlyDeletingId === transcript._id;
 
     return (
-      <div key={transcript._id} className="transcript-card">
+      <div key={transcript._id} className={`transcript-card ${isBeingDeleted ? 'deleting' : ''}`}>
         <div className="transcript-header">
           <h3 className="transcript-title">
             <Link to={`/transcripts/${transcript._id}`}>
@@ -494,9 +613,20 @@ const TranscriptsHistoryPage = () => {
             </div>
           </div>
           
-          <Link to={`/transcripts/${transcript._id}`} className="view-details">
-            View Details <ArrowRightIcon width={16} height={16} />
-          </Link>
+          <div className="transcript-actions">
+            <Link to={`/transcripts/${transcript._id}`} className="view-details">
+              View Details <ArrowRightIcon width={16} height={16} />
+            </Link>
+            <button 
+              onClick={(e) => handleDeleteTranscript(transcript._id, e)}
+              className="delete-transcript-btn"
+              disabled={isDeleting || currentlyDeletingId === transcript._id}
+              aria-label="Delete transcript"
+              title="Delete transcript"
+            >
+              <TrashIcon width={16} height={16} />
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -572,6 +702,12 @@ const TranscriptsHistoryPage = () => {
       {error && (
         <div className="error-message">
           {error}
+        </div>
+      )}
+      
+      {deleteError && (
+        <div className="error-message">
+          {deleteError}
         </div>
       )}
       
