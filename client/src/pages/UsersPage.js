@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '../styles/appleDesign.css';
 
@@ -32,7 +32,8 @@ const ResetIcon = () => (
 );
 
 const UsersPage = () => {
-  const { organizationId } = useParams();
+  let { organizationId } = useParams();
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -46,12 +47,27 @@ const UsersPage = () => {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState('');
   
-  // Fetch users data
+  // Check for 'undefined' organizationId and try to get it from localStorage
   useEffect(() => {
-    fetchUsers();
-  }, [organizationId]);
+    if (organizationId === 'undefined') {
+      try {
+        // Try to get organization from localStorage
+        const savedOrg = localStorage.getItem('currentOrganization');
+        if (savedOrg) {
+          const parsedOrg = JSON.parse(savedOrg);
+          if (parsedOrg && parsedOrg.id) {
+            // Redirect to the correct URL with the actual organization ID
+            navigate(`/organizations/${parsedOrg.id}/users`, { replace: true });
+          }
+        }
+      } catch (err) {
+        console.error('Error retrieving organization from localStorage:', err);
+      }
+    }
+  }, [organizationId, navigate]);
   
-  const fetchUsers = async () => {
+  // Define fetchUsers with useCallback to avoid dependency issues
+  const fetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -93,7 +109,14 @@ const UsersPage = () => {
       setError(errorMessage);
       setIsLoading(false);
     }
-  };
+  }, [organizationId]);
+  
+  // Fetch users data with the fixed dependency array
+  useEffect(() => {
+    if (organizationId && organizationId !== 'undefined') {
+      fetchUsers();
+    }
+  }, [organizationId, fetchUsers]);
   
   const handleOpenResetModal = (userId, firstName, lastName) => {
     setResetUserId(userId);
@@ -376,99 +399,6 @@ const UsersPage = () => {
           </div>
         </div>
       )}
-      
-      {/* Additional CSS */}
-      <style jsx>{`
-        .success-message {
-          background-color: rgba(52, 199, 89, 0.1);
-          border-radius: var(--border-radius-md);
-          color: var(--success-color);
-          padding: 12px 16px;
-          margin-bottom: 20px;
-          animation: fadeIn 0.3s ease-out;
-        }
-        
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
-        }
-        
-        .modal {
-          background: var(--card-background);
-          border-radius: var(--border-radius-lg);
-          box-shadow: var(--shadow-lg);
-          width: 100%;
-          max-width: 500px;
-          animation: modalFadeIn 0.3s;
-        }
-        
-        @keyframes modalFadeIn {
-          from { opacity: 0; transform: translateY(-20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px 24px;
-          border-bottom: 1px solid var(--border-color);
-        }
-        
-        .modal-header h2 {
-          margin: 0;
-          font-size: 18px;
-        }
-        
-        .modal-close {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: var(--text-muted);
-        }
-        
-        .modal-body {
-          padding: 24px;
-        }
-        
-        .modal-footer {
-          padding: 16px 24px;
-          border-top: 1px solid var(--border-color);
-          display: flex;
-          justify-content: flex-end;
-          gap: 12px;
-        }
-        
-        .spinner-small {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          border-top-color: white;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-          display: inline-block;
-          margin-right: 8px;
-        }
-        
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Toaster, toast } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 import './App.css';
 import './styles/appleDesign.css';
 import AudioUploader from './components/AudioUploader';
@@ -10,7 +10,6 @@ import Login from './components/Login';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import OrganizationsPage from './pages/OrganizationsPage';
-import NewOrganizationPage from './pages/NewOrganizationPage';
 import TranscriptDetail from './components/TranscriptDetail';
 import CallTypeManager from './components/CallTypeManager';
 import AgentAnalytics from './components/AgentAnalytics';
@@ -18,7 +17,6 @@ import ApiPage from './components/ApiPage';
 import UsersPage from './pages/UsersPage';
 import UserAddPage from './pages/UserAddPage';
 import UserEditPage from './pages/UserEditPage';
-import OrganizationDetails from './components/OrganizationDetails';
 import MasterAdminDashboard from './components/MasterAdminDashboard';
 import MasterAdminMenu from './components/MasterAdminMenu';
 import TranscriptsHistoryPage from './pages/TranscriptsHistoryPage';
@@ -48,10 +46,7 @@ function AppContent() {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [userOrganizations, setUserOrganizations] = useState([]);
-  const [showDemoMode, setShowDemoMode] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
-  const [isOnlyBloomsMode, setIsOnlyBloomsMode] = useState(localStorage.getItem('onlyBlooms') === 'true');
-  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -195,7 +190,6 @@ function AppContent() {
         
         if (response.data && response.data.user) {
           setIsAuthenticated(true);
-          setIsMasterAdmin(response.data.user.isMasterAdmin || false);
         } else {
           setIsAuthenticated(false);
           navigate('/login');
@@ -217,12 +211,7 @@ function AppContent() {
   useEffect(() => {
     // Only show and enable demo mode in development or specified environments
     const allowDemo = process.env.REACT_APP_ALLOW_DEMO === 'true' || process.env.NODE_ENV === 'development';
-    setShowDemoMode(allowDemo);
-    
-    if (allowDemo) {
-      const isDemoActive = localStorage.getItem('demoMode') === 'true';
-      setDemoMode(isDemoActive);
-    }
+    setDemoMode(allowDemo);
   }, []);
 
   const handleLogin = async (email, password) => {
@@ -299,7 +288,8 @@ function AppContent() {
     // Store the selected organization in localStorage for persistence
     try {
       localStorage.setItem('selectedOrganization', JSON.stringify({
-        id: org._id,
+        id: org._id,  // Keep legacy 'id' property for backwards compatibility
+        _id: org._id, // Add the '_id' property to ensure consistency
         name: org.name,
         code: org.code
       }));
@@ -318,12 +308,6 @@ function AppContent() {
       // Otherwise go to main dashboard
       window.location.href = `/`;
     }
-  };
-
-  const toggleDemoMode = () => {
-    const newDemoMode = !demoMode;
-    setDemoMode(newDemoMode);
-    localStorage.setItem('demoMode', newDemoMode);
   };
 
   const analyzeTranscript = async (e) => {
@@ -828,34 +812,6 @@ function AppContent() {
     return isAuthenticated ? children : <Navigate to="/login" />;
   };
 
-  // Helper function to get badge class based on subscription tier
-  const getTierBadgeClass = (tier) => {
-    switch (tier.toLowerCase()) {
-      case 'premium':
-      case 'enterprise':
-        return 'badge-success';
-      case 'pro':
-      case 'professional':
-      case 'business':
-        return 'badge-primary';
-      case 'basic':
-        return 'badge-secondary';
-      case 'free':
-      case 'trial':
-        return 'badge-warning';
-      default:
-        return 'badge-secondary';
-    }
-  };
-
-  // Helper function to get color based on score
-  const getScoreColor = (score) => {
-    if (score >= 0.8) return '#4CAF50'; // green
-    if (score >= 0.6) return '#2196F3'; // blue
-    if (score >= 0.4) return '#FF9800'; // orange
-    return '#F44336'; // red
-  };
-
   // Check if the current organization is the master organization
   const isMasterOrganizationSelected = () => {
     if (!currentOrganization) return false;
@@ -914,7 +870,7 @@ function AppContent() {
                       <>
                         {currentOrganization && (
                           <li>
-                            <Link to={`/organizations/${currentOrganization.id}/users`}>Users</Link>
+                            <Link to={`/organizations/${currentOrganization._id || currentOrganization.id}/users`}>Users</Link>
                           </li>
                         )}
                       </>

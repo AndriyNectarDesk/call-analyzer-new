@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 function AgentAnalytics() {
   const [transcripts, setTranscripts] = useState([]);
@@ -35,7 +35,7 @@ function AgentAnalytics() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const fetchTranscripts = async () => {
+  const fetchTranscripts = useCallback(async () => {
     try {
       setLoading(true);
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -52,8 +52,8 @@ function AgentAnalytics() {
       let url = `${apiUrl}/api/transcripts`;
       
       // If Only Blooms is active and we have an organization ID, filter by it
-      if (onlyBloomsActive && currentOrganization?.id) {
-        url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization.id}`;
+      if (onlyBloomsActive && currentOrganization) {
+        url = `${apiUrl}/api/transcripts?organizationId=${currentOrganization._id || currentOrganization.id}`;
       }
       
       const response = await fetch(url, {
@@ -86,15 +86,15 @@ function AgentAnalytics() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentOrganization, selectedAgent]);
 
   // Initial fetch
   useEffect(() => {
     fetchTranscripts();
-  }, [currentOrganization]);
+  }, [fetchTranscripts]);
 
   // Filter transcripts based on time range
-  const getFilteredTranscripts = () => {
+  const getFilteredTranscripts = useCallback(() => {
     if (!transcripts.length) return [];
     
     let filtered = [...transcripts];
@@ -119,7 +119,7 @@ function AgentAnalytics() {
     }
     
     return filtered;
-  };
+  }, [transcripts, timeRange, selectedAgent]);
 
   // Calculate agent performance metrics
   useEffect(() => {
