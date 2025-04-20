@@ -79,12 +79,34 @@
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+  position: relative;
 }
 
 .transcript-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.transcript-card.deleting {
+  opacity: 0.6;
+  background-color: #fff8f8;
+  border-color: #ffcdd2;
+  pointer-events: none;
+}
+
+.transcript-card.deleting::after {
+  content: "Deleting...";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(255, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-weight: bold;
+  z-index: 10;
 }
 
 .transcript-header {
@@ -219,6 +241,12 @@
   gap: 16px;
 }
 
+.transcript-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .timestamp, .organization {
   display: flex;
   align-items: center;
@@ -252,6 +280,33 @@
 
 .view-details:hover {
   opacity: 0.8;
+}
+
+.delete-transcript-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  color: #d32f2f;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-transcript-btn:hover {
+  background-color: #ffebee;
+}
+
+.delete-transcript-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.delete-transcript-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* No Transcripts */
