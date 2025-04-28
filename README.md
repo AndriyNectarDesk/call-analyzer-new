@@ -211,4 +211,8 @@ analyzeTranscript();
 
 ### Deepgram
 
-- `DEEPGRAM_API_KEY` - Deepgram API key for audio transcription 
+- `DEEPGRAM_API_KEY` - Deepgram API key for audio transcription
+
+## Documentation
+- [Agent Analytics Module Fixes](docs/agent-analytics-fixes.md) - Documentation of fixes and functionality for the Agent Analytics module.
+- [Agent Analytics Database Implementation](docs/agent-analytics-database-implementation.md) - Comprehensive documentation of the database schema, queries, and operations for the Agent Analytics module. 
