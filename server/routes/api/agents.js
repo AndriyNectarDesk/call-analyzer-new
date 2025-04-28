@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../../middleware/authMiddleware');
+const { authenticateJWT } = require('../../middleware/authMiddleware');
 const Agent = require('../../models/agent');
 const agentAnalyticsService = require('../../services/agentAnalyticsService');
 
@@ -9,7 +9,7 @@ const agentAnalyticsService = require('../../services/agentAnalyticsService');
  * @description Get all agents for an organization
  * @access Private
  */
-router.get('/', auth, async (req, res) => {
+router.get('/', authenticateJWT, async (req, res) => {
   try {
     const organizationId = req.user.organizationId;
     
@@ -88,7 +88,7 @@ router.get('/', auth, async (req, res) => {
  * @description Get performance analytics for all agents in the organization
  * @access Private
  */
-router.get('/analytics/performance', auth, async (req, res) => {
+router.get('/analytics/performance', authenticateJWT, async (req, res) => {
   try {
     const organizationId = req.user.organizationId;
     
@@ -136,7 +136,7 @@ router.get('/analytics/performance', auth, async (req, res) => {
  * @description Update performance metrics for all agents in the organization
  * @access Private
  */
-router.post('/analytics/update-all', auth, async (req, res) => {
+router.post('/analytics/update-all', authenticateJWT, async (req, res) => {
   try {
     const organizationId = req.user.organizationId;
     
@@ -181,7 +181,7 @@ router.post('/analytics/update-all', auth, async (req, res) => {
  * @description Manually trigger the agent metrics update job
  * @access Private (admin only)
  */
-router.post('/analytics/trigger-update-job', auth, async (req, res) => {
+router.post('/analytics/trigger-update-job', authenticateJWT, async (req, res) => {
   try {
     // Check if user is an admin
     if (req.user.role !== 'admin' && !req.user.isMasterAdmin) {
@@ -212,7 +212,7 @@ router.post('/analytics/trigger-update-job', auth, async (req, res) => {
  * @description Get a specific agent by ID
  * @access Private
  */
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', authenticateJWT, async (req, res) => {
   try {
     const agent = await Agent.findOne({
       _id: req.params.id,
@@ -235,7 +235,7 @@ router.get('/:id', auth, async (req, res) => {
  * @description Get performance metrics for a specific agent
  * @access Private
  */
-router.get('/:id/performance', auth, async (req, res) => {
+router.get('/:id/performance', authenticateJWT, async (req, res) => {
   try {
     const agent = await Agent.findOne({
       _id: req.params.id,
@@ -280,7 +280,7 @@ router.get('/:id/performance', auth, async (req, res) => {
  * @description Create a new agent
  * @access Private
  */
-router.post('/', auth, async (req, res) => {
+router.post('/', authenticateJWT, async (req, res) => {
   try {
     const {
       firstName,
@@ -344,7 +344,7 @@ router.post('/', auth, async (req, res) => {
  * @description Update an agent
  * @access Private
  */
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', authenticateJWT, async (req, res) => {
   try {
     const agent = await Agent.findOne({
       _id: req.params.id,
