@@ -19,7 +19,6 @@ import UserEditPage from './pages/UserEditPage';
 import MasterAdminDashboard from './components/MasterAdminDashboard';
 import MasterAdminMenu from './components/MasterAdminMenu';
 import TranscriptsHistoryPage from './pages/TranscriptsHistoryPage';
-import AgentAnalyticsPage from './pages/AgentAnalyticsPage';
 import AuthProvider from './contexts/AuthContext';
 
 // Create a wrapper component for App that provides the router context
@@ -859,9 +858,6 @@ function AppContent() {
                     <li>
                       <Link to="/transcripts-history">Call Transcripts</Link>
                     </li>
-                    <li>
-                      <Link to="/agent-analytics">Agent Analytics</Link>
-                    </li>
                     {currentUser && currentUser.role === 'admin' && (
                       <>
                       </>
@@ -941,12 +937,6 @@ function AppContent() {
             <Route path="/transcripts-history" element={
               <ProtectedRoute>
                 <TranscriptsHistoryPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/agent-analytics" element={
-              <ProtectedRoute>
-                <AgentAnalyticsPage />
               </ProtectedRoute>
             } />
             
