@@ -84,74 +84,6 @@ router.get('/', auth, async (req, res) => {
 });
 
 /**
- * @route GET /api/agents/:id
- * @description Get a specific agent by ID
- * @access Private
- */
-router.get('/:id', auth, async (req, res) => {
-  try {
-    const agent = await Agent.findOne({
-      _id: req.params.id,
-      organizationId: req.user.organizationId
-    });
-    
-    if (!agent) {
-      return res.status(404).json({ message: 'Agent not found' });
-    }
-    
-    res.json(agent);
-  } catch (error) {
-    console.error('Error fetching agent:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-/**
- * @route GET /api/agents/:id/performance
- * @description Get performance metrics for a specific agent
- * @access Private
- */
-router.get('/:id/performance', auth, async (req, res) => {
-  try {
-    const agent = await Agent.findOne({
-      _id: req.params.id,
-      organizationId: req.user.organizationId
-    });
-    
-    if (!agent) {
-      return res.status(404).json({ message: 'Agent not found' });
-    }
-    
-    // Get date range from query parameters
-    const { startDate, endDate, updateMetrics } = req.query;
-    
-    // If updateMetrics is true, recalculate metrics
-    if (updateMetrics === 'true') {
-      const options = {};
-      
-      if (startDate) {
-        options.startDate = new Date(startDate);
-      }
-      
-      if (endDate) {
-        options.endDate = new Date(endDate);
-      }
-      
-      await agentAnalyticsService.updateAgentPerformanceMetrics(agent._id, options);
-      
-      // Refresh agent data
-      const updatedAgent = await Agent.findById(agent._id);
-      return res.json(updatedAgent.performanceMetrics);
-    }
-    
-    res.json(agent.performanceMetrics);
-  } catch (error) {
-    console.error('Error fetching agent performance:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-/**
  * @route GET /api/agents/analytics/performance
  * @description Get performance analytics for all agents in the organization
  * @access Private
@@ -240,6 +172,105 @@ router.post('/analytics/update-all', auth, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error updating all agent metrics:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * @route POST /api/agents/analytics/trigger-update-job
+ * @description Manually trigger the agent metrics update job
+ * @access Private (admin only)
+ */
+router.post('/analytics/trigger-update-job', auth, async (req, res) => {
+  try {
+    // Check if user is an admin
+    if (req.user.role !== 'admin' && !req.user.isMasterAdmin) {
+      return res.status(403).json({ message: 'Not authorized to perform this action' });
+    }
+    
+    const { schedulerService } = require('../../services');
+    
+    // Attempt to run the job now
+    const success = await schedulerService.runJobNow('updateAgentMetrics');
+    
+    if (success) {
+      res.json({ message: 'Agent metrics update job triggered successfully' });
+    } else {
+      // If the job wasn't found in the scheduler, run it directly
+      const agentMetricsJob = require('../../jobs/updateAgentMetrics');
+      await agentMetricsJob.job();
+      res.json({ message: 'Agent metrics update job executed directly' });
+    }
+  } catch (error) {
+    console.error('Error triggering agent metrics update job:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * @route GET /api/agents/:id
+ * @description Get a specific agent by ID
+ * @access Private
+ */
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const agent = await Agent.findOne({
+      _id: req.params.id,
+      organizationId: req.user.organizationId
+    });
+    
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+    
+    res.json(agent);
+  } catch (error) {
+    console.error('Error fetching agent:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * @route GET /api/agents/:id/performance
+ * @description Get performance metrics for a specific agent
+ * @access Private
+ */
+router.get('/:id/performance', auth, async (req, res) => {
+  try {
+    const agent = await Agent.findOne({
+      _id: req.params.id,
+      organizationId: req.user.organizationId
+    });
+    
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+    
+    // Get date range from query parameters
+    const { startDate, endDate, updateMetrics } = req.query;
+    
+    // If updateMetrics is true, recalculate metrics
+    if (updateMetrics === 'true') {
+      const options = {};
+      
+      if (startDate) {
+        options.startDate = new Date(startDate);
+      }
+      
+      if (endDate) {
+        options.endDate = new Date(endDate);
+      }
+      
+      await agentAnalyticsService.updateAgentPerformanceMetrics(agent._id, options);
+      
+      // Refresh agent data
+      const updatedAgent = await Agent.findById(agent._id);
+      return res.json(updatedAgent.performanceMetrics);
+    }
+    
+    res.json(agent.performanceMetrics);
+  } catch (error) {
+    console.error('Error fetching agent performance:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -347,37 +378,6 @@ router.put('/:id', auth, async (req, res) => {
     res.json(agent);
   } catch (error) {
     console.error('Error updating agent:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-/**
- * @route POST /api/agents/analytics/trigger-update-job
- * @description Manually trigger the agent metrics update job
- * @access Private (admin only)
- */
-router.post('/analytics/trigger-update-job', auth, async (req, res) => {
-  try {
-    // Check if user is an admin
-    if (req.user.role !== 'admin' && !req.user.isMasterAdmin) {
-      return res.status(403).json({ message: 'Not authorized to perform this action' });
-    }
-    
-    const { schedulerService } = require('../../services');
-    
-    // Attempt to run the job now
-    const success = await schedulerService.runJobNow('updateAgentMetrics');
-    
-    if (success) {
-      res.json({ message: 'Agent metrics update job triggered successfully' });
-    } else {
-      // If the job wasn't found in the scheduler, run it directly
-      const agentMetricsJob = require('../../jobs/updateAgentMetrics');
-      await agentMetricsJob.job();
-      res.json({ message: 'Agent metrics update job executed directly' });
-    }
-  } catch (error) {
-    console.error('Error triggering agent metrics update job:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
