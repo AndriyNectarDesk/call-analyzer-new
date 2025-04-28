@@ -1410,6 +1410,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/organizations', require('./routes/organizationRoutes'));
 app.use('/api/transcripts', require('./routes/transcriptRoutes'));
+app.use('/api/agents', require('./routes/api/agents'));
 app.use('/api/call-types', require('./routes/callTypeRoutes'));
 app.use('/api/master-admin', require('./routes/masterAdminRoutes'));
 
@@ -1799,6 +1800,10 @@ app.listen(PORT, () => {
     .catch(err => {
       console.error('Error ensuring Master Organization:', err);
     });
+  
+  // Initialize scheduler for background jobs
+  const schedulerService = require('./services/schedulerService');
+  schedulerService.initializeScheduler();
   
   // Set up periodic API key check (every 6 hours)
   const SIX_HOURS = 6 * 60 * 60 * 1000;

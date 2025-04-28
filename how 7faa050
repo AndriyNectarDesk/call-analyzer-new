@@ -1,0 +1,12 @@
+[33mcommit 7faa050b95349be76057c0c6e82df17c5281aae2[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: andriy <pocmarketing@gmail.com>
+Date:   Fri Apr 18 12:28:14 2025 -0400
+
+    Update App.js and dependencies
+
+ client/src/App.js  |  29 [32m++++++++++++++++++++++++[m[31m-----[m
+ how --stat 88d8dab |  16 [32m++++++++++++++++[m
+ package-lock.json  |   2 [32m+[m[31m-[m
+ package.json       |   2 [32m+[m[31m-[m
+ server/.env        | Bin [31m430[m -> [32m640[m bytes
+ 5 files changed, 42 insertions(+), 7 deletions(-)

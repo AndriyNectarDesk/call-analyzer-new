@@ -1,0 +1,121 @@
+{
+  "analysis": {
+    "agentPerformance": {
+      "strengths": [
+        "Greeted customer warmly and established rapport",
+        "Demonstrated good product knowledge by suggesting red roses for Mother's Day",
+        "Efficiently gathered delivery details and special instructions"
+      ],
+      "areasForImprovement": [
+        "Could have asked more probing questions to personalize flower recommendations",
+        "Didn't upsell or cross-sell any additional products",
+        "Ended the call somewhat abruptly without a strong closing"
+      ]
+    },
+    "scorecard": {
+      "customerService": 8,
+      "productKnowledge": 7,
+      "processEfficiency": 9,
+      "problemSolving": 6,
+      "overallScore": 8
+    },
+    "callSummary": {
+      "briefSummary": "Customer Samantha placed an order for a dozen red roses and a card to be delivered to her mother for Mother's Day.",
+      "agentName": "Emily",
+      "customerName": "Samantha",
+      "orderType": "Phone order",
+      "deliveryAddress": "123 Main St, Anytown USA",
+      "totalValue": "$85",
+      "specialInstructions": "Include card message 'Happy Mother's Day! Love, Samantha'"
+    },
+    "improvementSuggestions": [
+      "Train agents to ask customer's about recipient's preferences to tailor recommendations",
+      "Encourage upselling and cross-selling relevant products to increase order value",
+      "Coach agents on ending calls graciously and recapping key details"
+    ]
+  },
+  "callDetails": {
+    "disposition": {
+      "code": "Outbound - Unable to Leave VM (/No Answer/No Ring, Hung Up On)"
+    },
+    "number": {
+      "id": "617",
+      "number": "16813888928",
+      "alias": "Beltone - WV - Keyser - US - Databse Mailing"
+    },
+    "customer": {
+      "id": "85077",
+      "firstName": "null",
+      "lastName": "null",
+      "email": null,
+      "phone": "13012682895",
+      "createDate": "2025-01-24T16:22:29.000Z",
+      "additionalFields": null
+    },
+    "callId": "253253",
+    "callDirection": "outbound",
+    "duration": 5,
+    "talkTime": 5,
+    "waitingTime": 18,
+    "startedDate": "2025-04-19T19:22:59.000Z",
+    "endedDate": "2025-04-19T19:23:24.000Z",
+    "tags": [],
+    "callStatus": "answered",
+    "campaign": "",
+    "abandoned": 0,
+    "external_numbers": [],
+    "transfer_details": [],
+    "agent": {
+      "id": 58,
+      "name": "Kyana Dixon ",
+      "action": "Normal clearing",
+      "type": "Normal call"
+    }
+  },
+  "_id": "6803f84c25fadcb6d94a09f6",
+  "rawTranscript": "Yes.",
+  "organizationId": "6803d34e2ee3fb8ef1971aac",
+  "callType": "flower-shop",
+  "source": "nectar-desk-webhook",
+  "metadata": {
+    "callId": 253253,
+    "callDirection": "outbound",
+    "duration": 5,
+    "talkTime": 5,
+    "waitingTime": 18,
+    "tags": [],
+    "call_type": "answered",
+    "startedDate": "2025-04-19T15:22:59-04:00",
+    "endedDate": "2025-04-19T15:23:24-04:00",
+    "contactId": 85077,
+    "contactName": "null null",
+    "contactEmail": null,
+    "contactPhone": "13012682895",
+    "contactCreateDate": "2025-01-24T11:22:29-05:00",
+    "contactAdditionalFields": null,
+    "numberId": 617,
+    "phoneNumber": "16813888928",
+    "phoneAlias": "Beltone - WV - Keyser - US - Databse Mailing",
+    "campaign": "",
+    "abandoned": 0,
+    "disposition": {
+      "code": "Outbound - Unable to Leave VM (/No Answer/No Ring, Hung Up On)",
+      "note": "Picked up, hung up"
+    },
+    "external_numbers": [],
+    "transfer_details": [],
+    "source": "nectar-desk-webhook",
+    "agent": {
+      "id": 58,
+      "name": "Kyana Dixon ",
+      "action": "Normal clearing",
+      "type": "Normal call"
+    },
+    "agentId": 58,
+    "agentName": "Kyana Dixon ",
+    "agentAction": "Normal clearing",
+    "agentType": "Normal call"
+  },
+  "createdAt": "2025-04-19T19:23:56.966Z",
+  "__v": 0
+}
