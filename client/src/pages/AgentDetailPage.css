@@ -290,6 +290,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+  flex: 1;
 }
 
 .filter-item label {
@@ -303,6 +304,7 @@
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   font-size: 14px;
+  width: 100%;
 }
 
 .filter-actions {
@@ -346,6 +348,7 @@
   background-color: #f9f9f9;
   border-radius: 6px;
   color: #666;
+  margin-bottom: 15px;
 }
 
 .spinner.small {
@@ -356,6 +359,11 @@
   border-left-color: #4285f4;
   animation: spin 1s linear infinite;
   margin: 0 auto 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .call-list {
@@ -371,6 +379,8 @@
   padding: 15px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
 }
 
 .call-item:hover {

@@ -114,12 +114,19 @@ exports.getAllTranscripts = async (req, res) => {
         }
       }
       
-      // Add only title from metadata
+      // Add title from metadata if available
       if (plainDoc.metadata && plainDoc.metadata.title) {
         result.metadata = { title: plainDoc.metadata.title };
       } else if (plainDoc.metadata && plainDoc.metadata.get && plainDoc.metadata.get('title')) {
-        // Handle Map type metadata
         result.metadata = { title: plainDoc.metadata.get('title') };
+      } else {
+        // Use call ID if available
+        if (plainDoc.callDetails && plainDoc.callDetails.callId) {
+          result.metadata = { title: `Call ID: ${plainDoc.callDetails.callId}` };
+        } else {
+          // Use transcript ID as a last resort
+          result.metadata = { title: `Call Record: ${plainDoc._id}` };
+        }
       }
       
       return result;
@@ -234,7 +241,7 @@ exports.getTranscriptAnalytics = async (req, res) => {
     const pipeline = [
       {
         $match: {
-          organizationId: mongoose.Types.ObjectId(organizationId),
+          organizationId: new mongoose.Types.ObjectId(organizationId),
           createdAt: {
             $gte: startDate,
             $lte: endDate
@@ -264,7 +271,7 @@ exports.getTranscriptAnalytics = async (req, res) => {
     const callTypeCounts = await Transcript.aggregate([
       {
         $match: {
-          organizationId: mongoose.Types.ObjectId(organizationId),
+          organizationId: new mongoose.Types.ObjectId(organizationId),
           createdAt: {
             $gte: startDate,
             $lte: endDate
@@ -347,7 +354,7 @@ exports.getTranscriptsByAgent = async (req, res) => {
     const skip = (page - 1) * limit;
     
     // Build query based on role and agent ID
-    let query = { agentId: mongoose.Types.ObjectId(agentId) };
+    let query = { agentId: new mongoose.Types.ObjectId(agentId) };
     
     // If not master org/admin, restrict to their organization's transcripts
     if (!isMasterOrg && !isMasterAdmin) {
@@ -439,6 +446,14 @@ exports.getTranscriptsByAgent = async (req, res) => {
         result.metadata = { title: plainDoc.metadata.title };
       } else if (plainDoc.metadata && plainDoc.metadata.get && plainDoc.metadata.get('title')) {
         result.metadata = { title: plainDoc.metadata.get('title') };
+      } else {
+        // Use call ID if available
+        if (plainDoc.callDetails && plainDoc.callDetails.callId) {
+          result.metadata = { title: `Call ID: ${plainDoc.callDetails.callId}` };
+        } else {
+          // Use transcript ID as a last resort
+          result.metadata = { title: `Call Record: ${plainDoc._id}` };
+        }
       }
       
       return result;

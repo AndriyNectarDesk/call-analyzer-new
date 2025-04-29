@@ -16,6 +16,7 @@ import {
   FunnelIcon
 } from '@heroicons/react/24/outline';
 import './AgentDetailPage.css';
+import AgentPerformanceTrends from '../components/AgentPerformanceTrends';
 
 const AgentDetailPage = () => {
   const { id } = useParams();
@@ -464,7 +465,14 @@ const AgentDetailPage = () => {
           </div>
         )}
         
-        {/* Additional sections can be added here for call history, detailed analytics, etc. */}
+        {/* Performance Trends Section */}
+        {agent && agent._id && (
+          <AgentPerformanceTrends 
+            agentId={agent._id} 
+            organizationId={currentOrganization?._id}
+            API_BASE_URL={API_BASE_URL}
+          />
+        )}
         
         {/* Call History Section */}
         <div className="call-history-section">

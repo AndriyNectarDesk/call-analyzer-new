@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
     if (req.query.organizationId) {
       query.$or = [
         { isGlobal: true },
-        { organizationId: mongoose.Types.ObjectId(req.query.organizationId) }
+        { organizationId: new mongoose.Types.ObjectId(req.query.organizationId) }
       ];
     }
     

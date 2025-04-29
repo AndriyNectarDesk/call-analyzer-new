@@ -46,7 +46,7 @@ async function migrateAgentData() {
         const uniqueAgents = await Transcript.aggregate([
           // Match transcripts for this organization with agent data
           { $match: { 
-            organizationId: mongoose.Types.ObjectId(orgId), 
+            organizationId: new mongoose.Types.ObjectId(orgId), 
             'callDetails.agent': { $exists: true, $ne: null } 
           }},
           // Group by agent identifier fields
@@ -89,14 +89,14 @@ async function migrateAgentData() {
             let agent = null;
             if (agentData.id) {
               agent = await Agent.findOne({
-                organizationId: orgId,
+                organizationId: new mongoose.Types.ObjectId(orgId),
                 externalId: agentData.id
               });
             }
             
             if (!agent && agentData.email) {
               agent = await Agent.findOne({
-                organizationId: orgId,
+                organizationId: new mongoose.Types.ObjectId(orgId),
                 email: agentData.email
               });
             }
@@ -109,7 +109,7 @@ async function migrateAgentData() {
                 lastName: agentData.lastName,
                 email: agentData.email,
                 phone: agentData.phone,
-                organizationId: orgId,
+                organizationId: new mongoose.Types.ObjectId(orgId),
                 status: 'active',
                 createdAt: new Date()
               });
@@ -123,7 +123,7 @@ async function migrateAgentData() {
             
             // Update transcripts in batches with longer timeouts
             const query = {
-              organizationId: orgId,
+              organizationId: new mongoose.Types.ObjectId(orgId),
               'callDetails.agent': { $exists: true },
               agentId: { $exists: false }
             };
