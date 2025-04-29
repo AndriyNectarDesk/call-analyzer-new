@@ -61,15 +61,16 @@ const AgentPerformancePage = () => {
             selectedOrg = JSON.parse(savedOrg);
             console.log('Found saved organization in localStorage:', selectedOrg);
             setCurrentOrganization(selectedOrg);
+            
+            // Simply use the organization from localStorage and proceed to fetch agents
+            // without additional validation - matching TranscriptsHistoryPage approach
+            console.log('Using organization from localStorage:', selectedOrg.name || selectedOrg.id);
+            await fetchAgentsForOrganization(selectedOrg, token);
           } catch (e) {
             console.error('Error parsing organization data:', e);
+            setError('Error parsing organization data. Please try logging in again.');
+            setLoading(false);
           }
-        }
-        
-        // If we have a valid organization, fetch agents
-        if (selectedOrg) {
-          console.log('Using organization:', selectedOrg.name || selectedOrg.id);
-          await fetchAgentsForOrganization(selectedOrg, token);
         } else {
           console.error('No organization available');
           setError('No organization available. Please contact your administrator.');
