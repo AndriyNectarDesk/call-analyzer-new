@@ -10,6 +10,7 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
+import { isNumber } from '../utils/numberUtils';
 import './AgentPerformanceTrends.css';
 
 const AgentPerformanceTrends = ({ agentId, organizationId, API_BASE_URL }) => {
@@ -91,7 +92,10 @@ const AgentPerformanceTrends = ({ agentId, organizationId, API_BASE_URL }) => {
   
   // Score to color mapping
   const getLineColor = (metric) => {
-    const avgScore = chartData.reduce((sum, item) => sum + (item[metric] || 0), 0) / chartData.length;
+    const avgScore = chartData.reduce((sum, item) => {
+      const value = item[metric];
+      return sum + (isNumber(value) ? value : 0);
+    }, 0) / chartData.length;
     
     if (avgScore >= 8) return '#2e7d32'; // Green
     if (avgScore >= 6) return '#f57c00'; // Orange
