@@ -312,4 +312,150 @@ exports.deleteTranscript = async (req, res) => {
     console.error('Error deleting transcript:', error);
     res.status(500).json({ message: 'Failed to delete transcript' });
   }
+};
+
+// Get transcripts by agent ID
+exports.getTranscriptsByAgent = async (req, res) => {
+  try {
+    const agentId = req.params.agentId;
+    
+    // Validate agent ID
+    if (!mongoose.Types.ObjectId.isValid(agentId)) {
+      return res.status(400).json({ message: 'Invalid agent ID format' });
+    }
+    
+    // Filter by organization ID from authenticated user or request
+    const organizationId = req.tenantId || req.user.organizationId;
+    const isMasterAdmin = req.user && req.user.isMasterAdmin;
+    let isMasterOrg = req.isMasterOrg || false;
+    
+    // If not set in middleware, check again
+    if (!isMasterOrg && organizationId) {
+      try {
+        const organization = await Organization.findById(organizationId);
+        if (organization && organization.isMaster === true) {
+          isMasterOrg = true;
+        }
+      } catch (err) {
+        console.error('Error checking if organization is master:', err);
+      }
+    }
+    
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const skip = (page - 1) * limit;
+    
+    // Build query based on role and agent ID
+    let query = { agentId: mongoose.Types.ObjectId(agentId) };
+    
+    // If not master org/admin, restrict to their organization's transcripts
+    if (!isMasterOrg && !isMasterAdmin) {
+      query.organizationId = organizationId;
+    }
+    
+    // Add date range filter if provided
+    if (req.query.startDate && req.query.endDate) {
+      query.createdAt = {
+        $gte: new Date(req.query.startDate),
+        $lte: new Date(req.query.endDate)
+      };
+    } else if (req.query.startDate) {
+      query.createdAt = { $gte: new Date(req.query.startDate) };
+    } else if (req.query.endDate) {
+      query.createdAt = { $lte: new Date(req.query.endDate) };
+    }
+    
+    // Add call type filter if provided
+    if (req.query.callType) {
+      query.callType = req.query.callType;
+    }
+    
+    // Get total count for pagination
+    const total = await Transcript.countDocuments(query);
+    
+    // Exclude rawTranscript to reduce payload size
+    const projection = { rawTranscript: 0 };
+    
+    // Get transcripts with pagination
+    const transcripts = await Transcript.find(query, projection)
+      .populate('organizationId', 'name code isMaster')
+      .populate('agentId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    // Process each transcript to reduce payload size
+    const processedTranscripts = transcripts.map(transcript => {
+      // Convert Mongoose document to plain object
+      const plainDoc = transcript.toObject ? transcript.toObject() : transcript;
+      
+      // Basic transcript data
+      const result = {
+        _id: plainDoc._id,
+        callType: plainDoc.callType,
+        source: plainDoc.source,
+        createdAt: plainDoc.createdAt,
+        agentId: plainDoc.agentId,
+        organizationId: plainDoc.organizationId
+      };
+      
+      // Add call details
+      if (plainDoc.callDetails) {
+        result.callDetails = {
+          duration: plainDoc.callDetails.duration,
+          callDirection: plainDoc.callDetails.callDirection,
+          startedDate: plainDoc.callDetails.startedDate,
+          endedDate: plainDoc.callDetails.endedDate,
+          callStatus: plainDoc.callDetails.callStatus
+        };
+        
+        // Add masked customer info if available
+        if (plainDoc.callDetails.customer) {
+          result.callDetails.customer = {
+            firstName: plainDoc.callDetails.customer.firstName,
+            lastName: plainDoc.callDetails.customer.lastName?.charAt(0) + '.'
+          };
+        }
+      }
+      
+      // Add minimal summary and performance data
+      if (plainDoc.analysis) {
+        result.analysis = {};
+        
+        if (plainDoc.analysis.callSummary) {
+          result.analysis.callSummary = {
+            briefSummary: plainDoc.analysis.callSummary.briefSummary
+          };
+        }
+        
+        if (plainDoc.analysis.scorecard) {
+          result.analysis.scorecard = plainDoc.analysis.scorecard;
+        }
+      }
+      
+      // Add title from metadata if available
+      if (plainDoc.metadata && plainDoc.metadata.title) {
+        result.metadata = { title: plainDoc.metadata.title };
+      } else if (plainDoc.metadata && plainDoc.metadata.get && plainDoc.metadata.get('title')) {
+        result.metadata = { title: plainDoc.metadata.get('title') };
+      }
+      
+      return result;
+    });
+    
+    // Send the response
+    res.json({
+      transcripts: processedTranscripts,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting transcripts by agent:', error);
+    res.status(500).json({ message: 'Failed to retrieve transcripts' });
+  }
 }; 
