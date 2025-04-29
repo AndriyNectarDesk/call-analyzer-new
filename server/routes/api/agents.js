@@ -1,17 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateJWT } = require('../../middleware/authMiddleware');
+const { authenticateJWT, handleOrganizationContext, tenantIsolation } = require('../../middleware/authMiddleware');
 const Agent = require('../../models/agent');
 const agentAnalyticsService = require('../../services/agentAnalyticsService');
+
+// All routes require authentication
+router.use(authenticateJWT);
+
+// Add organization context handling middleware
+router.use(handleOrganizationContext);
+
+// Add tenant isolation middleware
+router.use(tenantIsolation);
 
 /**
  * @route GET /api/agents
  * @description Get all agents for an organization
  * @access Private
  */
-router.get('/', authenticateJWT, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const organizationId = req.user.organizationId;
+    // Get organization context from middleware
+    const organizationId = req.tenantId || req.user.organizationId;
     console.log(`Fetching agents for organization: ${organizationId}`);
     
     // Get query parameters
@@ -105,9 +115,10 @@ router.get('/', authenticateJWT, async (req, res) => {
  * @description Get performance analytics for all agents in the organization
  * @access Private
  */
-router.get('/analytics/performance', authenticateJWT, async (req, res) => {
+router.get('/analytics/performance', async (req, res) => {
   try {
-    const organizationId = req.user.organizationId;
+    // Get organization context from middleware
+    const organizationId = req.tenantId || req.user.organizationId;
     
     // Get query parameters
     const { 
@@ -153,9 +164,10 @@ router.get('/analytics/performance', authenticateJWT, async (req, res) => {
  * @description Update performance metrics for all agents in the organization
  * @access Private
  */
-router.post('/analytics/update-all', authenticateJWT, async (req, res) => {
+router.post('/analytics/update-all', async (req, res) => {
   try {
-    const organizationId = req.user.organizationId;
+    // Get organization context from middleware
+    const organizationId = req.tenantId || req.user.organizationId;
     
     // Get options from request body
     const { 
@@ -198,7 +210,7 @@ router.post('/analytics/update-all', authenticateJWT, async (req, res) => {
  * @description Manually trigger the agent metrics update job
  * @access Private (admin only)
  */
-router.post('/analytics/trigger-update-job', authenticateJWT, async (req, res) => {
+router.post('/analytics/trigger-update-job', async (req, res) => {
   try {
     // Check if user is an admin
     if (req.user.role !== 'admin' && !req.user.isMasterAdmin) {
@@ -229,11 +241,11 @@ router.post('/analytics/trigger-update-job', authenticateJWT, async (req, res) =
  * @description Get a specific agent by ID
  * @access Private
  */
-router.get('/:id', authenticateJWT, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const agent = await Agent.findOne({
       _id: req.params.id,
-      organizationId: req.user.organizationId
+      organizationId: req.tenantId || req.user.organizationId
     });
     
     if (!agent) {
@@ -252,11 +264,11 @@ router.get('/:id', authenticateJWT, async (req, res) => {
  * @description Get performance metrics for a specific agent
  * @access Private
  */
-router.get('/:id/performance', authenticateJWT, async (req, res) => {
+router.get('/:id/performance', async (req, res) => {
   try {
     const agent = await Agent.findOne({
       _id: req.params.id,
-      organizationId: req.user.organizationId
+      organizationId: req.tenantId || req.user.organizationId
     });
     
     if (!agent) {
@@ -297,7 +309,7 @@ router.get('/:id/performance', authenticateJWT, async (req, res) => {
  * @description Create a new agent
  * @access Private
  */
-router.post('/', authenticateJWT, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const {
       firstName,
@@ -310,10 +322,13 @@ router.post('/', authenticateJWT, async (req, res) => {
       status = 'active'
     } = req.body;
     
+    // Get organization context from middleware
+    const organizationId = req.tenantId || req.user.organizationId;
+    
     // Check if agent with this email already exists in this organization
     if (email) {
       const existingAgent = await Agent.findOne({
-        organizationId: req.user.organizationId,
+        organizationId,
         email
       });
       
@@ -325,7 +340,7 @@ router.post('/', authenticateJWT, async (req, res) => {
     // Check if agent with this externalId already exists in this organization
     if (externalId) {
       const existingAgent = await Agent.findOne({
-        organizationId: req.user.organizationId,
+        organizationId,
         externalId
       });
       
@@ -344,7 +359,7 @@ router.post('/', authenticateJWT, async (req, res) => {
       position,
       skills: skills || [],
       status,
-      organizationId: req.user.organizationId
+      organizationId
     });
     
     await agent.save();
@@ -361,11 +376,11 @@ router.post('/', authenticateJWT, async (req, res) => {
  * @description Update an agent
  * @access Private
  */
-router.put('/:id', authenticateJWT, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const agent = await Agent.findOne({
       _id: req.params.id,
-      organizationId: req.user.organizationId
+      organizationId: req.tenantId || req.user.organizationId
     });
     
     if (!agent) {
@@ -395,6 +410,36 @@ router.put('/:id', authenticateJWT, async (req, res) => {
     res.json(agent);
   } catch (error) {
     console.error('Error updating agent:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * @route DELETE /api/agents/:id
+ * @description Delete an agent
+ * @access Private
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    // Get organization context from middleware
+    const organizationId = req.tenantId || req.user.organizationId;
+    
+    // Find the agent
+    const agent = await Agent.findOne({
+      _id: req.params.id,
+      organizationId
+    });
+    
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+    
+    // Delete the agent
+    await Agent.deleteOne({ _id: req.params.id });
+    
+    res.json({ message: 'Agent deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting agent:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
