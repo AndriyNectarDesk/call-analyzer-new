@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import '../styles/agentPerformance.css';
@@ -21,143 +21,131 @@ const AgentPerformancePage = () => {
   const navigate = useNavigate();
   const { agentId } = useParams();
   
-  // Load user and organization data at component mount
-  useEffect(() => {
-    const loadUserAndOrganization = () => {
-      // Get user data from localStorage
-      const userData = localStorage.getItem('user_data');
-      let user = null;
-      if (userData) {
-        try {
-          user = JSON.parse(userData);
-          setCurrentUser(user);
-        } catch (e) {
-          console.error('Error parsing user data:', e);
-        }
-      }
-      
-      // Get organization data from localStorage
-      const orgData = localStorage.getItem('selectedOrganization');
-      let organization = null;
-      if (orgData) {
-        try {
-          organization = JSON.parse(orgData);
-          setCurrentOrganization(organization);
-        } catch (e) {
-          console.error('Error parsing organization data:', e);
-        }
-      }
-      
-      return { user, organization };
-    };
-    
-    loadUserAndOrganization();
-  }, []);
+  // Base URL for the API
+  const API_BASE_URL = process.env.REACT_APP_API_URL || '';
   
-  // Call fetchAgents when component mounts or when dependencies change
+  // Initial loading of user and organization data
   useEffect(() => {
-    fetchAgents();
-  }, [fetchAgents]);
-  
-  // Fetch all agents for the organization
-  const fetchAgents = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const baseApiUrl = process.env.REACT_APP_API_URL || '';
-      const token = localStorage.getItem('auth_token');
-      
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-      
-      // Get organization data for headers
-      let orgId = null;
-      let orgName = 'Unknown';
-      let isMasterOrg = false;
-      
-      // Try to get organization data from state
-      if (currentOrganization) {
-        orgId = currentOrganization._id || currentOrganization.id;
-        orgName = currentOrganization.name || 'Unknown';
-        isMasterOrg = currentOrganization.isMaster || false;
-      } else {
-        // Fallback to localStorage if not in state
-        const orgData = localStorage.getItem('selectedOrganization');
-        if (orgData) {
+    const fetchInitialData = async () => {
+      try {
+        console.log('Loading user and organization data...');
+        
+        // Check if token exists
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          console.error('No token found');
+          setError('Authentication token not found. Please log in again.');
+          setLoading(false);
+          return;
+        }
+        
+        // Get user data from localStorage
+        const userData = localStorage.getItem('user_data');
+        let parsedUser = null;
+        if (userData) {
           try {
-            const organization = JSON.parse(orgData);
-            orgId = organization._id || organization.id;
-            orgName = organization.name || 'Unknown';
+            parsedUser = JSON.parse(userData);
+            console.log('User data loaded from localStorage:', parsedUser.email);
+            setCurrentUser(parsedUser);
+          } catch (e) {
+            console.error('Error parsing user data:', e);
+          }
+        }
+        
+        // Get organization data from localStorage
+        const savedOrg = localStorage.getItem('selectedOrganization');
+        let selectedOrg = null;
+        
+        if (savedOrg) {
+          try {
+            selectedOrg = JSON.parse(savedOrg);
+            console.log('Found saved organization in localStorage:', selectedOrg);
+            setCurrentOrganization(selectedOrg);
           } catch (e) {
             console.error('Error parsing organization data:', e);
           }
         }
-      }
-      
-      // Check if user is master admin
-      let isMasterAdmin = false;
-      const userData = localStorage.getItem('user_data');
-      if (userData) {
-        try {
-          const user = JSON.parse(userData);
-          isMasterAdmin = user.isMasterAdmin || false;
-        } catch (e) {
-          console.error('Error parsing user data:', e);
+        
+        // If we have a valid organization, fetch agents
+        if (selectedOrg) {
+          console.log('Using organization:', selectedOrg.name || selectedOrg.id);
+          await fetchAgentsForOrganization(selectedOrg, token);
+        } else {
+          console.error('No organization available');
+          setError('No organization available. Please contact your administrator.');
+          setLoading(false);
         }
+      } catch (err) {
+        console.error('Error in initial data fetch:', err);
+        setError(`Error loading data: ${err.message}`);
+        setLoading(false);
       }
+    };
+    
+    fetchInitialData();
+  }, []);
+  
+  // Fetch all agents for the organization
+  const fetchAgentsForOrganization = async (organization, token) => {
+    if (!organization || (!organization._id && !organization.id)) {
+      console.error('Invalid organization provided to fetchAgents');
+      setError('Invalid organization data');
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
       
-      console.log('Fetching agents for organization:', orgName, orgId);
+      // Get organization ID - handle both formats
+      const orgId = organization._id || organization.id;
+      console.log('Fetching agents for organization:', organization.name || orgId);
       
-      // Create headers with organization context
+      // Create headers configuration
       const config = {
         headers: {
           'Authorization': `Bearer ${token}`,
           'x-organization-id': orgId,
-          'x-organization-name': orgName,
-          'x-organization-is-master': (isMasterOrg || isMasterAdmin) ? 'true' : 'false'
+          'x-organization-name': organization.name || 'Unknown',
+          'x-organization-is-master': (organization.isMaster || currentUser?.isMasterAdmin) ? 'true' : 'false'
         }
       };
       
-      const response = await axios.get(`${baseApiUrl}/api/agents`, config);
+      console.log('Request config:', JSON.stringify(config));
+      
+      const response = await axios.get(`${API_BASE_URL}/api/agents`, config);
       console.log('API response:', response);
+      
+      if (!response.data) {
+        throw new Error('Invalid response format: missing data');
+      }
       
       // Handle different potential response formats
       let agentsData = [];
       
-      if (response.data) {
-        if (Array.isArray(response.data)) {
-          console.log('Response data is an array');
-          agentsData = response.data;
-        } else if (response.data.agents && Array.isArray(response.data.agents)) {
-          console.log('Response data contains agents array');
-          agentsData = response.data.agents;
-        } else {
-          console.log('Response data format:', typeof response.data);
-          // Try to find any array that might contain agents
-          for (const key in response.data) {
-            if (Array.isArray(response.data[key])) {
-              const possibleAgents = response.data[key];
-              if (possibleAgents.length > 0 && possibleAgents[0].firstName) {
-                console.log(`Found agents array in key: ${key}`);
-                agentsData = possibleAgents;
-                break;
-              }
+      if (Array.isArray(response.data)) {
+        console.log('Response data is an array');
+        agentsData = response.data;
+      } else if (response.data.agents && Array.isArray(response.data.agents)) {
+        console.log('Response data contains agents array');
+        agentsData = response.data.agents;
+      } else {
+        console.log('Response data format:', typeof response.data);
+        // Try to find any array that might contain agents
+        for (const key in response.data) {
+          if (Array.isArray(response.data[key])) {
+            const possibleAgents = response.data[key];
+            if (possibleAgents.length > 0 && possibleAgents[0].firstName) {
+              console.log(`Found agents array in key: ${key}`);
+              agentsData = possibleAgents;
+              break;
             }
           }
         }
       }
       
       console.log(`Found ${agentsData.length} agents`);
-      
-      // If no agents were found, display an error message
-      if (agentsData.length === 0) {
-        setError('No agents found for this organization. Please contact support if you believe this is an error.');
-        setLoading(false);
-        return;
-      }
       
       // Sort agents based on filter
       const sortedAgents = [...agentsData].sort((a, b) => {
@@ -184,7 +172,7 @@ const AgentPerformancePage = () => {
         
         return filter.sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
       });
-
+      
       // Prioritize Shay Pearce if present
       const shayPearceIndex = sortedAgents.findIndex(
         agent => agent.firstName === 'Shay' && agent.lastName === 'Pearce'
@@ -202,11 +190,11 @@ const AgentPerformancePage = () => {
         const agent = sortedAgents.find(a => a._id === agentId);
         if (agent) {
           setSelectedAgent(agent);
-          fetchAgentDetails(agent._id);
+          fetchAgentDetails(agent._id, organization, token);
         } else if (sortedAgents.length > 0) {
           // If agent not found by ID, select first agent
           setSelectedAgent(sortedAgents[0]);
-          fetchAgentDetails(sortedAgents[0]._id);
+          fetchAgentDetails(sortedAgents[0]._id, organization, token);
           
           // Update URL without reloading page
           navigate(`/agents/performance/${sortedAgents[0]._id}`);
@@ -214,83 +202,72 @@ const AgentPerformancePage = () => {
       } else if (sortedAgents.length > 0) {
         // If no agent ID is provided, select first agent
         setSelectedAgent(sortedAgents[0]);
-        fetchAgentDetails(sortedAgents[0]._id);
+        fetchAgentDetails(sortedAgents[0]._id, organization, token);
         
         // Update URL without reloading page
         navigate(`/agents/performance/${sortedAgents[0]._id}`);
       }
     } catch (err) {
       console.error('Error fetching agents:', err);
-      setError('Failed to fetch agents. Please try again.');
+      
+      let errorMessage = 'Failed to load agents';
+      
+      if (err.response) {
+        console.error('Error response:', err.response.status, err.response.data);
+        if (err.response.status === 401) {
+          errorMessage = 'Authentication error: Please log in again';
+        } else if (err.response.status === 403) {
+          errorMessage = 'You do not have permission to access these agents';
+        } else if (err.response.status >= 500) {
+          errorMessage = 'Server error: Please try again later';
+        } else {
+          errorMessage = `Error: ${err.response.data.message || 'Unknown error'}`;
+        }
+      } else if (err.request) {
+        console.error('Request error - no response received');
+        errorMessage = 'Network error: Please check your connection';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [agentId, navigate, filter.sortBy, filter.sortOrder, currentOrganization, currentUser]);
+  };
   
   // Fetch agent details and metrics
-  const fetchAgentDetails = async (id) => {
+  const fetchAgentDetails = async (id, organization, token) => {
+    if (!token) {
+      token = localStorage.getItem('auth_token');
+    }
+    
+    if (!organization) {
+      organization = currentOrganization;
+    }
+    
     try {
       setLoading(true);
       
-      const baseApiUrl = process.env.REACT_APP_API_URL || '';
-      const token = localStorage.getItem('auth_token');
+      // Get organization ID - handle both formats
+      const orgId = organization._id || organization.id;
       
-      // Get organization data for headers
-      let orgId = null;
-      let orgName = 'Unknown';
-      let isMasterOrg = false;
-      
-      // Try to get organization data from state
-      if (currentOrganization) {
-        orgId = currentOrganization._id || currentOrganization.id;
-        orgName = currentOrganization.name || 'Unknown';
-        isMasterOrg = currentOrganization.isMaster || false;
-      } else {
-        // Fallback to localStorage if not in state
-        const orgData = localStorage.getItem('selectedOrganization');
-        if (orgData) {
-          try {
-            const organization = JSON.parse(orgData);
-            orgId = organization._id || organization.id;
-            orgName = organization.name || 'Unknown';
-          } catch (e) {
-            console.error('Error parsing organization data:', e);
-          }
-        }
-      }
-      
-      // Check if user is master admin
-      let isMasterAdmin = false;
-      if (currentUser) {
-        isMasterAdmin = currentUser.isMasterAdmin || false;
-      } else {
-        const userData = localStorage.getItem('user_data');
-        if (userData) {
-          try {
-            const user = JSON.parse(userData);
-            isMasterAdmin = user.isMasterAdmin || false;
-          } catch (e) {
-            console.error('Error parsing user data:', e);
-          }
-        }
-      }
-      
-      // Create headers with organization context
+      // Create headers configuration
       const config = {
         headers: {
           'Authorization': `Bearer ${token}`,
           'x-organization-id': orgId,
-          'x-organization-name': orgName,
-          'x-organization-is-master': (isMasterOrg || isMasterAdmin) ? 'true' : 'false'
-        },
-        params: {
-          timeframe: filter.timeframe
+          'x-organization-name': organization.name || 'Unknown',
+          'x-organization-is-master': (organization.isMaster || currentUser?.isMasterAdmin) ? 'true' : 'false'
         }
       };
       
       // Fetch agent performance metrics
       console.log(`Fetching performance metrics for agent ${id}`);
-      const metricsResponse = await axios.get(`${baseApiUrl}/api/agents/${id}/performance`, config);
+      const metricsResponse = await axios.get(`${API_BASE_URL}/api/agents/${id}/performance`, {
+        ...config,
+        params: {
+          timeframe: filter.timeframe
+        }
+      });
       
       if (metricsResponse.data) {
         setAgentMetrics(metricsResponse.data);
@@ -298,17 +275,15 @@ const AgentPerformancePage = () => {
       
       // Fetch agent's recent transcripts
       console.log(`Fetching recent transcripts for agent ${id}`);
-      const transcriptsConfig = {
-        headers: config.headers,
+      const transcriptsResponse = await axios.get(`${API_BASE_URL}/api/transcripts`, {
+        ...config,
         params: {
           agentId: id,
           limit: 10
         }
-      };
+      });
       
-      const transcriptsResponse = await axios.get(`${baseApiUrl}/api/transcripts`, transcriptsConfig);
-      
-      if (transcriptsResponse.data && Array.isArray(transcriptsResponse.data.transcripts)) {
+      if (transcriptsResponse.data && transcriptsResponse.data.transcripts) {
         setTranscripts(transcriptsResponse.data.transcripts);
       } else if (Array.isArray(transcriptsResponse.data)) {
         setTranscripts(transcriptsResponse.data);
@@ -316,10 +291,10 @@ const AgentPerformancePage = () => {
         setTranscripts([]);
       }
       
-      setLoading(false);
     } catch (err) {
       console.error('Error fetching agent details:', err);
       setError('Failed to fetch agent details. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -327,7 +302,14 @@ const AgentPerformancePage = () => {
   // Handle agent selection
   const handleAgentSelect = (agent) => {
     setSelectedAgent(agent);
-    fetchAgentDetails(agent._id);
+    
+    const token = localStorage.getItem('auth_token');
+    if (token && currentOrganization) {
+      fetchAgentDetails(agent._id, currentOrganization, token);
+    } else {
+      fetchAgentDetails(agent._id);
+    }
+    
     // Update URL without page reload
     navigate(`/agents/performance/${agent._id}`);
   };
@@ -339,7 +321,12 @@ const AgentPerformancePage = () => {
     
     // Refetch data with new filters if an agent is selected
     if (selectedAgent) {
-      fetchAgentDetails(selectedAgent._id);
+      const token = localStorage.getItem('auth_token');
+      if (token && currentOrganization) {
+        fetchAgentDetails(selectedAgent._id, currentOrganization, token);
+      } else {
+        fetchAgentDetails(selectedAgent._id);
+      }
     }
   };
   
@@ -443,34 +430,38 @@ const AgentPerformancePage = () => {
         <div className="agent-sidebar">
           <h2>Agents</h2>
           <div className="agent-list">
-            {agents.map(agent => (
-              <div 
-                key={agent._id} 
-                className={`agent-list-item ${selectedAgent && selectedAgent._id === agent._id ? 'selected' : ''}`}
-                onClick={() => handleAgentSelect(agent)}
-              >
-                <div className="agent-name">
-                  {agent.firstName} {agent.lastName}
-                </div>
-                {agent.performanceMetrics?.currentPeriod?.averageScores?.overallScore !== undefined && (
-                  <div className={`agent-score ${getScoreClass(agent.performanceMetrics.currentPeriod.averageScores.overallScore)}`}>
-                    {formatScore(agent.performanceMetrics.currentPeriod.averageScores.overallScore)}
+            {agents.length > 0 ? (
+              agents.map(agent => (
+                <div 
+                  key={agent._id} 
+                  className={`agent-list-item ${selectedAgent && selectedAgent._id === agent._id ? 'selected' : ''}`}
+                  onClick={() => handleAgentSelect(agent)}
+                >
+                  <div className="agent-name">
+                    {agent.firstName} {agent.lastName}
                   </div>
-                )}
-              </div>
-            ))}
+                  {agent.performanceMetrics?.currentPeriod?.averageScores?.overallScore !== undefined && (
+                    <div className={`agent-score ${getScoreClass(agent.performanceMetrics.currentPeriod.averageScores.overallScore)}`}>
+                      {formatScore(agent.performanceMetrics.currentPeriod.averageScores.overallScore)}
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="no-agents-message">No agents found</div>
+            )}
           </div>
         </div>
         
         {/* Agent details */}
-        {selectedAgent && (
+        {selectedAgent ? (
           <div className="agent-details">
             <div className="agent-header">
               <h2>{selectedAgent.firstName} {selectedAgent.lastName}</h2>
               <div className="agent-info">
-                <div><strong>ID:</strong> {selectedAgent.externalId}</div>
+                <div><strong>ID:</strong> {selectedAgent.externalId || 'N/A'}</div>
                 <div><strong>Email:</strong> {selectedAgent.email || 'N/A'}</div>
-                <div><strong>Status:</strong> <span className={`status-badge status-${selectedAgent.status}`}>{selectedAgent.status}</span></div>
+                <div><strong>Status:</strong> <span className={`status-badge status-${selectedAgent.status || 'unknown'}`}>{selectedAgent.status || 'Unknown'}</span></div>
               </div>
             </div>
             
@@ -487,43 +478,43 @@ const AgentPerformancePage = () => {
                     </div>
                     
                     <div className="call-count-badge">
-                      <div className="count">{agentMetrics.currentPeriod.callCount}</div>
+                      <div className="count">{agentMetrics.currentPeriod.callCount || 0}</div>
                       <div className="label">Calls</div>
                     </div>
                     
                     <div className="metrics-grid">
                       <div className="metric-card">
                         <div className="metric-label">Overall Score</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.overallScore)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores.overallScore)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.overallScore)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores?.overallScore)}
                         </div>
                       </div>
                       
                       <div className="metric-card">
                         <div className="metric-label">Customer Service</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.customerService)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores.customerService)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.customerService)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores?.customerService)}
                         </div>
                       </div>
                       
                       <div className="metric-card">
                         <div className="metric-label">Product Knowledge</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.productKnowledge)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores.productKnowledge)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.productKnowledge)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores?.productKnowledge)}
                         </div>
                       </div>
                       
                       <div className="metric-card">
                         <div className="metric-label">Process Efficiency</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.processEfficiency)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores.processEfficiency)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.processEfficiency)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores?.processEfficiency)}
                         </div>
                       </div>
                       
                       <div className="metric-card">
                         <div className="metric-label">Problem Solving</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.problemSolving)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores.problemSolving)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.problemSolving)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores?.problemSolving)}
                         </div>
                       </div>
                       
@@ -536,12 +527,12 @@ const AgentPerformancePage = () => {
                     </div>
                     
                     {/* Strengths and areas for improvement */}
-                    <div className="strengths-weaknesses">
+                    <div className="feedback-section">
                       <div className="strengths">
                         <h4>Top Strengths</h4>
                         {agentMetrics.historical && agentMetrics.historical[0]?.commonStrengths?.length > 0 ? (
                           <ul>
-                            {agentMetrics.historical[0].commonStrengths.slice(0, 3).map((strength, index) => (
+                            {agentMetrics.historical[0].commonStrengths.slice(0, 5).map((strength, index) => (
                               <li key={index}>{strength}</li>
                             ))}
                           </ul>
@@ -554,7 +545,7 @@ const AgentPerformancePage = () => {
                         <h4>Areas for Improvement</h4>
                         {agentMetrics.historical && agentMetrics.historical[0]?.commonAreasForImprovement?.length > 0 ? (
                           <ul>
-                            {agentMetrics.historical[0].commonAreasForImprovement.slice(0, 3).map((area, index) => (
+                            {agentMetrics.historical[0].commonAreasForImprovement.slice(0, 5).map((area, index) => (
                               <li key={index}>{area}</li>
                             ))}
                           </ul>
@@ -566,7 +557,8 @@ const AgentPerformancePage = () => {
                   </div>
                 ) : (
                   <div className="no-metrics">
-                    No performance metrics available for this agent.
+                    <p>No performance metrics available for this agent.</p>
+                    <p>This may be because the agent has no analyzed call transcripts yet.</p>
                   </div>
                 )}
                 
@@ -587,14 +579,14 @@ const AgentPerformancePage = () => {
                         <tbody>
                           {transcripts.map(transcript => (
                             <tr key={transcript._id}>
-                              <td>{formatDate(transcript.callDetails?.startedDate || transcript.createdAt)}</td>
+                              <td>{formatDate(transcript.createdAt)}</td>
                               <td>{formatDuration(transcript.callDetails?.duration)}</td>
-                              <td className={`${getScoreClass(transcript.analysis?.scorecard?.overallScore)}`}>
+                              <td className={getScoreClass(transcript.analysis?.scorecard?.overallScore)}>
                                 {formatScore(transcript.analysis?.scorecard?.overallScore)}
                               </td>
                               <td>
                                 <button 
-                                  className="view-button"
+                                  className="button button-small"
                                   onClick={() => navigate(`/transcripts/${transcript._id}`)}
                                 >
                                   View
@@ -606,13 +598,15 @@ const AgentPerformancePage = () => {
                       </table>
                     </div>
                   ) : (
-                    <div className="no-transcripts">
-                      No recent calls found for this agent.
-                    </div>
+                    <p>No recent calls found for this agent.</p>
                   )}
                 </div>
               </>
             )}
+          </div>
+        ) : (
+          <div className="no-agent-selected">
+            <p>Please select an agent from the list to view their performance data.</p>
           </div>
         )}
       </div>
@@ -620,4 +614,4 @@ const AgentPerformancePage = () => {
   );
 };
 
-export default AgentPerformancePage; 
+export default AgentPerformancePage;
