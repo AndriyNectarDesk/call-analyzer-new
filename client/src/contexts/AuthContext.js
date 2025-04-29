@@ -103,26 +103,39 @@ export const AuthProvider = ({ children }) => {
   };
   
   const fetchOrganizationInfo = async (orgId) => {
+    // Simply get org from localStorage if possible, without any API validation
     try {
       if (!orgId) {
         console.warn('No organization ID available');
         return false;
       }
       
-      console.log('Fetching organization info for ID:', orgId);
-      const response = await axiosInstance.get(`/api/organizations/${orgId}`);
+      // Simply use the organization from localStorage without API validation
+      const savedOrg = localStorage.getItem('selectedOrganization');
       
-      if (response.data && response.data._id) {
-        console.log('Organization data received from server:', response.data.name);
-        setOrganization(response.data);
-        localStorage.setItem('selectedOrganization', JSON.stringify(response.data));
-        return true;
-      } else {
-        console.warn('Invalid organization data received from server');
-        return false;
+      if (savedOrg) {
+        try {
+          const parsedOrg = JSON.parse(savedOrg);
+          console.log('Using organization from localStorage:', parsedOrg.name || parsedOrg.id);
+          setOrganization(parsedOrg);
+          return true;
+        } catch (e) {
+          console.error('Error parsing organization data:', e);
+        }
       }
+      
+      // If not in localStorage, set a minimal organization object
+      console.log('Setting basic organization with ID:', orgId);
+      const basicOrg = {
+        id: orgId,
+        name: 'Default Organization'
+      };
+      
+      setOrganization(basicOrg);
+      localStorage.setItem('selectedOrganization', JSON.stringify(basicOrg));
+      return true;
     } catch (err) {
-      console.error('Error fetching organization info:', err);
+      console.error('Error in fetchOrganizationInfo:', err);
       return false;
     }
   };
@@ -164,8 +177,13 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('selectedOrganization', JSON.stringify(response.data.organization));
         } else if (response.data.user?.organizationId) {
           // If organization wasn't sent directly but user has an org ID,
-          // fetch the organization details
-          await fetchOrganizationInfo(response.data.user.organizationId);
+          // set a basic organization object without API validation
+          const basicOrg = {
+            id: response.data.user.organizationId,
+            name: 'Default Organization'
+          };
+          setOrganization(basicOrg);
+          localStorage.setItem('selectedOrganization', JSON.stringify(basicOrg));
         }
         
         setIsAuthenticated(true);
@@ -190,18 +208,28 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
-  const switchOrganization = async (orgId) => {
+  const switchOrganization = async (org) => {
+    // No API call, just set the organization directly as in TranscriptsHistoryPage
     try {
-      if (!orgId) return false;
+      if (!org || !org._id) return false;
       
-      const response = await axiosInstance.get(`/api/organizations/${orgId}`);
+      console.log('Switching to organization:', org.name);
+      setOrganization(org);
       
-      if (response.data) {
-        setOrganization(response.data);
-        localStorage.setItem('selectedOrganization', JSON.stringify(response.data));
+      // Save to localStorage exactly like TranscriptsHistoryPage does
+      try {
+        localStorage.setItem('selectedOrganization', JSON.stringify({
+          id: org._id,
+          name: org.name,
+          code: org.code
+        }));
+        
+        console.log('Saved organization to localStorage');
         return true;
+      } catch (e) {
+        console.error('Error saving organization to localStorage:', e);
+        return false;
       }
-      return false;
     } catch (err) {
       console.error('Error switching organization:', err);
       return false;

@@ -19,7 +19,6 @@ import UserEditPage from './pages/UserEditPage';
 import MasterAdminDashboard from './components/MasterAdminDashboard';
 import MasterAdminMenu from './components/MasterAdminMenu';
 import TranscriptsHistoryPage from './pages/TranscriptsHistoryPage';
-import AgentPerformancePage from './pages/AgentPerformancePage';
 import AuthProvider from './contexts/AuthContext';
 
 // Create a wrapper component for App that provides the router context
@@ -859,13 +858,6 @@ function AppContent() {
                     <li>
                       <Link to="/transcripts-history">Call Transcripts</Link>
                     </li>
-                    {currentUser && currentUser.role === 'admin' && (
-                      <>
-                        <li>
-                          <Link to="/agents/performance">Agent Performance</Link>
-                        </li>
-                      </>
-                    )}
                     {currentUser && currentUser.isMasterAdmin && (
                       <>
                         {currentOrganization && (
@@ -983,18 +975,6 @@ function AppContent() {
             <Route path="/organizations/:organizationId/users/:userId/edit" element={
               <ProtectedRoute>
                 <UserEditPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/agents/performance" element={
-              <ProtectedRoute>
-                <AgentPerformancePage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/agents/performance/:agentId" element={
-              <ProtectedRoute>
-                <AgentPerformancePage />
               </ProtectedRoute>
             } />
             

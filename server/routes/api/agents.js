@@ -12,6 +12,7 @@ const agentAnalyticsService = require('../../services/agentAnalyticsService');
 router.get('/', authenticateJWT, async (req, res) => {
   try {
     const organizationId = req.user.organizationId;
+    console.log(`Fetching agents for organization: ${organizationId}`);
     
     // Get query parameters
     const { 
@@ -55,22 +56,38 @@ router.get('/', authenticateJWT, async (req, res) => {
       .skip(parseInt(offset))
       .limit(parseInt(limit));
     
+    console.log(`Found ${agents.length} agents for organization ${organizationId}`);
+    
     // Get total count for pagination
     const total = await Agent.countDocuments(query);
     
+    // Map agents to include performance metrics
+    const mappedAgents = agents.map(agent => {
+      // Create a plain object from the mongoose document
+      const agentObj = agent.toObject();
+      
+      // Extract fields we need, ensuring performanceMetrics is included
+      return {
+        _id: agentObj._id,
+        externalId: agentObj.externalId,
+        firstName: agentObj.firstName,
+        lastName: agentObj.lastName,
+        email: agentObj.email,
+        department: agentObj.department,
+        position: agentObj.position,
+        status: agentObj.status,
+        skills: agentObj.skills || [],
+        performanceMetrics: agentObj.performanceMetrics || {
+          currentPeriod: {},
+          historical: []
+        },
+        createdAt: agentObj.createdAt
+      };
+    });
+    
+    // Return consistent response format
     res.json({
-      agents: agents.map(agent => ({
-        _id: agent._id,
-        externalId: agent.externalId,
-        firstName: agent.firstName,
-        lastName: agent.lastName,
-        email: agent.email,
-        department: agent.department,
-        position: agent.position,
-        status: agent.status,
-        skills: agent.skills,
-        createdAt: agent.createdAt
-      })),
+      agents: mappedAgents,
       pagination: {
         total,
         offset: parseInt(offset),
