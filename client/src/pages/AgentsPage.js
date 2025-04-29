@@ -436,43 +436,45 @@ const AgentsPage = () => {
           </div>
         )}
         
-        <div className="agent-meta-info">
-          <div className="meta-item">
-            <UserIcon width={12} height={12} />
-            {formatDate(agent.createdAt)}
+        <div className="agent-actions-container">
+          <div className="agent-meta-info">
+            <div className="meta-item">
+              <UserIcon width={12} height={12} />
+              {formatDate(agent.createdAt)}
+            </div>
+            
+            <div className="meta-item">
+              <BuildingOfficeIcon width={12} height={12} />
+              {orgName || 'Unknown'}
+            </div>
           </div>
           
-          <div className="meta-item">
-            <BuildingOfficeIcon width={12} height={12} />
-            {orgName || 'Unknown'}
+          <div className="agent-actions">
+            {agent._id && (
+              <>
+                <Link to={`/agents/${agent._id}`} className="action-button">
+                  <ArrowRightIcon width={12} height={12} />
+                  View
+                </Link>
+                
+                <Link to={`/agents/${agent._id}/edit`} className="action-button">
+                  <PencilSquareIcon width={12} height={12} />
+                  Edit
+                </Link>
+                
+                <button 
+                  onClick={(e) => handleDeleteAgent(agent._id, e)}
+                  className="action-button delete"
+                  disabled={isDeleting || currentlyDeletingId === agent._id}
+                  aria-label="Delete agent"
+                  title="Delete agent"
+                >
+                  <TrashIcon width={12} height={12} />
+                  Delete
+                </button>
+              </>
+            )}
           </div>
-        </div>
-        
-        <div className="agent-actions">
-          {agent._id && (
-            <>
-              <Link to={`/agents/${agent._id}`} className="action-button">
-                <ArrowRightIcon width={12} height={12} />
-                View
-              </Link>
-              
-              <Link to={`/agents/${agent._id}/edit`} className="action-button">
-                <PencilSquareIcon width={12} height={12} />
-                Edit
-              </Link>
-              
-              <button 
-                onClick={(e) => handleDeleteAgent(agent._id, e)}
-                className="action-button delete"
-                disabled={isDeleting || currentlyDeletingId === agent._id}
-                aria-label="Delete agent"
-                title="Delete agent"
-              >
-                <TrashIcon width={12} height={12} />
-                Delete
-              </button>
-            </>
-          )}
         </div>
       </div>
     );
