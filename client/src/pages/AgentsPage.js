@@ -9,7 +9,8 @@ import {
   TrashIcon,
   PhoneIcon,
   EnvelopeIcon,
-  BriefcaseIcon
+  BriefcaseIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 import '../components/AgentList.css';
 
@@ -213,6 +214,34 @@ const AgentsPage = () => {
     }
   };
 
+  // Helper function to render score or N/A
+  const renderScoreOrNA = (score) => {
+    if (score === undefined || score === null) return 'N/A';
+    if (typeof score === 'number') {
+      return score.toFixed(1);
+    }
+    return 'N/A';
+  };
+
+  // Get score color class
+  const getScoreColorClass = (score) => {
+    if (score === undefined || score === null) return '';
+    if (score >= 8) return 'score-high';
+    if (score >= 6) return 'score-medium';
+    return 'score-low';
+  };
+
+  // Get status badge class
+  const getStatusBadgeClass = (status) => {
+    switch(status.toLowerCase()) {
+      case 'active': return 'status-active';
+      case 'inactive': return 'status-inactive';
+      case 'training': return 'status-training';
+      case 'terminated': return 'status-terminated';
+      default: return '';
+    }
+  };
+
   // Filter agents based on search term
   useEffect(() => {
     if (searchTerm.trim() === '') {
@@ -234,80 +263,39 @@ const AgentsPage = () => {
       setFilteredAgents(filtered);
     }
   }, [searchTerm, agents]);
-  
-  // Delete an agent
-  const handleDeleteAgent = async (agentId, e) => {
-    e.preventDefault();
-    
-    if (!window.confirm('Are you sure you want to delete this agent? This cannot be undone.')) {
-      return;
-    }
-    
-    try {
-      setIsDeleting(true);
-      setCurrentlyDeletingId(agentId);
-      setDeleteError(null);
-      
-      const token = localStorage.getItem('auth_token');
-      
-      if (!token) {
-        setDeleteError('Authentication token missing');
-        return;
-      }
-      
-      // Get organization ID
-      const orgId = currentOrganization._id || currentOrganization.id;
-      
-      await axios.delete(`${API_BASE_URL}/api/agents/${agentId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-organization-id': orgId,
-          'x-organization-name': currentOrganization.name || 'Unknown',
-          'x-organization-is-master': (currentOrganization.isMaster || currentUser?.isMasterAdmin) ? 'true' : 'false'
-        }
-      });
-      
-      // Remove the agent from the list
-      setAgents(agents.filter(agent => agent._id !== agentId));
-      setFilteredAgents(filteredAgents.filter(agent => agent._id !== agentId));
-      
-      // Recalculate pagination
-      recalculatePagination(totalCount - 1);
-      
-    } catch (err) {
-      console.error('Error deleting agent:', err);
-      setDeleteError('Failed to delete agent');
-    } finally {
-      setIsDeleting(false);
-      setCurrentlyDeletingId(null);
-    }
-  };
 
+  // Handle search form submission
   const handleSearch = (e) => {
     e.preventDefault();
-    // The filtering is handled by the useEffect
+    // The filtering is already done via the useEffect
   };
 
-  const handleOrgChange = (e) => {
-    setSelectedOrg(e.target.value);
-    setCurrentPage(1); // Reset to first page when changing organization filter
-  };
-
-  const handleStatusChange = (e) => {
-    setSelectedStatus(e.target.value);
-    setCurrentPage(1); // Reset to first page when changing status filter
-  };
-
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(prev => prev - 1);
-    }
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
   };
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
-      setCurrentPage(prev => prev + 1);
+      setCurrentPage(currentPage + 1);
     }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleOrgChange = (e) => {
+    setSelectedOrg(e.target.value);
+    setCurrentPage(1); // Reset to first page on filter change
+  };
+
+  const handleStatusChange = (e) => {
+    setSelectedStatus(e.target.value);
+    setCurrentPage(1); // Reset to first page on filter change
   };
 
   const handleClearFilters = () => {
@@ -317,167 +305,38 @@ const AgentsPage = () => {
     setCurrentPage(1);
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
-
-  const getStatusBadgeClass = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'active': return 'status-active';
-      case 'inactive': return 'status-inactive';
-      case 'training': return 'status-training';
-      case 'terminated': return 'status-terminated';
-      default: return 'status-inactive';
+  // Handle agent deletion
+  const handleDeleteAgent = async (agentId, e) => {
+    e.preventDefault();
+    if (!window.confirm('Are you sure you want to delete this agent? This action cannot be undone.')) {
+      return;
     }
-  };
-
-  const getScoreColorClass = (score) => {
-    if (!score && score !== 0) return '';
-    if (score >= 80) return 'score-high';
-    if (score >= 60) return 'score-medium';
-    return 'score-low';
-  };
-
-  const renderScoreOrNA = (score) => {
-    if (!score && score !== 0) return 'N/A';
-    return score.toFixed(1);
-  };
-
-  const renderAgentCard = (agent) => {
-    // Ensure we have a proper organization name
-    let orgName = '';
     
-    // If agent has organizationId as an object with name property
-    if (typeof agent.organizationId === 'object' && agent.organizationId?.name) {
-      orgName = agent.organizationId.name;
-    } 
-    // If organizationId is a string but we're in master org, try to find the name
-    else if ((currentOrganization?.isMaster || currentUser?.isMasterAdmin) && typeof agent.organizationId === 'string') {
-      const org = organizations.find(o => o._id === agent.organizationId);
-      if (org) {
-        orgName = org.name;
-      }
+    setCurrentlyDeletingId(agentId);
+    setIsDeleting(true);
+    setDeleteError(null);
+    
+    try {
+      await axios.delete(`${API_BASE_URL}/api/agents/${agentId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      // Remove from local state
+      setAgents(agents.filter(agent => agent._id !== agentId));
+      setFilteredAgents(filteredAgents.filter(agent => agent._id !== agentId));
+      
+    } catch (error) {
+      console.error('Error deleting agent:', error);
+      setDeleteError(
+        error.response?.data?.error || 
+        'An error occurred while deleting the agent. Please try again.'
+      );
+    } finally {
+      setIsDeleting(false);
+      setCurrentlyDeletingId(null);
     }
-
-    // Get the agent's name
-    const agentName = `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || 'Unnamed Agent';
-    
-    // Get performance metrics
-    const performanceMetrics = agent.performanceMetrics?.currentPeriod?.averageScores || {};
-    const overallScore = performanceMetrics.overallScore;
-    
-    // Check if this agent is currently being deleted
-    const isBeingDeleted = currentlyDeletingId === agent._id;
-
-    return (
-      <div key={agent._id} className={`agent-card ${isBeingDeleted ? 'deleting' : ''}`}>
-        <div className="agent-main-info">
-          <h3 className="agent-title">
-            {agent._id ? (
-              <Link to={`/agents/${agent._id}`}>
-                {agentName}
-              </Link>
-            ) : agentName}
-          </h3>
-          <div className="header-badges">
-            {agent.status && (
-              <span className={`status-badge ${getStatusBadgeClass(agent.status)}`}>
-                {agent.status}
-              </span>
-            )}
-            {overallScore !== undefined && (
-              <span className={`score-badge ${getScoreColorClass(overallScore)}`}>
-                {renderScoreOrNA(overallScore)}
-              </span>
-            )}
-          </div>
-        </div>
-        
-        {agent.performanceMetrics?.currentPeriod?.averageScores && (
-          <div className="agent-metrics">
-            <div className="metrics-grid">
-              <div className="metric-item">
-                <span className="metric-label">CS:</span>
-                <span className="metric-value">
-                  {renderScoreOrNA(performanceMetrics.customerService)}
-                </span>
-              </div>
-              
-              <div className="metric-item">
-                <span className="metric-label">PK:</span>
-                <span className="metric-value">
-                  {renderScoreOrNA(performanceMetrics.productKnowledge)}
-                </span>
-              </div>
-              
-              <div className="metric-item">
-                <span className="metric-label">PE:</span>
-                <span className="metric-value">
-                  {renderScoreOrNA(performanceMetrics.processEfficiency)}
-                </span>
-              </div>
-              
-              <div className="metric-item">
-                <span className="metric-label">PS:</span>
-                <span className="metric-value">
-                  {renderScoreOrNA(performanceMetrics.problemSolving)}
-                </span>
-              </div>
-              
-              <div className="metric-item">
-                <span className="metric-label">Calls:</span>
-                <span className="metric-value">
-                  {agent.performanceMetrics?.currentPeriod?.callCount || 0}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="agent-actions-container">
-          <div className="agent-meta-info">
-            <div className="meta-item">
-              <UserIcon width={12} height={12} />
-              {formatDate(agent.createdAt)}
-            </div>
-            
-            <div className="meta-item">
-              <BuildingOfficeIcon width={12} height={12} />
-              {orgName || 'Unknown'}
-            </div>
-          </div>
-          
-          <div className="agent-actions">
-            {agent._id && (
-              <>
-                <Link to={`/agents/${agent._id}`} className="action-button">
-                  <ArrowRightIcon width={12} height={12} />
-                  View
-                </Link>
-                
-                <Link to={`/agents/${agent._id}/edit`} className="action-button">
-                  <PencilSquareIcon width={12} height={12} />
-                  Edit
-                </Link>
-                
-                <button 
-                  onClick={(e) => handleDeleteAgent(agent._id, e)}
-                  className="action-button delete"
-                  disabled={isDeleting || currentlyDeletingId === agent._id}
-                  aria-label="Delete agent"
-                  title="Delete agent"
-                >
-                  <TrashIcon width={12} height={12} />
-                  Delete
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -530,14 +389,12 @@ const AgentsPage = () => {
             </select>
           </div>
           
-          {(searchTerm || selectedOrg !== 'all' || selectedStatus) && (
-            <button 
-              onClick={handleClearFilters} 
-              className="action-button"
-            >
-              Clear Filters
-            </button>
-          )}
+          <button 
+            onClick={handleClearFilters} 
+            className="action-button"
+          >
+            Clear Filters
+          </button>
         </div>
       </div>
       
@@ -560,8 +417,94 @@ const AgentsPage = () => {
         </div>
       ) : filteredAgents.length > 0 ? (
         <>
-          <div className="agents-list">
-            {filteredAgents.map(renderAgentCard)}
+          <div className="agents-table-container">
+            <table className="agents-table compact-table">
+              <colgroup>
+                <col style={{width: '20%'}} />
+                <col style={{width: '10%'}} />
+                <col style={{width: '5%'}} />
+                <col style={{width: '5%'}} />
+                <col style={{width: '5%'}} />
+                <col style={{width: '5%'}} />
+                <col style={{width: '8%'}} />
+                <col style={{width: '20%'}} />
+                <col style={{width: '22%'}} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>Status</th>
+                  <th>CS</th>
+                  <th>PK</th>
+                  <th>PE</th>
+                  <th>PS</th>
+                  <th>Calls</th>
+                  <th>Organization</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAgents.map(agent => {
+                  const agentName = `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || 'Unnamed Agent';
+                  const performanceMetrics = agent.performanceMetrics?.currentPeriod?.averageScores || {};
+                  const callCount = agent.performanceMetrics?.currentPeriod?.callCount || 0;
+                  let orgName = '';
+                  
+                  if (typeof agent.organizationId === 'object' && agent.organizationId?.name) {
+                    orgName = agent.organizationId.name;
+                  } else if ((currentOrganization?.isMaster || currentUser?.isMasterAdmin) && typeof agent.organizationId === 'string') {
+                    const org = organizations.find(o => o._id === agent.organizationId);
+                    if (org) {
+                      orgName = org.name;
+                    }
+                  }
+                  
+                  const isBeingDeleted = currentlyDeletingId === agent._id;
+
+                  return (
+                    <tr key={agent._id} className={isBeingDeleted ? 'deleting' : ''}>
+                      <td><Link to={`/agents/${agent._id}`}>{agentName}</Link></td>
+                      <td>
+                        <span className={`status-badge ${getStatusBadgeClass(agent.status || 'unknown')}`}>
+                          {agent.status || 'Unknown'}
+                        </span>
+                      </td>
+                      <td className={getScoreColorClass(performanceMetrics.customerService)}>
+                        {renderScoreOrNA(performanceMetrics.customerService)}
+                      </td>
+                      <td className={getScoreColorClass(performanceMetrics.productKnowledge)}>
+                        {renderScoreOrNA(performanceMetrics.productKnowledge)}
+                      </td>
+                      <td className={getScoreColorClass(performanceMetrics.processEfficiency)}>
+                        {renderScoreOrNA(performanceMetrics.processEfficiency)}
+                      </td>
+                      <td className={getScoreColorClass(performanceMetrics.problemSolving)}>
+                        {renderScoreOrNA(performanceMetrics.problemSolving)}
+                      </td>
+                      <td>{callCount}</td>
+                      <td>{orgName || 'Unknown'}</td>
+                      <td>
+                        <div className="table-actions">
+                          <Link to={`/agents/${agent._id}`} className="table-action view-action">
+                            <EyeIcon className="action-icon" /> View
+                          </Link>
+                          <Link to={`/agents/${agent._id}/edit`} className="table-action edit-action">
+                            <PencilSquareIcon className="action-icon" /> Edit
+                          </Link>
+                          <button 
+                            onClick={(e) => handleDeleteAgent(agent._id, e)}
+                            className="table-action delete-action"
+                            disabled={isDeleting || currentlyDeletingId === agent._id}
+                          >
+                            <TrashIcon className="action-icon" /> Del
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
           
           <div className="pagination">
@@ -627,4 +570,4 @@ const AgentsPage = () => {
   );
 };
 
-export default AgentsPage; 
+export default AgentsPage;
