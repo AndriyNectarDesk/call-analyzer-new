@@ -15,17 +15,113 @@ const AgentPerformancePage = () => {
     sortBy: 'overallScore', // overallScore, callCount, etc.
     sortOrder: 'desc' // asc, desc
   });
+  const [currentOrganization, setCurrentOrganization] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   
   const navigate = useNavigate();
   const { agentId } = useParams();
   
-  const fetchAgents = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // Load user and organization data at component mount
+  useEffect(() => {
+    const loadUserAndOrganization = () => {
+      // Get user data from localStorage
+      const userData = localStorage.getItem('user_data');
+      let user = null;
+      if (userData) {
+        try {
+          user = JSON.parse(userData);
+          setCurrentUser(user);
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+        }
+      }
+      
+      // Get organization data from localStorage
+      const orgData = localStorage.getItem('selectedOrganization');
+      let organization = null;
+      if (orgData) {
+        try {
+          organization = JSON.parse(orgData);
+          setCurrentOrganization(organization);
+        } catch (e) {
+          console.error('Error parsing organization data:', e);
+        }
+      }
+      
+      return { user, organization };
+    };
     
+    loadUserAndOrganization();
+  }, []);
+  
+  // Call fetchAgents when component mounts or when dependencies change
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
+  
+  // Fetch all agents for the organization
+  const fetchAgents = useCallback(async () => {
     try {
-      console.log('Fetching agents for the current organization...');
-      const response = await axios.get('/api/agents');
+      setLoading(true);
+      setError(null);
+      
+      const baseApiUrl = process.env.REACT_APP_API_URL || '';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      // Get organization data for headers
+      let orgId = null;
+      let orgName = 'Unknown';
+      let isMasterOrg = false;
+      
+      // Try to get organization data from state
+      if (currentOrganization) {
+        orgId = currentOrganization._id || currentOrganization.id;
+        orgName = currentOrganization.name || 'Unknown';
+        isMasterOrg = currentOrganization.isMaster || false;
+      } else {
+        // Fallback to localStorage if not in state
+        const orgData = localStorage.getItem('selectedOrganization');
+        if (orgData) {
+          try {
+            const organization = JSON.parse(orgData);
+            orgId = organization._id || organization.id;
+            orgName = organization.name || 'Unknown';
+          } catch (e) {
+            console.error('Error parsing organization data:', e);
+          }
+        }
+      }
+      
+      // Check if user is master admin
+      let isMasterAdmin = false;
+      const userData = localStorage.getItem('user_data');
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          isMasterAdmin = user.isMasterAdmin || false;
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+        }
+      }
+      
+      console.log('Fetching agents for organization:', orgName, orgId);
+      
+      // Create headers with organization context
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-organization-id': orgId,
+          'x-organization-name': orgName,
+          'x-organization-is-master': (isMasterOrg || isMasterAdmin) ? 'true' : 'false'
+        }
+      };
+      
+      const response = await axios.get(`${baseApiUrl}/api/agents`, config);
       console.log('API response:', response);
       
       // Handle different potential response formats
@@ -55,6 +151,13 @@ const AgentPerformancePage = () => {
       }
       
       console.log(`Found ${agentsData.length} agents`);
+      
+      // If no agents were found, display an error message
+      if (agentsData.length === 0) {
+        setError('No agents found for this organization. Please contact support if you believe this is an error.');
+        setLoading(false);
+        return;
+      }
       
       // Sort agents based on filter
       const sortedAgents = [...agentsData].sort((a, b) => {
@@ -94,24 +197,35 @@ const AgentPerformancePage = () => {
       
       setAgents(sortedAgents);
       
-      // If no agent is selected or the selected agent is not in the list,
-      // select the first agent if available
-      if (sortedAgents.length > 0 && (!agentId || !sortedAgents.find(a => a._id === agentId))) {
-        console.log('Setting selected agent to first agent:', sortedAgents[0]._id);
+      // If agentId is provided in URL, select that agent
+      if (agentId) {
+        const agent = sortedAgents.find(a => a._id === agentId);
+        if (agent) {
+          setSelectedAgent(agent);
+          fetchAgentDetails(agent._id);
+        } else if (sortedAgents.length > 0) {
+          // If agent not found by ID, select first agent
+          setSelectedAgent(sortedAgents[0]);
+          fetchAgentDetails(sortedAgents[0]._id);
+          
+          // Update URL without reloading page
+          navigate(`/agents/performance/${sortedAgents[0]._id}`);
+        }
+      } else if (sortedAgents.length > 0) {
+        // If no agent ID is provided, select first agent
         setSelectedAgent(sortedAgents[0]);
+        fetchAgentDetails(sortedAgents[0]._id);
         
         // Update URL without reloading page
-        const url = new URL(window.location);
-        url.searchParams.set('agentId', sortedAgents[0]._id);
-        window.history.pushState({}, '', url);
+        navigate(`/agents/performance/${sortedAgents[0]._id}`);
       }
     } catch (err) {
       console.error('Error fetching agents:', err);
-      setError('Failed to load agents. Please try again.');
+      setError('Failed to fetch agents. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [agentId, filter.sortBy, filter.sortOrder, filter.timeframe]);
+  }, [agentId, navigate, filter.sortBy, filter.sortOrder, currentOrganization, currentUser]);
   
   // Fetch agent details and metrics
   const fetchAgentDetails = async (id) => {
@@ -121,33 +235,83 @@ const AgentPerformancePage = () => {
       const baseApiUrl = process.env.REACT_APP_API_URL || '';
       const token = localStorage.getItem('auth_token');
       
-      // Fetch agent performance metrics
-      const metricsResponse = await axios.get(`${baseApiUrl}/api/agents/${id}/performance`, {
+      // Get organization data for headers
+      let orgId = null;
+      let orgName = 'Unknown';
+      let isMasterOrg = false;
+      
+      // Try to get organization data from state
+      if (currentOrganization) {
+        orgId = currentOrganization._id || currentOrganization.id;
+        orgName = currentOrganization.name || 'Unknown';
+        isMasterOrg = currentOrganization.isMaster || false;
+      } else {
+        // Fallback to localStorage if not in state
+        const orgData = localStorage.getItem('selectedOrganization');
+        if (orgData) {
+          try {
+            const organization = JSON.parse(orgData);
+            orgId = organization._id || organization.id;
+            orgName = organization.name || 'Unknown';
+          } catch (e) {
+            console.error('Error parsing organization data:', e);
+          }
+        }
+      }
+      
+      // Check if user is master admin
+      let isMasterAdmin = false;
+      if (currentUser) {
+        isMasterAdmin = currentUser.isMasterAdmin || false;
+      } else {
+        const userData = localStorage.getItem('user_data');
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
+            isMasterAdmin = user.isMasterAdmin || false;
+          } catch (e) {
+            console.error('Error parsing user data:', e);
+          }
+        }
+      }
+      
+      // Create headers with organization context
+      const config = {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'x-organization-id': orgId,
+          'x-organization-name': orgName,
+          'x-organization-is-master': (isMasterOrg || isMasterAdmin) ? 'true' : 'false'
         },
         params: {
           timeframe: filter.timeframe
         }
-      });
+      };
+      
+      // Fetch agent performance metrics
+      console.log(`Fetching performance metrics for agent ${id}`);
+      const metricsResponse = await axios.get(`${baseApiUrl}/api/agents/${id}/performance`, config);
       
       if (metricsResponse.data) {
         setAgentMetrics(metricsResponse.data);
       }
       
       // Fetch agent's recent transcripts
-      const transcriptsResponse = await axios.get(`${baseApiUrl}/api/transcripts`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+      console.log(`Fetching recent transcripts for agent ${id}`);
+      const transcriptsConfig = {
+        headers: config.headers,
         params: {
           agentId: id,
           limit: 10
         }
-      });
+      };
       
-      if (transcriptsResponse.data && transcriptsResponse.data.transcripts) {
+      const transcriptsResponse = await axios.get(`${baseApiUrl}/api/transcripts`, transcriptsConfig);
+      
+      if (transcriptsResponse.data && Array.isArray(transcriptsResponse.data.transcripts)) {
         setTranscripts(transcriptsResponse.data.transcripts);
+      } else if (Array.isArray(transcriptsResponse.data)) {
+        setTranscripts(transcriptsResponse.data);
       } else {
         setTranscripts([]);
       }
@@ -173,50 +337,10 @@ const AgentPerformancePage = () => {
     const { name, value } = e.target;
     setFilter(prev => ({ ...prev, [name]: value }));
     
-    // If filter is sortBy or sortOrder, resort the agents
-    if (name === 'sortBy' || name === 'sortOrder') {
-      const newFilter = { ...filter, [name]: value };
-      setAgents(sortAgents(agents, newFilter));
-    }
-    
     // Refetch data with new filters if an agent is selected
     if (selectedAgent) {
       fetchAgentDetails(selectedAgent._id);
     }
-  };
-  
-  // Sort agents based on filter
-  const sortAgents = (agents, filter) => {
-    if (!agents || !Array.isArray(agents)) return [];
-    
-    const { sortBy, sortOrder } = filter;
-    const direction = sortOrder === 'asc' ? 1 : -1;
-    
-    return [...agents].sort((a, b) => {
-      // Handle sorting by different metrics
-      if (sortBy === 'overallScore') {
-        const scoreA = a.performanceMetrics?.currentPeriod?.averageScores?.overallScore || 0;
-        const scoreB = b.performanceMetrics?.currentPeriod?.averageScores?.overallScore || 0;
-        return direction * (scoreA - scoreB);
-      } else if (sortBy === 'callCount') {
-        const countA = a.performanceMetrics?.currentPeriod?.callCount || 0;
-        const countB = b.performanceMetrics?.currentPeriod?.callCount || 0;
-        return direction * (countA - countB);
-      } else if (sortBy === 'customerService') {
-        const scoreA = a.performanceMetrics?.currentPeriod?.averageScores?.customerService || 0;
-        const scoreB = b.performanceMetrics?.currentPeriod?.averageScores?.customerService || 0;
-        return direction * (scoreA - scoreB);
-      } else if (sortBy === 'productKnowledge') {
-        const scoreA = a.performanceMetrics?.currentPeriod?.averageScores?.productKnowledge || 0;
-        const scoreB = b.performanceMetrics?.currentPeriod?.averageScores?.productKnowledge || 0;
-        return direction * (scoreA - scoreB);
-      }
-      
-      // Default sorting by name
-      const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim();
-      const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim();
-      return nameA.localeCompare(nameB);
-    });
   };
   
   // Format score as a number with 1 decimal place
@@ -319,38 +443,34 @@ const AgentPerformancePage = () => {
         <div className="agent-sidebar">
           <h2>Agents</h2>
           <div className="agent-list">
-            {agents.length > 0 ? (
-              agents.map(agent => (
-                <div 
-                  key={agent._id} 
-                  className={`agent-list-item ${selectedAgent && selectedAgent._id === agent._id ? 'selected' : ''}`}
-                  onClick={() => handleAgentSelect(agent)}
-                >
-                  <div className="agent-name">
-                    {agent.firstName} {agent.lastName}
-                  </div>
-                  {agent.performanceMetrics?.currentPeriod?.averageScores?.overallScore !== undefined && (
-                    <div className={`agent-score ${getScoreClass(agent.performanceMetrics.currentPeriod.averageScores.overallScore)}`}>
-                      {formatScore(agent.performanceMetrics.currentPeriod.averageScores.overallScore)}
-                    </div>
-                  )}
+            {agents.map(agent => (
+              <div 
+                key={agent._id} 
+                className={`agent-list-item ${selectedAgent && selectedAgent._id === agent._id ? 'selected' : ''}`}
+                onClick={() => handleAgentSelect(agent)}
+              >
+                <div className="agent-name">
+                  {agent.firstName} {agent.lastName}
                 </div>
-              ))
-            ) : (
-              <div className="no-agents-message">No agents found</div>
-            )}
+                {agent.performanceMetrics?.currentPeriod?.averageScores?.overallScore !== undefined && (
+                  <div className={`agent-score ${getScoreClass(agent.performanceMetrics.currentPeriod.averageScores.overallScore)}`}>
+                    {formatScore(agent.performanceMetrics.currentPeriod.averageScores.overallScore)}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
         
         {/* Agent details */}
-        {selectedAgent ? (
+        {selectedAgent && (
           <div className="agent-details">
             <div className="agent-header">
               <h2>{selectedAgent.firstName} {selectedAgent.lastName}</h2>
               <div className="agent-info">
-                <div><strong>ID:</strong> {selectedAgent.externalId || 'N/A'}</div>
+                <div><strong>ID:</strong> {selectedAgent.externalId}</div>
                 <div><strong>Email:</strong> {selectedAgent.email || 'N/A'}</div>
-                <div><strong>Status:</strong> <span className={`status-badge status-${selectedAgent.status || 'unknown'}`}>{selectedAgent.status || 'Unknown'}</span></div>
+                <div><strong>Status:</strong> <span className={`status-badge status-${selectedAgent.status}`}>{selectedAgent.status}</span></div>
               </div>
             </div>
             
@@ -367,43 +487,43 @@ const AgentPerformancePage = () => {
                     </div>
                     
                     <div className="call-count-badge">
-                      <div className="count">{agentMetrics.currentPeriod.callCount || 0}</div>
+                      <div className="count">{agentMetrics.currentPeriod.callCount}</div>
                       <div className="label">Calls</div>
                     </div>
                     
                     <div className="metrics-grid">
                       <div className="metric-card">
                         <div className="metric-label">Overall Score</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.overallScore)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores?.overallScore)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.overallScore)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores.overallScore)}
                         </div>
                       </div>
                       
                       <div className="metric-card">
                         <div className="metric-label">Customer Service</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.customerService)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores?.customerService)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.customerService)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores.customerService)}
                         </div>
                       </div>
                       
                       <div className="metric-card">
                         <div className="metric-label">Product Knowledge</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.productKnowledge)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores?.productKnowledge)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.productKnowledge)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores.productKnowledge)}
                         </div>
                       </div>
                       
                       <div className="metric-card">
                         <div className="metric-label">Process Efficiency</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.processEfficiency)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores?.processEfficiency)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.processEfficiency)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores.processEfficiency)}
                         </div>
                       </div>
                       
                       <div className="metric-card">
                         <div className="metric-label">Problem Solving</div>
-                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores?.problemSolving)}`}>
-                          {formatScore(agentMetrics.currentPeriod.averageScores?.problemSolving)}
+                        <div className={`metric-value ${getScoreClass(agentMetrics.currentPeriod.averageScores.problemSolving)}`}>
+                          {formatScore(agentMetrics.currentPeriod.averageScores.problemSolving)}
                         </div>
                       </div>
                       
@@ -416,12 +536,12 @@ const AgentPerformancePage = () => {
                     </div>
                     
                     {/* Strengths and areas for improvement */}
-                    <div className="feedback-section">
+                    <div className="strengths-weaknesses">
                       <div className="strengths">
                         <h4>Top Strengths</h4>
                         {agentMetrics.historical && agentMetrics.historical[0]?.commonStrengths?.length > 0 ? (
                           <ul>
-                            {agentMetrics.historical[0].commonStrengths.slice(0, 5).map((strength, index) => (
+                            {agentMetrics.historical[0].commonStrengths.slice(0, 3).map((strength, index) => (
                               <li key={index}>{strength}</li>
                             ))}
                           </ul>
@@ -434,7 +554,7 @@ const AgentPerformancePage = () => {
                         <h4>Areas for Improvement</h4>
                         {agentMetrics.historical && agentMetrics.historical[0]?.commonAreasForImprovement?.length > 0 ? (
                           <ul>
-                            {agentMetrics.historical[0].commonAreasForImprovement.slice(0, 5).map((area, index) => (
+                            {agentMetrics.historical[0].commonAreasForImprovement.slice(0, 3).map((area, index) => (
                               <li key={index}>{area}</li>
                             ))}
                           </ul>
@@ -446,8 +566,7 @@ const AgentPerformancePage = () => {
                   </div>
                 ) : (
                   <div className="no-metrics">
-                    <p>No performance metrics available for this agent.</p>
-                    <p>This may be because the agent has no analyzed call transcripts yet.</p>
+                    No performance metrics available for this agent.
                   </div>
                 )}
                 
@@ -468,14 +587,14 @@ const AgentPerformancePage = () => {
                         <tbody>
                           {transcripts.map(transcript => (
                             <tr key={transcript._id}>
-                              <td>{formatDate(transcript.createdAt)}</td>
+                              <td>{formatDate(transcript.callDetails?.startedDate || transcript.createdAt)}</td>
                               <td>{formatDuration(transcript.callDetails?.duration)}</td>
-                              <td className={getScoreClass(transcript.analysis?.scorecard?.overallScore)}>
+                              <td className={`${getScoreClass(transcript.analysis?.scorecard?.overallScore)}`}>
                                 {formatScore(transcript.analysis?.scorecard?.overallScore)}
                               </td>
                               <td>
                                 <button 
-                                  className="button button-small"
+                                  className="view-button"
                                   onClick={() => navigate(`/transcripts/${transcript._id}`)}
                                 >
                                   View
@@ -487,15 +606,13 @@ const AgentPerformancePage = () => {
                       </table>
                     </div>
                   ) : (
-                    <p>No recent calls found for this agent.</p>
+                    <div className="no-transcripts">
+                      No recent calls found for this agent.
+                    </div>
                   )}
                 </div>
               </>
             )}
-          </div>
-        ) : (
-          <div className="no-agent-selected">
-            <p>Please select an agent from the list to view their performance data.</p>
           </div>
         )}
       </div>
