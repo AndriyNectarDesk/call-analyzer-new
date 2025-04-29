@@ -48,6 +48,7 @@ function AppContent() {
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [userOrganizations, setUserOrganizations] = useState([]);
   const [demoMode, setDemoMode] = useState(false);
+  const [language, setLanguage] = useState('auto');
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -348,12 +349,18 @@ function AppContent() {
       }
       
       console.log('Analyzing transcript for organization:', currentOrganization?.name, currentOrganization?._id);
+      console.log('Using language:', language);
       
       // Set up headers
       const headers = {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
       };
+      
+      // Add language header
+      if (language !== 'auto') {
+        headers['X-Language'] = language;
+      }
       
       // Add organization header if needed
       if (onlyBloomsActive) {
@@ -431,14 +438,17 @@ function AppContent() {
       }
       
       console.log('Transcribing audio for organization:', currentOrganization?.name, currentOrganization?._id);
+      console.log('Using language:', language);
       
-      // Add call type to the FormData
-      formData.append('callType', callType);
-      
-      // Set up headers
+      // Set up headers (everything except Content-Type which is set by FormData)
       const headers = {
         'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
       };
+      
+      // Add language header
+      if (language !== 'auto') {
+        headers['X-Language'] = language;
+      }
       
       // Add organization header if needed
       if (onlyBloomsActive) {
@@ -454,6 +464,9 @@ function AppContent() {
         headers['X-Organization-Name'] = currentOrganization.name;
         console.log(`Adding organization header for API request - targeting ${currentOrganization.name}`);
       }
+      
+      // Add call type to formData
+      formData.append('callType', callType);
       
       const response = await fetch(apiUrl + '/api/transcribe' || fallbackUrl + '/api/transcribe', {
         method: 'POST',
@@ -526,12 +539,12 @@ function AppContent() {
                   <form onSubmit={analyzeTranscript}>
                     <div className="form-group">
                       <label htmlFor="transcript">Call Transcript</label>
-        <textarea
+                      <textarea
                         id="transcript"
                         className="transcript-input"
-          value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
-          placeholder="Paste your call transcript here..."
+                        value={transcript}
+                        onChange={(e) => setTranscript(e.target.value)}
+                        placeholder="Paste your call transcript here..."
                         rows={12}
                         disabled={isLoading}
                       ></textarea>
@@ -544,12 +557,28 @@ function AppContent() {
                         value={callType}
                         onChange={(e) => setCallType(e.target.value)}
                         className="select"
-          disabled={isLoading}
+                        disabled={isLoading}
                       >
                         <option value="auto">Auto-detect</option>
                         {availableCallTypes.map(type => (
                           <option key={type.id} value={type.id}>{type.name}</option>
                         ))}
+                      </select>
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="language">Language</label>
+                      <select
+                        id="language"
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="select"
+                        disabled={isLoading}
+                      >
+                        <option value="auto">Auto-detect</option>
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
                       </select>
                     </div>
                     
@@ -562,13 +591,13 @@ function AppContent() {
                       >
                         Clear
                       </button>
-          <button
+                      <button
                         type="submit"
                         className="button"
-            disabled={isLoading || !transcript.trim()}
-          >
+                        disabled={isLoading || !transcript.trim()}
+                      >
                         {isLoading ? 'Analyzing...' : 'Analyze Call'}
-          </button>
+                      </button>
                     </div>
                   </form>
                 </div>
@@ -580,6 +609,7 @@ function AppContent() {
                     isLoading={isLoading}
                     callType={callType}
                     setError={setError}
+                    language={language}
                   />
                   <div className="form-group call-type-select">
                     <label htmlFor="audioCallType">Call Type</label>
@@ -596,10 +626,26 @@ function AppContent() {
                       ))}
                     </select>
                   </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="audioLanguage">Language</label>
+                    <select
+                      id="audioLanguage"
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      className="select"
+                      disabled={isLoading}
+                    >
+                      <option value="auto">Auto-detect</option>
+                      <option value="en">English</option>
+                      <option value="es">Spanish</option>
+                      <option value="fr">French</option>
+                    </select>
+                  </div>
                 </div>
               )}
-        </div>
-      </div>
+            </div>
+          </div>
 
           {/* Results Section (Right Column) */}
           <div className="results-column">
@@ -609,9 +655,9 @@ function AppContent() {
               </div>
             )}
 
-      {isLoading ? (
-        <div className="loading-container">
-          <div className="spinner"></div>
+            {isLoading ? (
+              <div className="loading-container">
+                <div className="spinner"></div>
                 <p>Analyzing your call...</p>
               </div>
             ) : analysis && !error ? (
@@ -708,7 +754,7 @@ function AppContent() {
                       <div className="metric-decoration"></div>
                     </div>
                   </div>
-        </div>
+                </div>
                 
                 <div className="key-insights-section">
                   <h2>
@@ -734,10 +780,10 @@ function AppContent() {
                           <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
                         </svg>
                         <div className="insight-content">{insight}</div>
-                </li>
-              ))}
-            </ul>
-          </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
                 <div className="scorecard-section">
                   <h2>
@@ -783,9 +829,9 @@ function AppContent() {
                         </svg>
                         <div className="recommendation-content">{item}</div>
                       </li>
-                  ))}
-                </ul>
-              </div>
+                    ))}
+                  </ul>
+                </div>
               </div>
             ) : (
               <div className="empty-results">
@@ -793,7 +839,7 @@ function AppContent() {
                   <h3>No Analysis Results</h3>
                   <p>Enter a transcript or upload audio to see analysis results here.</p>
                 </div>
-            </div>
+              </div>
             )}
           </div>
         </div>
@@ -807,8 +853,8 @@ function AppContent() {
       return (
         <div className="auth-loading">
           <div className="spinner"></div>
-    </div>
-  );
+        </div>
+      );
     }
     return isAuthenticated ? children : <Navigate to="/login" />;
   };
@@ -846,174 +892,174 @@ function AppContent() {
       
       {isAuthenticated && !authLoading ? (
         <header className="app-header">
-            <div className="header-content">
-              <div className="header-left">
-                <Link to="/" className="logo">
-                  AI Nectar Desk
-                </Link>
-                
-                <nav className="main-nav">
-                  <ul>
-                    <li>
-                      <Link to="/analyzer">Analyze</Link>
-                    </li>
-                    <li>
-                      <Link to="/transcripts-history">Call Transcripts</Link>
-                    </li>
-                    <li>
-                      <Link to="/agents">Agents</Link>
-                    </li>
-                    {currentUser && currentUser.isMasterAdmin && (
-                      <>
-                        {currentOrganization && (
-                          <li>
-                            <Link to={`/organizations/${currentOrganization._id || currentOrganization.id}/users`}>Users</Link>
-                          </li>
-                        )}
-                      </>
-                    )}
-                  </ul>
-                </nav>
-              </div>
+          <div className="header-content">
+            <div className="header-left">
+              <Link to="/" className="logo">
+                AI Nectar Desk
+              </Link>
               
-              <div className="header-right">
-                {userOrganizations.length > 0 && (
-                  <OrganizationSelector
-                    organizations={userOrganizations}
-                    currentOrganization={currentOrganization}
-                    onSelectOrganization={handleSwitchOrganization}
-                    isMasterAdmin={currentUser?.isMasterAdmin}
-                  />
-                )}
-                
-                {/* Add Master Admin Menu only for master admin users in master organization */}
-                {currentUser?.isMasterAdmin && isMasterOrganizationSelected() && (
-                  <MasterAdminMenu />
-                )}
-                
-                <div className="user-menu">
-                  {currentUser && (
-                    <div className="user-info">
-                      <span className="user-name">{currentUser.firstName}</span>
-                    </div>
+              <nav className="main-nav">
+                <ul>
+                  <li>
+                    <Link to="/analyzer">Analyze</Link>
+                  </li>
+                  <li>
+                    <Link to="/transcripts-history">Call Transcripts</Link>
+                  </li>
+                  <li>
+                    <Link to="/agents">Agents</Link>
+                  </li>
+                  {currentUser && currentUser.isMasterAdmin && (
+                    <>
+                      {currentOrganization && (
+                        <li>
+                          <Link to={`/organizations/${currentOrganization._id || currentOrganization.id}/users`}>Users</Link>
+                        </li>
+                      )}
+                    </>
                   )}
-                  
-                  <button
-                    className="button button-subtle"
-                    onClick={handleLogout}
-                  >
-                    Logout
-                  </button>
-                </div>
+                </ul>
+              </nav>
+            </div>
+            
+            <div className="header-right">
+              {userOrganizations.length > 0 && (
+                <OrganizationSelector
+                  organizations={userOrganizations}
+                  currentOrganization={currentOrganization}
+                  onSelectOrganization={handleSwitchOrganization}
+                  isMasterAdmin={currentUser?.isMasterAdmin}
+                />
+              )}
+              
+              {/* Add Master Admin Menu only for master admin users in master organization */}
+              {currentUser?.isMasterAdmin && isMasterOrganizationSelected() && (
+                <MasterAdminMenu />
+              )}
+              
+              <div className="user-menu">
+                {currentUser && (
+                  <div className="user-info">
+                    <span className="user-name">{currentUser.firstName}</span>
+                  </div>
+                )}
+                
+                <button
+                  className="button button-subtle"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
               </div>
             </div>
+          </div>
         </header>
-        ) : null}
+      ) : null}
 
-        <main className="app-main">
+      <main className="app-main">
         <Routes>
-            <Route path="/login" element={
-              isAuthenticated ? <Navigate to="/" /> : (authLoading ? (
-                <div className="auth-loading">
-                  <div className="spinner"></div>
-                </div>
-              ) : <Login onLogin={handleLogin} />)
-            } />
-            
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            
-            <Route path="/" element={
-              <ProtectedRoute>
-                <HomeRoute />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/analyzer" element={
-              <ProtectedRoute>
-                <AnalyzerPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/transcripts-history" element={
-              <ProtectedRoute>
-                <TranscriptsHistoryPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/transcripts/:id" element={
-              <ProtectedRoute>
-                <TranscriptDetail />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/call-types" element={
-              <ProtectedRoute>
-                <CallTypeManager />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/api" element={
-              <ProtectedRoute>
-                <ApiPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/organizations" element={
-              <ProtectedRoute>
-                <OrganizationsPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/organizations/:organizationId/users" element={
-              <ProtectedRoute>
-                <UsersPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/organizations/:organizationId/users/new" element={
-              <ProtectedRoute>
-                <UserAddPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/organizations/:organizationId/users/:userId/edit" element={
-              <ProtectedRoute>
-                <UserEditPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/agents" element={
-              <ProtectedRoute>
-                <AgentsPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/agents/add" element={
-              <ProtectedRoute>
-                <AgentsPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/agents/:id" element={
-              <ProtectedRoute>
-                <AgentDetailPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/agents/:id/edit" element={
-              <ProtectedRoute>
-                <AgentsPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="*" element={<Navigate to="/" />} />
+          <Route path="/login" element={
+            isAuthenticated ? <Navigate to="/" /> : (authLoading ? (
+              <div className="auth-loading">
+                <div className="spinner"></div>
+              </div>
+            ) : <Login onLogin={handleLogin} />)
+          } />
+          
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          
+          <Route path="/" element={
+            <ProtectedRoute>
+              <HomeRoute />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/analyzer" element={
+            <ProtectedRoute>
+              <AnalyzerPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/transcripts-history" element={
+            <ProtectedRoute>
+              <TranscriptsHistoryPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/transcripts/:id" element={
+            <ProtectedRoute>
+              <TranscriptDetail />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/call-types" element={
+            <ProtectedRoute>
+              <CallTypeManager />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/api" element={
+            <ProtectedRoute>
+              <ApiPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/organizations" element={
+            <ProtectedRoute>
+              <OrganizationsPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/organizations/:organizationId/users" element={
+            <ProtectedRoute>
+              <UsersPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/organizations/:organizationId/users/new" element={
+            <ProtectedRoute>
+              <UserAddPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/organizations/:organizationId/users/:userId/edit" element={
+            <ProtectedRoute>
+              <UserEditPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/agents" element={
+            <ProtectedRoute>
+              <AgentsPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/agents/add" element={
+            <ProtectedRoute>
+              <AgentsPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/agents/:id" element={
+            <ProtectedRoute>
+              <AgentDetailPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/agents/:id/edit" element={
+            <ProtectedRoute>
+              <AgentsPage />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-        </main>
-        
-        <footer className="app-footer">
-          <p>AI Nectar Desk © {new Date().getFullYear()}</p>
-        </footer>
+      </main>
+      
+      <footer className="app-footer">
+        <p>AI Nectar Desk © {new Date().getFullYear()}</p>
+      </footer>
     </div>
   );
 }

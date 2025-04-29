@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-function AudioUploader({ onTranscribe, callType, isLoading, setError }) {
+function AudioUploader({ onTranscribe, callType, isLoading, setError, language = 'auto' }) {
   const [file, setFile] = useState(null);
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);

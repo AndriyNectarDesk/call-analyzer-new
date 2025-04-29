@@ -270,7 +270,7 @@ app.delete('/api/call-types/:id', authenticateApiKey, async (req, res) => {
 });
 
 // Modify createPrompt function to use dynamic call types
-const createPrompt = async (transcript, type = 'auto') => {
+const createPrompt = async (transcript, type = 'auto', language = 'en') => {
   // Detect call type if not specified
   let callType = type;
   if (type === 'auto') {
@@ -278,15 +278,19 @@ const createPrompt = async (transcript, type = 'auto') => {
     if (transcript.toLowerCase().includes('hearing aid') || 
         transcript.toLowerCase().includes('beltone') || 
         transcript.toLowerCase().includes('audiologist') ||
-        transcript.toLowerCase().includes('hearing test')) {
+        transcript.toLowerCase().includes('hearing test') ||
+        // Spanish keywords for hearing
+        transcript.toLowerCase().includes('audífono') ||
+        transcript.toLowerCase().includes('audiología') ||
+        transcript.toLowerCase().includes('prueba auditiva')) {
       callType = 'hearing';
     } else {
       callType = 'flower';
     }
   }
   
-  // Base prompt structure with shared elements
-  const basePrompt = `I need you to analyze this call center transcript. Please provide:
+  // Base prompt structure with shared elements - include language instruction
+  const basePrompt = `I need you to analyze this call center transcript${language !== 'en' ? ' in ' + language : ''}. Please provide:
 
 1. A concise summary of the call (customer details, key information, special requests)
 2. Agent performance analysis (what they did well, what could be improved)
@@ -324,10 +328,14 @@ Format your response as valid JSON with the following structure. DO NOT include 
         }
       }
       
+      const languageInstruction = language !== 'en' 
+        ? `This is a call center transcript in ${language}. Analyze it in ${language}, but provide your response in English. ` 
+        : '';
+      
       return `${basePrompt}
 ${promptTemplate}
 
-${jsonStructure.instructions || `This is a call center transcript from ${customCallType.name}. Be sure to identify the agent's name at the beginning of the call. Include a one-sentence summary of the entire call in the briefSummary field.`}
+${languageInstruction}${jsonStructure.instructions || `This is a call center transcript from ${customCallType.name}. Be sure to identify the agent's name at the beginning of the call. Include a one-sentence summary of the entire call in the briefSummary field.`}
 
 Here's the transcript:
 
@@ -339,6 +347,10 @@ ${transcript}`;
   }
 
   // Call type specific JSON structure and instructions (default templates)
+  const languageInstruction = language !== 'en' 
+    ? `This is a call center transcript in ${language}. Analyze it in ${language}, but provide your response in English. ` 
+    : '';
+  
   if (callType === 'hearing') {
     return `${basePrompt}
 {
@@ -365,7 +377,7 @@ ${transcript}`;
   }
 }
 
-This is a call center transcript from a hearing aid clinic. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Provide a one-sentence summary of the entire call in the briefSummary field. Focus on patient information, appointment scheduling, hearing concerns, and hearing aid details in your analysis.
+${languageInstruction}This is a call center transcript from a hearing aid clinic. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Provide a one-sentence summary of the entire call in the briefSummary field. Focus on patient information, appointment scheduling, hearing concerns, and hearing aid details in your analysis.
 
 Here's the transcript:
 
@@ -397,7 +409,7 @@ ${transcript}`;
   }
 }
 
-This is a call center transcript from a flower shop. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Provide a one-sentence summary of the entire call in the briefSummary field. Focus on order details, delivery information, and flower preferences in your analysis.
+${languageInstruction}This is a call center transcript from a flower shop. Be sure to identify the agent's name at the beginning of the call and include it in the agentName field. Provide a one-sentence summary of the entire call in the briefSummary field. Focus on order details, delivery information, and flower preferences in your analysis.
 
 Here's the transcript:
 
@@ -536,8 +548,12 @@ app.post('/api/analyze', async (req, res, next) => {
     
     console.log(`Processing analyze request for organizationId: ${organizationId}`);
 
+    // Get language from headers or default to English
+    const language = req.headers['x-language'] || 'en';
+    console.log(`Processing request with language: ${language}`);
+
     // Call Claude API with the async createPrompt
-    const prompt = await createPrompt(transcript, callType);
+    const prompt = await createPrompt(transcript, callType, language);
     
     const response = await axios.post(
       CLAUDE_API_URL,
@@ -762,7 +778,7 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
 
         // Use direct API call with axios instead of SDK
         const deepgramResponse = await axios.post(
-          'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&language=en',
+          'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&detect_language=true',
           audioBuffer,
           {
             headers: {
@@ -774,6 +790,10 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
         
         // Extract transcript from Deepgram response
         finalTranscript = deepgramResponse.data.results?.channels[0]?.alternatives[0]?.transcript;
+        
+        // Log detected language
+        const detectedLanguage = deepgramResponse.data.results?.channels[0]?.alternatives[0]?.language || 'unknown';
+        console.log(`Detected language: ${detectedLanguage}`);
         
         if (!finalTranscript) {
           return res.status(400).json({ error: 'Failed to transcribe audio or audio contained no speech' });
@@ -829,8 +849,12 @@ app.post('/api/external/analyze', authenticateApiKey, async (req, res, next) => 
       return res.status(400).json({ error: 'Either transcript or audioUrl is required' });
     }
     
-    // Call Claude API with the async createPrompt
-    const prompt = await createPrompt(finalTranscript, callType);
+    // Get detected language or use default
+    const language = detectedLanguage !== 'unknown' ? detectedLanguage : (req.headers['x-language'] || 'en');
+    console.log(`Processing request with language: ${language}`);
+    
+    // Create the prompt using the existing function
+    const prompt = await createPrompt(finalTranscript, callType, language);
     
     const response = await axios.post(
       CLAUDE_API_URL,
@@ -1185,7 +1209,7 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
 
     // Use direct API call with axios instead of SDK
     const deepgramResponse = await axios.post(
-      'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&language=en',
+      'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&detect_language=true',
       audioBuffer,
       {
         headers: {
@@ -1197,6 +1221,10 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     
     // Extract transcript from Deepgram response
     const transcript = deepgramResponse.data.results?.channels[0]?.alternatives[0]?.transcript;
+    
+    // Log detected language
+    const detectedLanguage = deepgramResponse.data.results?.channels[0]?.alternatives[0]?.language || 'unknown';
+    console.log(`Detected language: ${detectedLanguage}`);
     
     if (!transcript) {
       return res.status(400).json({ error: 'Failed to transcribe audio or audio contained no speech' });
@@ -1234,7 +1262,12 @@ app.post('/api/transcribe', upload.single('audioFile'), async (req, res, next) =
     try {
       // Create the prompt using the existing function
       console.log('Creating prompt for text analysis...');
-      const prompt = await createPrompt(transcript, callType);
+      
+      // Use detected language or default to English
+      const language = detectedLanguage !== 'unknown' ? detectedLanguage : (req.headers['x-language'] || 'en');
+      console.log(`Processing request with language: ${language}`);
+      
+      const prompt = await createPrompt(transcript, callType, language);
       
       // Check if Claude API key is valid
       if (!CLAUDE_API_KEY || CLAUDE_API_KEY === 'your-valid-claude-api-key') {
@@ -1964,7 +1997,7 @@ async function processWebhookRecording(audioUrl, metadata, organizationId) {
     // Transcribe with Deepgram
     console.log('Sending to Deepgram...');
     const deepgramResponse = await axios.post(
-      'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&language=en',
+      'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=true&utterances=true&detect_language=true',
       audioBuffer,
       {
         headers: {
@@ -1977,14 +2010,22 @@ async function processWebhookRecording(audioUrl, metadata, organizationId) {
     // Extract transcript from Deepgram response
     const transcript = deepgramResponse.data.results?.channels[0]?.alternatives[0]?.transcript;
     
+    // Log detected language
+    const detectedLanguage = deepgramResponse.data.results?.channels[0]?.alternatives[0]?.language || 'unknown';
+    console.log(`Detected language: ${detectedLanguage}`);
+    
     if (!transcript) {
       throw new Error('Failed to transcribe audio or audio contained no speech');
     }
     
     console.log(`Transcription successful: ${transcript.substring(0, 100)}...`);
     
+    // Use detected language or default to English
+    const language = detectedLanguage !== 'unknown' ? detectedLanguage : 'en';
+    console.log(`Processing webhook with language: ${language}`);
+    
     // Analyze with Claude
-    const prompt = await createPrompt(transcript, 'flower-shop');
+    const prompt = await createPrompt(transcript, 'flower-shop', language);
     
     const claudeResponse = await axios.post(
       CLAUDE_API_URL,
