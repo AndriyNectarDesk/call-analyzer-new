@@ -20,6 +20,7 @@ import MasterAdminDashboard from './components/MasterAdminDashboard';
 import MasterAdminMenu from './components/MasterAdminMenu';
 import TranscriptsHistoryPage from './pages/TranscriptsHistoryPage';
 import AgentsPage from './pages/AgentsPage';
+import AgentDetailPage from './pages/AgentDetailPage';
 import AuthProvider from './contexts/AuthContext';
 
 // Create a wrapper component for App that provides the router context
@@ -996,7 +997,7 @@ function AppContent() {
             
             <Route path="/agents/:id" element={
               <ProtectedRoute>
-                <AgentsPage />
+                <AgentDetailPage />
               </ProtectedRoute>
             } />
             
