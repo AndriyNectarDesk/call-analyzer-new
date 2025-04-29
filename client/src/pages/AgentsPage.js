@@ -400,28 +400,6 @@ const AgentsPage = () => {
           </div>
         </div>
         
-        <div className="agent-details">
-          <div className="agent-detail-item">
-            <span className="detail-label">Email</span>
-            <span className="detail-value">{agent.email || 'Not provided'}</span>
-          </div>
-          
-          <div className="agent-detail-item">
-            <span className="detail-label">Phone</span>
-            <span className="detail-value">{agent.phone || 'Not provided'}</span>
-          </div>
-          
-          <div className="agent-detail-item">
-            <span className="detail-label">Position</span>
-            <span className="detail-value">{agent.position || 'Not specified'}</span>
-          </div>
-          
-          <div className="agent-detail-item">
-            <span className="detail-label">External ID</span>
-            <span className="detail-value">{agent.externalId || 'None'}</span>
-          </div>
-        </div>
-        
         {agent.performanceMetrics?.currentPeriod?.averageScores && (
           <div className="agent-metrics">
             <div className="metrics-header">Performance Metrics</div>
