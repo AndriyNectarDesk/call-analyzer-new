@@ -1,15 +1,14 @@
 /**
  * Utility functions for number operations
  */
+import _ from 'lodash';
 
 /**
  * Check if a value is a valid number
  * @param {*} value - Value to check
  * @returns {boolean} True if value is a number, false otherwise
  */
-export const isNumber = (value) => {
-  return typeof value === 'number' && !isNaN(value) && isFinite(value);
-};
+export const isNumber = _.isNumber;
 
 /**
  * Format a number to a specific precision
