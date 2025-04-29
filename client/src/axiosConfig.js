@@ -38,6 +38,20 @@ instance.interceptors.request.use(
       }
     }
     
+    // Add organization context from localStorage
+    try {
+      const orgData = localStorage.getItem('selectedOrganization');
+      if (orgData) {
+        const organization = JSON.parse(orgData);
+        if (organization && organization._id) {
+          console.log(`Adding organization context header: ${organization.name} (${organization._id})`);
+          config.headers['x-organization-id'] = organization._id;
+        }
+      }
+    } catch (err) {
+      console.error('Error adding organization context to request:', err);
+    }
+    
     // Add debugging info
     console.log(`Making ${config.method.toUpperCase()} request to: ${config.baseURL}${config.url}`);
     
