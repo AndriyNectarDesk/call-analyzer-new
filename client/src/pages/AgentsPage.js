@@ -125,11 +125,13 @@ const AgentsPage = () => {
       
       // Add organization filter for master org if a specific organization is selected
       if ((organization.isMaster || currentUser?.isMasterAdmin) && selectedOrg !== 'all') {
+        console.log(`Master admin selected specific organization for filtering: ${selectedOrg}`);
         url += `&organizationId=${selectedOrg}`;
         // Also update the header to prioritize this selection
         config.headers['x-organization-id'] = selectedOrg;
       }
       
+      console.log(`Fetching agents for organization: ${organization.name}, ID: ${orgId}`);
       console.log('Request URL:', url);
       console.log('Request headers:', JSON.stringify(config.headers, null, 2));
       
@@ -147,7 +149,7 @@ const AgentsPage = () => {
         throw new Error('Invalid response format: agents is not an array');
       }
 
-      console.log(`Received ${fetchedAgents.length} agents`);
+      console.log(`Received ${fetchedAgents.length} agents for ${organization.name}`);
       setAgents(fetchedAgents);
       setFilteredAgents(fetchedAgents);
       
@@ -184,15 +186,21 @@ const AgentsPage = () => {
     }
   };
   
-  // Update agents when current page or filters change
+  // Update agents when current page, filters, or selected organization changes
   useEffect(() => {
     if (currentOrganization && !loading) {
       const token = localStorage.getItem('auth_token');
       if (token) {
+        console.log('Organization changed or filters updated, reloading agents for:', currentOrganization.name);
         fetchAgentsForOrganization(currentOrganization, token);
       }
     }
-  }, [currentPage, selectedOrg, selectedStatus]);
+  }, [currentPage, selectedOrg, selectedStatus, currentOrganization]);
+
+  // Also update when the component mounts
+  useEffect(() => {
+    // This is now handled by the first useEffect that depends on currentOrganization
+  }, [API_BASE_URL]);
 
   // Recalculate pagination based on total count
   const recalculatePagination = (total) => {
