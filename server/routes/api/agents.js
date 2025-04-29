@@ -265,16 +265,35 @@ router.post('/analytics/trigger-update-job', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const agent = await Agent.findOne({
-      _id: req.params.id,
-      organizationId: req.tenantId || req.user.organizationId
-    });
+    console.log(`Fetching agent with ID: ${req.params.id}`);
+    console.log(`Organization context: ${req.tenantId || req.user.organizationId}`);
+    console.log(`Is master org: ${req.isMasterOrg || false}`);
+    console.log(`Is master admin: ${req.user.isMasterAdmin || false}`);
+    
+    // Build query
+    let query = { _id: req.params.id };
+    
+    // If not a master admin or not in master org context, enforce organization isolation
+    if (!(req.user.isMasterAdmin && req.isMasterOrg)) {
+      query.organizationId = req.tenantId || req.user.organizationId;
+      console.log(`Applying organization filter: ${query.organizationId}`);
+    } else {
+      console.log('Master admin in master org context, not applying organization filter');
+    }
+    
+    const agent = await Agent.findOne(query)
+      .populate('organizationId', 'name code isMaster');
     
     if (!agent) {
+      console.log(`Agent not found with ID: ${req.params.id}`);
       return res.status(404).json({ message: 'Agent not found' });
     }
     
-    res.json(agent);
+    // Convert to plain object for response consistency
+    const agentObj = agent.toObject ? agent.toObject() : agent;
+    console.log(`Found agent: ${agentObj.firstName} ${agentObj.lastName} from org: ${agentObj.organizationId?.name || 'Unknown'}`);
+    
+    res.json(agentObj);
   } catch (error) {
     console.error('Error fetching agent:', error);
     res.status(500).json({ message: 'Server error' });
@@ -288,12 +307,26 @@ router.get('/:id', async (req, res) => {
  */
 router.get('/:id/performance', async (req, res) => {
   try {
-    const agent = await Agent.findOne({
-      _id: req.params.id,
-      organizationId: req.tenantId || req.user.organizationId
-    });
+    console.log(`Fetching performance metrics for agent ID: ${req.params.id}`);
+    console.log(`Organization context: ${req.tenantId || req.user.organizationId}`);
+    console.log(`Is master org: ${req.isMasterOrg || false}`);
+    console.log(`Is master admin: ${req.user.isMasterAdmin || false}`);
+    
+    // Build query
+    let query = { _id: req.params.id };
+    
+    // If not a master admin or not in master org context, enforce organization isolation
+    if (!(req.user.isMasterAdmin && req.isMasterOrg)) {
+      query.organizationId = req.tenantId || req.user.organizationId;
+      console.log(`Applying organization filter: ${query.organizationId}`);
+    } else {
+      console.log('Master admin in master org context, not applying organization filter');
+    }
+    
+    const agent = await Agent.findOne(query);
     
     if (!agent) {
+      console.log(`Agent not found with ID: ${req.params.id}`);
       return res.status(404).json({ message: 'Agent not found' });
     }
     
@@ -400,12 +433,26 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
-    const agent = await Agent.findOne({
-      _id: req.params.id,
-      organizationId: req.tenantId || req.user.organizationId
-    });
+    console.log(`Updating agent with ID: ${req.params.id}`);
+    console.log(`Organization context: ${req.tenantId || req.user.organizationId}`);
+    console.log(`Is master org: ${req.isMasterOrg || false}`);
+    console.log(`Is master admin: ${req.user.isMasterAdmin || false}`);
+    
+    // Build query
+    let query = { _id: req.params.id };
+    
+    // If not a master admin or not in master org context, enforce organization isolation
+    if (!(req.user.isMasterAdmin && req.isMasterOrg)) {
+      query.organizationId = req.tenantId || req.user.organizationId;
+      console.log(`Applying organization filter: ${query.organizationId}`);
+    } else {
+      console.log('Master admin in master org context, not applying organization filter');
+    }
+    
+    const agent = await Agent.findOne(query);
     
     if (!agent) {
+      console.log(`Agent not found with ID: ${req.params.id}`);
       return res.status(404).json({ message: 'Agent not found' });
     }
     
@@ -443,16 +490,27 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
   try {
-    // Get organization context from middleware
-    const organizationId = req.tenantId || req.user.organizationId;
+    console.log(`Deleting agent with ID: ${req.params.id}`);
+    console.log(`Organization context: ${req.tenantId || req.user.organizationId}`);
+    console.log(`Is master org: ${req.isMasterOrg || false}`);
+    console.log(`Is master admin: ${req.user.isMasterAdmin || false}`);
+    
+    // Build query
+    let query = { _id: req.params.id };
+    
+    // If not a master admin or not in master org context, enforce organization isolation
+    if (!(req.user.isMasterAdmin && req.isMasterOrg)) {
+      query.organizationId = req.tenantId || req.user.organizationId;
+      console.log(`Applying organization filter: ${query.organizationId}`);
+    } else {
+      console.log('Master admin in master org context, not applying organization filter');
+    }
     
     // Find the agent
-    const agent = await Agent.findOne({
-      _id: req.params.id,
-      organizationId
-    });
+    const agent = await Agent.findOne(query);
     
     if (!agent) {
+      console.log(`Agent not found with ID: ${req.params.id}`);
       return res.status(404).json({ message: 'Agent not found' });
     }
     
