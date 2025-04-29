@@ -83,27 +83,37 @@ const AgentDetailPage = () => {
       };
       
       console.log(`Fetching agent details for ID: ${id}`);
+      console.log('Request headers:', JSON.stringify(config.headers, null, 2));
       
       const response = await axios.get(`${API_BASE_URL}/api/agents/${id}`, config);
       
-      if (!response.data || !response.data.agent) {
+      console.log('API Response status:', response.status);
+      console.log('API Response data:', JSON.stringify(response.data, null, 2));
+      
+      if (!response.data) {
         throw new Error('Invalid response format');
       }
 
-      setAgent(response.data.agent);
+      setAgent(response.data);
     } catch (err) {
       console.error('Error fetching agent details:', err);
       
       let errorMessage = 'Failed to load agent details';
       
       if (err.response) {
+        console.error('Error response:', err.response.status, err.response.data);
         if (err.response.status === 404) {
           errorMessage = 'Agent not found';
         } else if (err.response.status === 401) {
           errorMessage = 'Authentication error: Please log in again';
         } else if (err.response.status === 403) {
           errorMessage = 'You do not have permission to access this agent';
+        } else {
+          errorMessage = `Error: ${err.response.data?.message || 'Unknown error'}`;
         }
+      } else if (err.request) {
+        console.error('Request error - no response received');
+        errorMessage = 'Network error: Please check your connection';
       }
       
       setError(errorMessage);
