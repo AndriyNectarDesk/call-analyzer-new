@@ -92,34 +92,34 @@
 }
 
 .agents-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
 }
 
 .agent-card {
   background: white;
   border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .agent-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .agent-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .agent-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   margin: 0;
 }
@@ -233,52 +233,52 @@
 
 .agent-metrics {
   background-color: #f9f9f9;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 12px;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
 }
 
 .metrics-header {
   font-weight: 600;
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin-bottom: 6px;
+  font-size: 13px;
   color: #333;
 }
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 6px;
 }
 
 .metric-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px;
+  padding: 5px;
   background-color: white;
-  border-radius: 6px;
+  border-radius: 4px;
   border: 1px solid #e0e0e0;
 }
 
 .metric-label {
-  font-size: 12px;
+  font-size: 10px;
   color: #666;
   text-align: center;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .metric-value {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .agent-meta-info {
   display: flex;
-  gap: 16px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 8px;
   color: #666;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .meta-item {
@@ -291,7 +291,8 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
+  margin-top: 5px;
 }
 
 .action-button {
@@ -300,12 +301,12 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   color: #4a6cf7;
-  padding: 6px 12px;
+  padding: 4px 8px;
   border-radius: 4px;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .action-button:hover {
@@ -395,5 +396,9 @@
   .agent-meta-info {
     flex-direction: column;
     gap: 8px;
+  }
+  
+  .agents-list {
+    grid-template-columns: 1fr;
   }
 } 

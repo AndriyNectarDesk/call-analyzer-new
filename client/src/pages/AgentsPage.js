@@ -402,7 +402,6 @@ const AgentsPage = () => {
         
         {agent.performanceMetrics?.currentPeriod?.averageScores && (
           <div className="agent-metrics">
-            <div className="metrics-header">Performance Metrics</div>
             <div className="metrics-grid">
               <div className="metric-item">
                 <span className="metric-label">Customer Service</span>
@@ -444,12 +443,12 @@ const AgentsPage = () => {
         
         <div className="agent-meta-info">
           <div className="meta-item">
-            <UserIcon width={16} height={16} />
-            Created: {formatDate(agent.createdAt)}
+            <UserIcon width={14} height={14} />
+            {formatDate(agent.createdAt)}
           </div>
           
           <div className="meta-item">
-            <BuildingOfficeIcon width={16} height={16} />
+            <BuildingOfficeIcon width={14} height={14} />
             {orgName || 'Unknown Organization'}
           </div>
         </div>
@@ -458,12 +457,12 @@ const AgentsPage = () => {
           {agent._id && (
             <>
               <Link to={`/agents/${agent._id}`} className="action-button">
-                <ArrowRightIcon width={16} height={16} />
-                View Details
+                <ArrowRightIcon width={14} height={14} />
+                View
               </Link>
               
               <Link to={`/agents/${agent._id}/edit`} className="action-button">
-                <PencilSquareIcon width={16} height={16} />
+                <PencilSquareIcon width={14} height={14} />
                 Edit
               </Link>
               
@@ -474,7 +473,7 @@ const AgentsPage = () => {
                 aria-label="Delete agent"
                 title="Delete agent"
               >
-                <TrashIcon width={16} height={16} />
+                <TrashIcon width={14} height={14} />
                 Delete
               </button>
             </>
