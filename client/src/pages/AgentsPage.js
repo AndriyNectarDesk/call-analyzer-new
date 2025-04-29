@@ -373,7 +373,7 @@ const AgentsPage = () => {
 
     return (
       <div key={agent._id} className={`agent-card ${isBeingDeleted ? 'deleting' : ''}`}>
-        <div className="agent-header">
+        <div className="agent-main-info">
           <h3 className="agent-title">
             {agent._id ? (
               <Link to={`/agents/${agent._id}`}>
@@ -387,14 +387,9 @@ const AgentsPage = () => {
                 {agent.status}
               </span>
             )}
-            {agent.department && (
-              <span className="department-badge">
-                {agent.department}
-              </span>
-            )}
             {overallScore !== undefined && (
               <span className={`score-badge ${getScoreColorClass(overallScore)}`}>
-                {renderScoreOrNA(overallScore)}/100
+                {renderScoreOrNA(overallScore)}
               </span>
             )}
           </div>
@@ -404,35 +399,35 @@ const AgentsPage = () => {
           <div className="agent-metrics">
             <div className="metrics-grid">
               <div className="metric-item">
-                <span className="metric-label">Customer Service</span>
+                <span className="metric-label">CS:</span>
                 <span className="metric-value">
                   {renderScoreOrNA(performanceMetrics.customerService)}
                 </span>
               </div>
               
               <div className="metric-item">
-                <span className="metric-label">Product Knowledge</span>
+                <span className="metric-label">PK:</span>
                 <span className="metric-value">
                   {renderScoreOrNA(performanceMetrics.productKnowledge)}
                 </span>
               </div>
               
               <div className="metric-item">
-                <span className="metric-label">Process Efficiency</span>
+                <span className="metric-label">PE:</span>
                 <span className="metric-value">
                   {renderScoreOrNA(performanceMetrics.processEfficiency)}
                 </span>
               </div>
               
               <div className="metric-item">
-                <span className="metric-label">Problem Solving</span>
+                <span className="metric-label">PS:</span>
                 <span className="metric-value">
                   {renderScoreOrNA(performanceMetrics.problemSolving)}
                 </span>
               </div>
               
               <div className="metric-item">
-                <span className="metric-label">Call Count</span>
+                <span className="metric-label">Calls:</span>
                 <span className="metric-value">
                   {agent.performanceMetrics?.currentPeriod?.callCount || 0}
                 </span>
@@ -443,13 +438,13 @@ const AgentsPage = () => {
         
         <div className="agent-meta-info">
           <div className="meta-item">
-            <UserIcon width={14} height={14} />
+            <UserIcon width={12} height={12} />
             {formatDate(agent.createdAt)}
           </div>
           
           <div className="meta-item">
-            <BuildingOfficeIcon width={14} height={14} />
-            {orgName || 'Unknown Organization'}
+            <BuildingOfficeIcon width={12} height={12} />
+            {orgName || 'Unknown'}
           </div>
         </div>
         
@@ -457,12 +452,12 @@ const AgentsPage = () => {
           {agent._id && (
             <>
               <Link to={`/agents/${agent._id}`} className="action-button">
-                <ArrowRightIcon width={14} height={14} />
+                <ArrowRightIcon width={12} height={12} />
                 View
               </Link>
               
               <Link to={`/agents/${agent._id}/edit`} className="action-button">
-                <PencilSquareIcon width={14} height={14} />
+                <PencilSquareIcon width={12} height={12} />
                 Edit
               </Link>
               
@@ -473,7 +468,7 @@ const AgentsPage = () => {
                 aria-label="Delete agent"
                 title="Delete agent"
               >
-                <TrashIcon width={14} height={14} />
+                <TrashIcon width={12} height={12} />
                 Delete
               </button>
             </>
