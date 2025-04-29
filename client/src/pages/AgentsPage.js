@@ -130,7 +130,8 @@ const AgentsPage = () => {
         config.headers['x-organization-id'] = selectedOrg;
       }
       
-      console.log('Request config:', JSON.stringify(config));
+      console.log('Request URL:', url);
+      console.log('Request headers:', JSON.stringify(config.headers, null, 2));
       
       const response = await axios.get(url, config);
       console.log('API Response:', response.data);
@@ -161,7 +162,8 @@ const AgentsPage = () => {
       let errorMessage = 'Failed to load agents';
       
       if (err.response) {
-        console.error('Error response:', err.response.status, err.response.data);
+        console.error('Error response status:', err.response.status);
+        console.error('Error response data:', err.response.data);
         if (err.response.status === 401) {
           errorMessage = 'Authentication error: Please log in again';
         } else if (err.response.status === 403) {

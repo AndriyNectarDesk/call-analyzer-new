@@ -138,23 +138,62 @@ exports.getCurrentUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
+    // Default organization from user's primary organization
+    let organizations = [];
+    
     // Fetch organization details if user belongs to one
-    let organization = null;
     if (user.organizationId) {
-      organization = await Organization.findById(user.organizationId)
-        .select('name code subscriptionTier features.customBranding')
+      const primaryOrg = await Organization.findById(user.organizationId)
+        .select('name code subscriptionTier features.customBranding isMaster')
         .exec();
+      
+      if (primaryOrg) {
+        organizations.push({
+          _id: primaryOrg._id,
+          id: primaryOrg._id, // For compatibility
+          name: primaryOrg.name,
+          code: primaryOrg.code,
+          isMaster: primaryOrg.isMaster || false,
+          subscriptionTier: primaryOrg.subscriptionTier,
+          features: primaryOrg.features
+        });
+      }
+      
+      // If master admin, fetch all organizations
+      if (user.isMasterAdmin) {
+        const allOrgs = await Organization.find({})
+          .select('name code isMaster subscriptionTier features.customBranding')
+          .exec();
+        
+        // Add any organizations not already included
+        allOrgs.forEach(org => {
+          if (!organizations.some(o => o._id.toString() === org._id.toString())) {
+            organizations.push({
+              _id: org._id,
+              id: org._id, // For compatibility
+              name: org.name,
+              code: org.code,
+              isMaster: org.isMaster || false,
+              subscriptionTier: org.subscriptionTier,
+              features: org.features
+            });
+          }
+        });
+      }
     }
     
     res.json({
       user: {
         id: user._id,
+        _id: user._id, // For compatibility
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
         isMasterAdmin: user.isMasterAdmin,
-        organization: organization
+        organization: organizations[0] || null, // For backward compatibility
+        organizationId: user.organizationId, // Include raw organizationId
+        organizations: organizations // Include all organizations
       }
     });
   } catch (error) {
