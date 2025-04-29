@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import '../styles/agentPerformance.css';
@@ -19,117 +19,99 @@ const AgentPerformancePage = () => {
   const navigate = useNavigate();
   const { agentId } = useParams();
   
-  // Fetch all agents for the organization
-  useEffect(() => {
-    const fetchAgents = async () => {
-      try {
-        setLoading(true);
-        
-        const baseApiUrl = process.env.REACT_APP_API_URL || '';
-        const token = localStorage.getItem('auth_token');
-        
-        if (!token) {
-          navigate('/login');
-          return;
-        }
-        
-        const response = await axios.get(`${baseApiUrl}/api/agents`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.data && response.data.agents) {
-          // Sort agents based on filter
-          const sortedAgents = sortAgents(response.data.agents, filter);
-          setAgents(sortedAgents);
-          
-          // Look for Shay Pearce first
-          let shayPearce = sortedAgents.find(a => 
-            (a.firstName === 'Shay' && a.lastName === 'Pearce') || 
-            (a.firstName + ' ' + a.lastName === 'Shay Pearce')
-          );
-          
-          // If agentId is provided in URL, select that agent
-          if (agentId) {
-            const agent = sortedAgents.find(a => a._id === agentId);
-            if (agent) {
-              setSelectedAgent(agent);
-              fetchAgentDetails(agent._id);
-            } else if (shayPearce) {
-              // Fall back to Shay Pearce if the requested agent not found
-              setSelectedAgent(shayPearce);
-              fetchAgentDetails(shayPearce._id);
-              // Update URL without reload
-              navigate(`/agents/performance/${shayPearce._id}`);
-            } else if (sortedAgents.length > 0) {
-              // Otherwise select first agent
-              setSelectedAgent(sortedAgents[0]);
-              fetchAgentDetails(sortedAgents[0]._id);
-              // Update URL without reload
-              navigate(`/agents/performance/${sortedAgents[0]._id}`);
-            }
-          } else if (shayPearce) {
-            // Prioritize showing Shay Pearce
-            setSelectedAgent(shayPearce);
-            fetchAgentDetails(shayPearce._id);
-            // Update URL without reload
-            navigate(`/agents/performance/${shayPearce._id}`);
-          } else if (sortedAgents.length > 0) {
-            // Otherwise select first agent
-            setSelectedAgent(sortedAgents[0]);
-            fetchAgentDetails(sortedAgents[0]._id);
-            // Update URL without reload
-            navigate(`/agents/performance/${sortedAgents[0]._id}`);
-          }
+  const fetchAgents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('Fetching agents for the current organization...');
+      const response = await axios.get('/api/agents');
+      console.log('API response:', response);
+      
+      // Handle different potential response formats
+      let agentsData = [];
+      
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          console.log('Response data is an array');
+          agentsData = response.data;
+        } else if (response.data.agents && Array.isArray(response.data.agents)) {
+          console.log('Response data contains agents array');
+          agentsData = response.data.agents;
         } else {
-          setAgents([]);
+          console.log('Response data format:', typeof response.data);
+          // Try to find any array that might contain agents
+          for (const key in response.data) {
+            if (Array.isArray(response.data[key])) {
+              const possibleAgents = response.data[key];
+              if (possibleAgents.length > 0 && possibleAgents[0].firstName) {
+                console.log(`Found agents array in key: ${key}`);
+                agentsData = possibleAgents;
+                break;
+              }
+            }
+          }
         }
-        
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching agents:', err);
-        setError('Failed to fetch agents. Please try again.');
-        setLoading(false);
-      }
-    };
-    
-    fetchAgents();
-  }, [agentId, navigate]);
-  
-  // Sort agents based on filter
-  const sortAgents = (agents, filter) => {
-    if (!agents || !Array.isArray(agents)) return [];
-    
-    const { sortBy, sortOrder } = filter;
-    const direction = sortOrder === 'asc' ? 1 : -1;
-    
-    return [...agents].sort((a, b) => {
-      // Handle sorting by different metrics
-      if (sortBy === 'overallScore') {
-        const scoreA = a.performanceMetrics?.currentPeriod?.averageScores?.overallScore || 0;
-        const scoreB = b.performanceMetrics?.currentPeriod?.averageScores?.overallScore || 0;
-        return direction * (scoreA - scoreB);
-      } else if (sortBy === 'callCount') {
-        const countA = a.performanceMetrics?.currentPeriod?.callCount || 0;
-        const countB = b.performanceMetrics?.currentPeriod?.callCount || 0;
-        return direction * (countA - countB);
-      } else if (sortBy === 'customerService') {
-        const scoreA = a.performanceMetrics?.currentPeriod?.averageScores?.customerService || 0;
-        const scoreB = b.performanceMetrics?.currentPeriod?.averageScores?.customerService || 0;
-        return direction * (scoreA - scoreB);
-      } else if (sortBy === 'productKnowledge') {
-        const scoreA = a.performanceMetrics?.currentPeriod?.averageScores?.productKnowledge || 0;
-        const scoreB = b.performanceMetrics?.currentPeriod?.averageScores?.productKnowledge || 0;
-        return direction * (scoreA - scoreB);
       }
       
-      // Default sorting by name
-      const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim();
-      const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim();
-      return nameA.localeCompare(nameB);
-    });
-  };
+      console.log(`Found ${agentsData.length} agents`);
+      
+      // Sort agents based on filter
+      const sortedAgents = [...agentsData].sort((a, b) => {
+        const getMetricValue = (agent, metric) => {
+          if (!agent.performanceMetrics || !agent.performanceMetrics.currentPeriod) {
+            return 0;
+          }
+          
+          if (metric === 'overallScore') {
+            return agent.performanceMetrics.currentPeriod.averageScores?.overallScore || 0;
+          } else if (metric === 'callCount') {
+            return agent.performanceMetrics.currentPeriod.callCount || 0;
+          } else if (metric === 'customerService') {
+            return agent.performanceMetrics.currentPeriod.averageScores?.customerService || 0;
+          } else if (metric === 'productKnowledge') {
+            return agent.performanceMetrics.currentPeriod.averageScores?.productKnowledge || 0;
+          }
+          
+          return 0;
+        };
+        
+        const aValue = getMetricValue(a, filter.sortBy);
+        const bValue = getMetricValue(b, filter.sortBy);
+        
+        return filter.sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
+      });
+
+      // Prioritize Shay Pearce if present
+      const shayPearceIndex = sortedAgents.findIndex(
+        agent => agent.firstName === 'Shay' && agent.lastName === 'Pearce'
+      );
+      
+      if (shayPearceIndex !== -1) {
+        const shayPearce = sortedAgents.splice(shayPearceIndex, 1)[0];
+        sortedAgents.unshift(shayPearce);
+      }
+      
+      setAgents(sortedAgents);
+      
+      // If no agent is selected or the selected agent is not in the list,
+      // select the first agent if available
+      if (sortedAgents.length > 0 && (!agentId || !sortedAgents.find(a => a._id === agentId))) {
+        console.log('Setting selected agent to first agent:', sortedAgents[0]._id);
+        setSelectedAgent(sortedAgents[0]);
+        
+        // Update URL without reloading page
+        const url = new URL(window.location);
+        url.searchParams.set('agentId', sortedAgents[0]._id);
+        window.history.pushState({}, '', url);
+      }
+    } catch (err) {
+      console.error('Error fetching agents:', err);
+      setError('Failed to load agents. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId, filter.sortBy, filter.sortOrder, filter.timeframe]);
   
   // Fetch agent details and metrics
   const fetchAgentDetails = async (id) => {
@@ -201,6 +183,40 @@ const AgentPerformancePage = () => {
     if (selectedAgent) {
       fetchAgentDetails(selectedAgent._id);
     }
+  };
+  
+  // Sort agents based on filter
+  const sortAgents = (agents, filter) => {
+    if (!agents || !Array.isArray(agents)) return [];
+    
+    const { sortBy, sortOrder } = filter;
+    const direction = sortOrder === 'asc' ? 1 : -1;
+    
+    return [...agents].sort((a, b) => {
+      // Handle sorting by different metrics
+      if (sortBy === 'overallScore') {
+        const scoreA = a.performanceMetrics?.currentPeriod?.averageScores?.overallScore || 0;
+        const scoreB = b.performanceMetrics?.currentPeriod?.averageScores?.overallScore || 0;
+        return direction * (scoreA - scoreB);
+      } else if (sortBy === 'callCount') {
+        const countA = a.performanceMetrics?.currentPeriod?.callCount || 0;
+        const countB = b.performanceMetrics?.currentPeriod?.callCount || 0;
+        return direction * (countA - countB);
+      } else if (sortBy === 'customerService') {
+        const scoreA = a.performanceMetrics?.currentPeriod?.averageScores?.customerService || 0;
+        const scoreB = b.performanceMetrics?.currentPeriod?.averageScores?.customerService || 0;
+        return direction * (scoreA - scoreB);
+      } else if (sortBy === 'productKnowledge') {
+        const scoreA = a.performanceMetrics?.currentPeriod?.averageScores?.productKnowledge || 0;
+        const scoreB = b.performanceMetrics?.currentPeriod?.averageScores?.productKnowledge || 0;
+        return direction * (scoreA - scoreB);
+      }
+      
+      // Default sorting by name
+      const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim();
+      const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim();
+      return nameA.localeCompare(nameB);
+    });
   };
   
   // Format score as a number with 1 decimal place
