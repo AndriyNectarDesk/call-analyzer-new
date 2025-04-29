@@ -250,16 +250,16 @@ exports.organizationContextMiddleware = async (req, res, next) => {
       return next();
     }
 
-    const requestedOrgId = req.headers['x-organization-id'] || req.cookies['organization_id'];
+    const requestedOrgId = req.headers['x-organization-id'] || req.cookies?.organization_id;
     
     if (requestedOrgId) {
       console.log(`[Organization Context] Override requested for org ID: ${requestedOrgId}`);
       
       // Check if user has permission to access this organization
-      if (req.user.role === 'master_admin') {
+      if (req.user.isMasterAdmin === true) {
         console.log('[Organization Context] User is master admin, allowing override');
         req.organizationId = requestedOrgId;
-      } else if (req.user.organizationId === requestedOrgId) {
+      } else if (req.user.organizationId && req.user.organizationId.toString() === requestedOrgId.toString()) {
         console.log('[Organization Context] Organization matches user organization, allowing access');
         req.organizationId = requestedOrgId;
       } else {
@@ -269,12 +269,12 @@ exports.organizationContextMiddleware = async (req, res, next) => {
       }
     } else {
       // Use the user's assigned organization
-      console.log(`[Organization Context] Using user's assigned organization: ${req.user.organizationId}`);
+      console.log(`[Organization Context] Using user's assigned organization: ${req.user.organizationId || 'none'}`);
       req.organizationId = req.user.organizationId;
     }
     
     // Log the final organization context
-    console.log(`[Organization Context] Set to: ${req.organizationId}`);
+    console.log(`[Organization Context] Set to: ${req.organizationId || 'none'}`);
   } catch (error) {
     // Log the error but don't block the request
     console.error('[Organization Context] Error setting organization context:', error);

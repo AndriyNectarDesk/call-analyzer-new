@@ -7,6 +7,54 @@ const { authenticateJWT, isMasterAdmin, isOrgAdmin, belongsToOrganization, tenan
 const orgRoutes = express.Router();
 orgRoutes.use(tenantIsolation);
 
+// Root route to get all organizations
+router.get('/', authenticateJWT, async (req, res) => {
+  try {
+    console.log('GET /api/organizations called by user:', req.user.userId);
+    
+    const Organization = require('../models/organization');
+    
+    // If user is master admin, return all organizations
+    if (req.user.isMasterAdmin) {
+      console.log('Master admin requesting all organizations');
+      const organizations = await Organization.find()
+        .select('_id name code isMaster')
+        .lean();
+      
+      console.log(`Found ${organizations.length} organizations`);
+      
+      // Add 'id' field for compatibility
+      const orgsWithId = organizations.map(org => ({
+        ...org,
+        id: org._id
+      }));
+      
+      return res.json({ organizations: orgsWithId });
+    }
+    
+    // For regular users, just return their own organization
+    if (req.user.organizationId) {
+      console.log('Regular user requesting their organization:', req.user.organizationId);
+      const organization = await Organization.findById(req.user.organizationId)
+        .select('_id name code isMaster')
+        .lean();
+      
+      if (organization) {
+        // Add 'id' field for compatibility
+        organization.id = organization._id;
+        return res.json({ organizations: [organization] });
+      }
+    }
+    
+    // No organizations found
+    console.log('No organizations found for user:', req.user.userId);
+    return res.json({ organizations: [] });
+  } catch (error) {
+    console.error('Error fetching organizations:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Master admin only routes
 router.get('/all', authenticateJWT, isMasterAdmin, organizationController.getAllOrganizations);
 router.post('/', authenticateJWT, isMasterAdmin, organizationController.createOrganization);

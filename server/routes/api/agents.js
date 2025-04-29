@@ -22,7 +22,9 @@ router.get('/', async (req, res) => {
   try {
     // Get organization context from middleware
     const organizationId = req.tenantId || req.user.organizationId;
-    console.log(`Fetching agents for organization: ${organizationId}`);
+    const isMasterOrg = req.isMasterOrg || false;
+    
+    console.log(`Fetching agents with context: organizationId=${organizationId}, isMasterOrg=${isMasterOrg}`);
     
     // Get query parameters
     const { 
@@ -31,11 +33,27 @@ router.get('/', async (req, res) => {
       sortDirection, 
       limit = 100, 
       offset = 0,
-      search
+      search,
+      organizationId: queryOrgId
     } = req.query;
     
-    // Build query
-    const query = { organizationId };
+    // Build query with tenant isolation
+    let query = {};
+    
+    // Master org can see all agents or filter by a specific org
+    if (isMasterOrg && queryOrgId && queryOrgId !== 'all') {
+      console.log(`Master org filtering for specific organization: ${queryOrgId}`);
+      query.organizationId = queryOrgId;
+    } 
+    // Regular users are restricted to their organization
+    else if (!isMasterOrg) {
+      console.log(`Regular user restricted to organization: ${organizationId}`);
+      query.organizationId = organizationId;
+    }
+    // Master org with 'all' selected - no filter needed
+    else {
+      console.log('Master org viewing all agents');
+    }
     
     // Add status filter if provided
     if (status) {
@@ -52,6 +70,8 @@ router.get('/', async (req, res) => {
       ];
     }
     
+    console.log('Final query:', JSON.stringify(query));
+    
     // Determine sort options
     const sortOptions = {};
     if (sortBy) {
@@ -64,9 +84,10 @@ router.get('/', async (req, res) => {
     const agents = await Agent.find(query)
       .sort(sortOptions)
       .skip(parseInt(offset))
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .populate('organizationId', 'name code isMaster');
     
-    console.log(`Found ${agents.length} agents for organization ${organizationId}`);
+    console.log(`Found ${agents.length} agents for query`);
     
     // Get total count for pagination
     const total = await Agent.countDocuments(query);
@@ -74,7 +95,7 @@ router.get('/', async (req, res) => {
     // Map agents to include performance metrics
     const mappedAgents = agents.map(agent => {
       // Create a plain object from the mongoose document
-      const agentObj = agent.toObject();
+      const agentObj = agent.toObject ? agent.toObject() : agent;
       
       // Extract fields we need, ensuring performanceMetrics is included
       return {
@@ -91,6 +112,7 @@ router.get('/', async (req, res) => {
           currentPeriod: {},
           historical: []
         },
+        organizationId: agentObj.organizationId,
         createdAt: agentObj.createdAt
       };
     });
