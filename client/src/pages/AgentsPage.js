@@ -29,7 +29,6 @@ const AgentsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [selectedOrg, setSelectedOrg] = useState('all');
   const [organizations, setOrganizations] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState('');
   const itemsPerPage = 10;
@@ -66,23 +65,50 @@ const AgentsPage = () => {
         if (user.organizations && user.organizations.length > 0) {
           setUserOrganizations(user.organizations);
           
-          // Set the current organization to the first one by default
-          const firstOrg = user.organizations[0];
-          setCurrentOrganization(firstOrg);
-          
-          // If the user is a master admin, fetch all organizations for filtering
-          if (user.isMasterAdmin) {
-            const orgsResponse = await axios.get(`${API_BASE_URL}/api/organizations`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
-            
-            setOrganizations(orgsResponse.data.organizations || []);
+          // Get the organization from localStorage (this matches the header organization)
+          let selectedOrgData = null;
+          try {
+            const storedOrg = localStorage.getItem('selectedOrganization');
+            if (storedOrg) {
+              selectedOrgData = JSON.parse(storedOrg);
+            }
+          } catch (e) {
+            console.error('Error parsing stored organization:', e);
           }
           
-          // Fetch agents for the first organization
-          fetchAgentsForOrganization(firstOrg, token);
+          // Find the matching organization from the user's organizations list
+          let currentOrg = null;
+          if (selectedOrgData && selectedOrgData._id) {
+            currentOrg = user.organizations.find(org => org._id === selectedOrgData._id);
+          }
+          
+          // If no matching organization found (or none in localStorage), use the first one
+          if (!currentOrg) {
+            currentOrg = user.organizations[0];
+            console.log('No matching organization in localStorage, using first organization:', currentOrg.name);
+          } else {
+            console.log('Using organization from localStorage:', currentOrg.name);
+          }
+          
+          setCurrentOrganization(currentOrg);
+          
+          // Fetch organizations if user is master admin
+          if (user.isMasterAdmin) {
+            try {
+              const orgsResponse = await axios.get(`${API_BASE_URL}/api/organizations`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              setOrganizations(orgsResponse.data.organizations || []);
+            } catch (err) {
+              console.error('Error fetching organizations:', err);
+              // Non-critical error, continue without organizations list
+            }
+          }
+          
+          // Fetch agents for the selected organization
+          fetchAgentsForOrganization(currentOrg, token);
         } else {
           setError('User has no associated organizations');
           setLoading(false);
@@ -123,14 +149,6 @@ const AgentsPage = () => {
           'x-organization-is-master': (organization.isMaster || currentUser?.isMasterAdmin) ? 'true' : 'false'
         }
       };
-      
-      // Add organization filter for master org if a specific organization is selected
-      if ((organization.isMaster || currentUser?.isMasterAdmin) && selectedOrg !== 'all') {
-        console.log(`Master admin selected specific organization for filtering: ${selectedOrg}`);
-        url += `&organizationId=${selectedOrg}`;
-        // Also update the header to prioritize this selection
-        config.headers['x-organization-id'] = selectedOrg;
-      }
       
       console.log(`Fetching agents for organization: ${organization.name}, ID: ${orgId}`);
       console.log('Request URL:', url);
@@ -196,7 +214,7 @@ const AgentsPage = () => {
         fetchAgentsForOrganization(currentOrganization, token);
       }
     }
-  }, [currentPage, selectedOrg, selectedStatus, currentOrganization]);
+  }, [currentPage, selectedStatus, currentOrganization]);
 
   // Also update when the component mounts
   useEffect(() => {
@@ -288,11 +306,6 @@ const AgentsPage = () => {
     }
   };
 
-  const handleOrgChange = (e) => {
-    setSelectedOrg(e.target.value);
-    setCurrentPage(1); // Reset to first page on filter change
-  };
-
   const handleStatusChange = (e) => {
     setSelectedStatus(e.target.value);
     setCurrentPage(1); // Reset to first page on filter change
@@ -300,7 +313,6 @@ const AgentsPage = () => {
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    setSelectedOrg('all');
     setSelectedStatus('');
     setCurrentPage(1);
   };
@@ -344,57 +356,44 @@ const AgentsPage = () => {
       <h1>Agents</h1>
       
       <div className="agent-controls">
-        <form onSubmit={handleSearch} className="search-form">
-          <input
-            type="text"
-            placeholder="Search agents..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-          <button type="submit" className="search-button">Search</button>
-        </form>
-        
-        <div className="filter-controls">
-          {(currentOrganization?.isMaster || currentUser?.isMasterAdmin) && (
-            <div className="filter-control">
-              <label htmlFor="organization-filter">Organization:</label>
-              <select
-                id="organization-filter"
-                value={selectedOrg}
-                onChange={handleOrgChange}
-                className="org-filter-select"
-              >
-                <option value="all">All Organizations</option>
-                {organizations.map(org => (
-                  <option key={org._id} value={org._id}>{org.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          
-          <div className="filter-control">
-            <label htmlFor="status-filter">Status:</label>
-            <select
-              id="status-filter"
-              value={selectedStatus}
-              onChange={handleStatusChange}
-              className="status-filter-select"
-            >
-              <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="training">Training</option>
-              <option value="terminated">Terminated</option>
-            </select>
+        <div className="filter-row">
+          <div className="search-container">
+            <form onSubmit={handleSearch} className="search-form">
+              <input
+                type="text"
+                placeholder="Search agents..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+              <button type="submit" className="search-button">Search</button>
+            </form>
           </div>
           
-          <button 
-            onClick={handleClearFilters} 
-            className="action-button"
-          >
-            Clear Filters
-          </button>
+          <div className="filter-container">
+            <div className="filter-control">
+              <label htmlFor="status-filter">Status:</label>
+              <select
+                id="status-filter"
+                value={selectedStatus}
+                onChange={handleStatusChange}
+                className="status-filter-select"
+              >
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="training">Training</option>
+                <option value="terminated">Terminated</option>
+              </select>
+            </div>
+            
+            <button 
+              onClick={handleClearFilters} 
+              className="action-button clear-filters-button"
+            >
+              Clear Filters
+            </button>
+          </div>
         </div>
       </div>
       
@@ -546,7 +545,7 @@ const AgentsPage = () => {
       ) : (
         <div className="no-agents">
           <p>No agents found{searchTerm ? ` matching "${searchTerm}"` : ''}.</p>
-          {(searchTerm || selectedOrg !== 'all' || selectedStatus) && (
+          {(searchTerm || selectedStatus) && (
             <button onClick={handleClearFilters} className="action-button">
               Clear Filters
             </button>
