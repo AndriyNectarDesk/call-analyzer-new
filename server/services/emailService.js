@@ -284,5 +284,6 @@ module.exports = {
   sendEmail,
   sendPasswordResetEmail,
   sendMasterAdminInvitation,
-  sendTestEmail
+  sendTestEmail,
+  sendMasterAdminWelcomeEmail: sendMasterAdminInvitation
 }; 
