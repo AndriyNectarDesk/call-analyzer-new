@@ -9,6 +9,10 @@ set -e
 echo "Installing server dependencies..."
 npm install
 
+# Apply patch for buffer-equal-constant-time (Node.js 24 compatibility)
+echo "Applying compatibility patch for buffer-equal-constant-time..."
+node fix-buffer-equal.js
+
 # Print installed SDK version for debugging
 echo "Installed Deepgram SDK version:"
 npm list @deepgram/sdk
